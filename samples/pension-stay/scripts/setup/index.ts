@@ -1,0 +1,1578 @@
+import { spawn } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import readline from "node:readline/promises";
+import { pathToFileURL } from "node:url";
+import { exportJWK, exportPKCS8, generateKeyPair } from "jose";
+
+type ProjectType = "convex" | "envFile";
+
+type ProjectConfig = {
+  id: string;
+  type?: ProjectType;
+  workingDirectory?: string;
+  envFile?: string;
+  exampleFile?: string;
+};
+
+type StepVariable = {
+  name: string;
+  projects: string[];
+  details?: string;
+  defaultValue?: string;
+  template?: string;
+  required?: boolean;
+  secret?: boolean;
+  info?: string[];
+};
+
+type StepConfig = {
+  id: string;
+  kind: string;
+  title: string;
+  description?: string;
+  instructions?: string;
+  variables: StepVariable[];
+  required?: boolean;
+  interactive?: boolean;
+  skipMode?: string;
+  whenFeature?: string;
+  requiredMessage?: string;
+  additionalInstructions?: string[];
+};
+
+type SetupConfig = {
+  introMessage: string;
+  projects: ProjectConfig[];
+  steps: StepConfig[];
+};
+
+type CliOptions = {
+  dryRun: boolean;
+  freshDryRun: boolean;
+  nonInteractive: boolean;
+  yes: boolean;
+  help: boolean;
+  stubFile?: string;
+  convexUrl?: string;
+  projectName?: string;
+};
+
+type SetupStubs = {
+  values?: Record<string, string>;
+  answers?: Record<string, boolean | string>;
+  existingConvexEnv?: Record<string, boolean>;
+  existingLocalEnv?: Record<string, Record<string, string>>;
+  convexAuthenticated?: boolean;
+  convexUrl?: string;
+  convexSiteUrl?: string;
+  domainFeatures?: {
+    polar?: boolean;
+  };
+  probes?: {
+    openaiModels?: boolean;
+    resendEmail?: boolean;
+  };
+};
+
+type CommandResult = {
+  code: number;
+  stdout: string;
+  stderr: string;
+};
+
+type RuntimeContext = {
+  root: string;
+  config: SetupConfig;
+  options: CliOptions;
+  stubs: SetupStubs;
+  projects: Map<string, ProjectConfig>;
+  localEnvWrites: Map<string, Map<string, string>>;
+  knownSecrets: Set<string>;
+  deferredKeys: Set<string>;
+};
+
+type ConvexDeployment = {
+  convexUrl: string;
+  convexSiteUrl: string;
+};
+
+const REQUIRED_CONVEX_AUTH_ENV = [
+  "JWT_PRIVATE_KEY",
+  "JWKS",
+  "CONVEX_SITE_URL",
+  "SITE_URL",
+] as const;
+
+const CORE_STEP_ORDER = [
+  "app-url",
+  "site-url",
+  "convex",
+  "convex-auth",
+  "google-oauth",
+  "dev-anonymous",
+  "resend",
+  "openai",
+  "polar",
+] as const;
+
+void main();
+
+async function main() {
+  const root = process.cwd();
+  const options = parseCliOptions(process.argv.slice(2));
+
+  if (options.help) {
+    printHelp();
+    return;
+  }
+
+  const config = readJsonFile<SetupConfig>(
+    path.join(root, "setup-config.json"),
+  );
+  const stubs = readStubs(root, options);
+  const ctx: RuntimeContext = {
+    root,
+    config,
+    options,
+    stubs,
+    projects: new Map(config.projects.map((project) => [project.id, project])),
+    localEnvWrites: new Map(),
+    knownSecrets: new Set(),
+    deferredKeys: new Set(),
+  };
+
+  console.log("");
+  console.log(config.introMessage);
+  console.log(
+    "Secret values are never printed. Convex env set output is hidden.",
+  );
+  if (options.dryRun) {
+    console.log("DRY RUN: no external commands and no file writes will run.");
+  }
+
+  try {
+    assertEnvLocalIgnored(ctx);
+    const domainFeatures = await readDomainFeatures(ctx);
+    const siteUrl = await configureSiteUrl(ctx);
+    const deployment = await configureConvex(ctx);
+
+    await configureConvexAuth(ctx, deployment, siteUrl);
+    await configureGoogleOAuth(ctx, deployment);
+    await configureDevAnonymous(ctx);
+    await configureResend(ctx);
+    await configureOpenAI(ctx);
+
+    if (domainFeatures.polar) {
+      await configurePolar(ctx, deployment);
+    } else {
+      section("Polar");
+      console.log("domain.config.features.polar=false, skipping Polar setup.");
+    }
+
+    await configureOptionalLocalSteps(ctx);
+    await finalizeEnvFiles(ctx);
+    printCompletion(ctx, deployment);
+  } catch (error) {
+    console.error("");
+    console.error(
+      redact(
+        `Setup failed: ${error instanceof Error ? error.message : String(error)}`,
+        ctx.knownSecrets,
+      ),
+    );
+    process.exitCode = 1;
+  }
+}
+
+function parseCliOptions(args: string[]): CliOptions {
+  const options: CliOptions = {
+    dryRun: false,
+    freshDryRun: false,
+    nonInteractive: false,
+    yes: false,
+    help: false,
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (!arg) {
+      continue;
+    }
+    if (arg === "--dry-run") {
+      options.dryRun = true;
+      continue;
+    }
+    if (arg === "--fresh-dry-run") {
+      options.freshDryRun = true;
+      continue;
+    }
+    if (arg === "--non-interactive") {
+      options.nonInteractive = true;
+      continue;
+    }
+    if (arg === "--yes" || arg === "-y") {
+      options.yes = true;
+      continue;
+    }
+    if (arg === "--help" || arg === "-h") {
+      options.help = true;
+      continue;
+    }
+    if (arg === "--stub-file") {
+      options.stubFile = readOptionValue(args, index, arg);
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith("--stub-file=")) {
+      options.stubFile = arg.slice("--stub-file=".length);
+      continue;
+    }
+    if (arg === "--convex-url") {
+      options.convexUrl = readOptionValue(args, index, arg);
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith("--convex-url=")) {
+      options.convexUrl = arg.slice("--convex-url=".length);
+      continue;
+    }
+    if (arg === "--project-name") {
+      options.projectName = readOptionValue(args, index, arg);
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith("--project-name=")) {
+      options.projectName = arg.slice("--project-name=".length);
+      continue;
+    }
+
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+
+  if (options.stubFile === undefined && process.env.JEOMWON_SETUP_STUB_FILE) {
+    options.stubFile = process.env.JEOMWON_SETUP_STUB_FILE;
+  }
+  if (options.freshDryRun && !options.dryRun) {
+    throw new Error("--fresh-dry-run requires --dry-run.");
+  }
+
+  return options;
+}
+
+function readOptionValue(args: string[], index: number, option: string) {
+  const value = args[index + 1];
+  if (!value) {
+    throw new Error(`${option} requires a value.`);
+  }
+  return value;
+}
+
+function printHelp() {
+  console.log(`Usage: bun setup [--dry-run] [--non-interactive] [--yes]
+
+Options:
+  --dry-run              Do not run external commands or write .env.local files.
+  --fresh-dry-run        With --dry-run, ignore existing .env.local files.
+  --non-interactive      Use defaults and stubs; defer missing credentials.
+  --yes, -y              Accept default yes/no answers.
+  --stub-file <path>     JSON values for rehearsal.
+  --convex-url <url>     Reuse an existing Convex deployment URL.
+  --project-name <name>  Convex project name for new provisioning.
+
+Stubs can also be supplied with JEOMWON_SETUP_STUBS as JSON.`);
+}
+
+function readStubs(root: string, options: CliOptions): SetupStubs {
+  const inline = process.env.JEOMWON_SETUP_STUBS;
+  const fromEnv = inline ? (JSON.parse(inline) as SetupStubs) : {};
+  if (!options.stubFile) {
+    return fromEnv;
+  }
+
+  const filePath = path.isAbsolute(options.stubFile)
+    ? options.stubFile
+    : path.join(root, options.stubFile);
+  return {
+    ...fromEnv,
+    ...readJsonFile<SetupStubs>(filePath),
+  };
+}
+
+function readJsonFile<T>(filePath: string): T {
+  return JSON.parse(fs.readFileSync(filePath, "utf8")) as T;
+}
+
+function section(title: string) {
+  console.log("");
+  console.log(`== ${title} ==`);
+}
+
+async function readDomainFeatures(ctx: RuntimeContext) {
+  if (ctx.stubs.domainFeatures) {
+    return {
+      polar: ctx.stubs.domainFeatures.polar === true,
+    };
+  }
+
+  const domainConfigPath = path.join(
+    ctx.root,
+    "packages/backend/domain.config.ts",
+  );
+  const moduleUrl = pathToFileURL(domainConfigPath).href;
+  const imported = (await import(moduleUrl)) as {
+    domainConfig?: { features?: { polar?: boolean } };
+  };
+
+  return {
+    polar: imported.domainConfig?.features?.polar === true,
+  };
+}
+
+function assertEnvLocalIgnored(ctx: RuntimeContext) {
+  const gitignorePath = path.join(ctx.root, ".gitignore");
+  const gitignore = fs.existsSync(gitignorePath)
+    ? fs.readFileSync(gitignorePath, "utf8")
+    : "";
+  const lines = gitignore
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (!lines.includes(".env*.local") && !lines.includes(".env.local")) {
+    throw new Error(".env.local is not covered by .gitignore.");
+  }
+}
+
+async function configureSiteUrl(ctx: RuntimeContext) {
+  const appUrlStep = requireStep(ctx, "app-url");
+  await configureLocalDefaults(ctx, appUrlStep);
+
+  const siteStep = requireStep(ctx, "site-url");
+  section(siteStep.title);
+  const variable = requireVariable(siteStep, "SITE_URL");
+  const siteUrl = await getValueForVariable(ctx, variable, {
+    prompt: "Public site URL",
+    defaultValue: variable.defaultValue ?? "http://localhost:3001",
+  });
+
+  await setLocalEnv(ctx, "backend", "SITE_URL", siteUrl);
+  return siteUrl;
+}
+
+async function configureLocalDefaults(ctx: RuntimeContext, step: StepConfig) {
+  section(step.title);
+  for (const variable of step.variables) {
+    const value = await getValueForVariable(ctx, variable, {
+      prompt: variable.details ?? variable.name,
+      defaultValue: variable.defaultValue ?? "",
+    });
+    for (const projectId of variable.projects) {
+      if (projectId !== "convex") {
+        await setLocalEnv(ctx, projectId, variable.name, value);
+      }
+    }
+  }
+}
+
+async function configureConvex(ctx: RuntimeContext): Promise<ConvexDeployment> {
+  const step = requireStep(ctx, "convex");
+  section(step.title);
+  if (step.instructions) {
+    console.log(step.instructions);
+  }
+
+  const explicitUrl =
+    ctx.options.convexUrl ??
+    ctx.stubs.convexUrl ??
+    stubValue(ctx, "NEXT_PUBLIC_CONVEX_URL") ??
+    stubValue(ctx, "CONVEX_URL");
+  const existingUrl =
+    explicitUrl ??
+    readLocalEnv(ctx, "backend").get("CONVEX_URL") ??
+    readLocalEnv(ctx, "web").get("NEXT_PUBLIC_CONVEX_URL") ??
+    readLocalEnv(ctx, "app").get("NEXT_PUBLIC_CONVEX_URL");
+
+  let convexUrl = existingUrl;
+  if (convexUrl) {
+    console.log("Convex deployment URL is configured.");
+  } else {
+    await ensureConvexAuthenticated(ctx);
+    const projectName = await getProjectName(ctx);
+    if (ctx.options.dryRun) {
+      convexUrl = `https://${slugify(projectName)}-dry-run.convex.cloud`;
+      console.log("DRY RUN: would run Convex dev provisioning.");
+    } else {
+      await runInteractiveCommand(ctx, "npx", [
+        "convex",
+        "dev",
+        "--once",
+        "--configure",
+        "new",
+        "--project",
+        projectName,
+        "--dev-deployment",
+        "cloud",
+      ]);
+      convexUrl = readLocalEnv(ctx, "backend").get("CONVEX_URL");
+      if (!convexUrl) {
+        throw new Error(
+          "Convex provisioning finished but packages/backend/.env.local has no CONVEX_URL.",
+        );
+      }
+    }
+  }
+
+  const convexSiteUrl =
+    ctx.stubs.convexSiteUrl ?? deriveConvexSiteUrl(validateUrl(convexUrl));
+
+  await setLocalEnv(ctx, "backend", "CONVEX_URL", convexUrl);
+  await setLocalEnv(ctx, "web", "NEXT_PUBLIC_CONVEX_URL", convexUrl);
+  await setLocalEnv(ctx, "app", "NEXT_PUBLIC_CONVEX_URL", convexUrl);
+  await ensureConvexEnv(ctx, "CONVEX_SITE_URL", convexSiteUrl, {
+    secret: false,
+    overwritePromptKey: "overwrite:CONVEX_SITE_URL",
+  });
+
+  console.log(`Convex site URL: ${convexSiteUrl}`);
+  return { convexUrl, convexSiteUrl };
+}
+
+async function ensureConvexAuthenticated(ctx: RuntimeContext) {
+  if (ctx.options.dryRun) {
+    if (ctx.stubs.convexAuthenticated === false) {
+      console.log("DRY RUN: Convex auth missing; would run npx convex login.");
+    } else {
+      console.log("DRY RUN: assuming Convex CLI is authenticated.");
+    }
+    return;
+  }
+
+  const configPath = path.join(os.homedir(), ".convex/config.json");
+  if (fs.existsSync(configPath)) {
+    console.log("Convex CLI auth found.");
+    return;
+  }
+
+  const shouldLogin = await promptConfirm(ctx, {
+    key: "convex:login",
+    message: "Convex CLI is not authenticated. Run npx convex login now?",
+    defaultValue: true,
+  });
+
+  if (!shouldLogin) {
+    throw new Error("Run npx convex login, then rerun bun setup.");
+  }
+
+  await runInteractiveCommand(ctx, "npx", ["convex", "login"], ctx.root);
+
+  if (!fs.existsSync(configPath)) {
+    throw new Error("Convex login did not create ~/.convex/config.json.");
+  }
+}
+
+async function getProjectName(ctx: RuntimeContext) {
+  if (ctx.options.projectName) {
+    return ctx.options.projectName;
+  }
+
+  const defaultName = slugify(path.basename(ctx.root));
+  return await promptText(ctx, {
+    key: "convex:projectName",
+    message: "Convex project name",
+    defaultValue: defaultName,
+    secret: false,
+    required: true,
+  });
+}
+
+async function configureConvexAuth(
+  ctx: RuntimeContext,
+  deployment: ConvexDeployment,
+  siteUrl: string,
+) {
+  const step = requireStep(ctx, "convex-auth");
+  section(step.title);
+
+  const statuses = new Map<string, boolean>();
+  for (const name of REQUIRED_CONVEX_AUTH_ENV) {
+    statuses.set(name, await isConvexEnvConfigured(ctx, name));
+  }
+
+  await ensureConvexEnv(ctx, "CONVEX_SITE_URL", deployment.convexSiteUrl, {
+    secret: false,
+    overwritePromptKey: "overwrite:CONVEX_SITE_URL",
+    alreadyConfigured: statuses.get("CONVEX_SITE_URL"),
+  });
+  await ensureConvexEnv(ctx, "SITE_URL", siteUrl, {
+    secret: false,
+    overwritePromptKey: "overwrite:SITE_URL",
+    alreadyConfigured: statuses.get("SITE_URL"),
+  });
+
+  const jwtConfigured = statuses.get("JWT_PRIVATE_KEY") === true;
+  const jwksConfigured = statuses.get("JWKS") === true;
+  if (jwtConfigured && jwksConfigured) {
+    console.log("JWT_PRIVATE_KEY and JWKS are configured (values hidden).");
+    const overwrite = await promptConfirm(ctx, {
+      key: "overwrite:convex-auth-keys",
+      message: "Regenerate and overwrite Convex Auth keys?",
+      defaultValue: false,
+    });
+    if (!overwrite) {
+      return;
+    }
+  }
+
+  if (ctx.options.dryRun && !stubValue(ctx, "JWT_PRIVATE_KEY")) {
+    console.log("DRY RUN: would generate RS256 keypair with jose.");
+    await ensureConvexEnv(ctx, "JWT_PRIVATE_KEY", "dry-run-private-key", {
+      secret: true,
+      force: true,
+    });
+    await ensureConvexEnv(ctx, "JWKS", '{"keys":[{"kty":"RSA"}]}', {
+      secret: false,
+      force: true,
+    });
+    return;
+  }
+
+  const keys = await generateConvexAuthKeys(ctx);
+  await ensureConvexEnv(ctx, "JWT_PRIVATE_KEY", keys.privateKey, {
+    secret: true,
+    force: true,
+  });
+  await ensureConvexEnv(ctx, "JWKS", keys.jwks, {
+    secret: false,
+    force: true,
+  });
+}
+
+async function generateConvexAuthKeys(ctx: RuntimeContext) {
+  const { privateKey, publicKey } = await generateKeyPair("RS256", {
+    extractable: true,
+  });
+  const privatePem = await exportPKCS8(privateKey);
+  const publicJwk = await exportJWK(publicKey);
+  publicJwk.alg = "RS256";
+  publicJwk.use = "sig";
+  publicJwk.kid = crypto.randomUUID();
+
+  ctx.knownSecrets.add(privatePem);
+  return {
+    privateKey: privatePem,
+    jwks: JSON.stringify({ keys: [publicJwk] }),
+  };
+}
+
+async function configureGoogleOAuth(
+  ctx: RuntimeContext,
+  deployment: ConvexDeployment,
+) {
+  const step = requireStep(ctx, "google-oauth");
+  section(step.title);
+  if (step.instructions) {
+    console.log(step.instructions);
+  }
+  console.log("1. Google Cloud Console에서 프로젝트를 선택하거나 생성하세요.");
+  console.log("2. OAuth 동의 화면을 구성하세요.");
+  console.log("3. OAuth client ID를 Web application으로 생성하세요.");
+  console.log(
+    `Redirect URI: ${deployment.convexSiteUrl}/api/auth/callback/google`,
+  );
+  console.log(
+    "JavaScript origins: http://localhost:3000, http://localhost:3001",
+  );
+
+  const variables = [
+    requireVariable(step, "AUTH_GOOGLE_ID"),
+    requireVariable(step, "AUTH_GOOGLE_SECRET"),
+  ];
+  const deferredVariables = await getDeferredGoogleOAuthVariables(
+    ctx,
+    variables,
+  );
+  if (deferredVariables.length > 0) {
+    for (const variable of deferredVariables) {
+      logDeferredKey(ctx, variable.name, "Google OAuth console setup needed");
+    }
+    console.log(
+      "Google OAuth deferred (유예됨; console setup required). Keep this redirect URI for later:",
+    );
+    console.log(`${deployment.convexSiteUrl}/api/auth/callback/google`);
+    return;
+  }
+
+  await configureConvexSecretVariable(ctx, step, "AUTH_GOOGLE_ID");
+  await configureConvexSecretVariable(ctx, step, "AUTH_GOOGLE_SECRET");
+}
+
+async function getDeferredGoogleOAuthVariables(
+  ctx: RuntimeContext,
+  variables: StepVariable[],
+) {
+  if (ctx.options.dryRun || ctx.options.nonInteractive) {
+    return [];
+  }
+
+  const missingVariables: StepVariable[] = [];
+  for (const variable of variables) {
+    if (stubValue(ctx, variable.name) !== undefined) {
+      continue;
+    }
+    if (await isConvexEnvConfigured(ctx, variable.name)) {
+      continue;
+    }
+    missingVariables.push(variable);
+  }
+
+  if (missingVariables.length === 0) {
+    return [];
+  }
+
+  const configure = await promptConfirm(ctx, {
+    key: "google-oauth:configure",
+    message:
+      "Configure Google OAuth now? Choose no to set it up later after Google Console work.",
+    defaultValue: false,
+  });
+  return configure ? [] : missingVariables;
+}
+
+async function configureDevAnonymous(ctx: RuntimeContext) {
+  const step = requireStep(ctx, "dev-anonymous");
+  section(step.title);
+  console.log("Production deployments must never use AUTH_DEV_ANONYMOUS=1.");
+  const enable = await promptConfirm(ctx, {
+    key: "dev-anonymous:enable",
+    message: "Enable dev-only anonymous auth for this dev deployment?",
+    defaultValue: false,
+  });
+
+  if (!enable) {
+    console.log("Skipped dev-only anonymous auth.");
+    return;
+  }
+
+  await ensureConvexEnv(ctx, "AUTH_DEV_ANONYMOUS", "1", {
+    secret: false,
+    overwritePromptKey: "overwrite:AUTH_DEV_ANONYMOUS",
+    force: true,
+  });
+  await setLocalEnv(ctx, "app", "AUTH_DEV_ANONYMOUS", "1");
+}
+
+async function configureResend(ctx: RuntimeContext) {
+  const step = requireStep(ctx, "resend");
+  section(step.title);
+  console.log(step.requiredMessage ?? "Resend can be skipped.");
+
+  const apiKeyConfigured = await isConvexEnvConfigured(ctx, "RESEND_API_KEY");
+  if (apiKeyConfigured) {
+    console.log("RESEND_API_KEY is configured (value hidden).");
+    const overwrite = await promptConfirm(ctx, {
+      key: "overwrite:RESEND_API_KEY",
+      message: "Overwrite RESEND_API_KEY?",
+      defaultValue: false,
+    });
+    if (!overwrite) {
+      await maybeConfigureResendSender(ctx, step);
+      return;
+    }
+  } else {
+    const configure = await promptConfirm(ctx, {
+      key: "resend:configure",
+      message: "Configure Resend now?",
+      defaultValue: false,
+    });
+    if (!configure) {
+      console.log("Resend skipped. Email lifecycle will run in capture mode.");
+      return;
+    }
+  }
+
+  const apiKey = await promptCredentialVariable(
+    ctx,
+    requireVariable(step, "RESEND_API_KEY"),
+  );
+  if (!apiKey) {
+    console.log(
+      "Resend deferred (유예됨). Email lifecycle remains in capture mode.",
+    );
+    return;
+  }
+  await ensureConvexEnv(ctx, "RESEND_API_KEY", apiKey, {
+    secret: true,
+    force: true,
+  });
+
+  const sender = await maybeConfigureResendSender(ctx, step);
+
+  const runProbe = await promptConfirm(ctx, {
+    key: "resend:test",
+    message: "Send a Resend test email probe?",
+    defaultValue: false,
+  });
+  if (runProbe) {
+    const to = await promptText(ctx, {
+      key: "resend:testRecipient",
+      message: "Test recipient email",
+      defaultValue: "",
+      secret: false,
+      required: true,
+    });
+    const from =
+      sender ??
+      stubValue(ctx, "RESEND_SENDER_EMAIL_AUTH") ??
+      readLocalEnv(ctx, "backend").get("RESEND_SENDER_EMAIL_AUTH") ??
+      "onboarding@resend.dev";
+    await probeResend(ctx, apiKey, from, to);
+  }
+}
+
+async function maybeConfigureResendSender(
+  ctx: RuntimeContext,
+  step: StepConfig,
+) {
+  const senderConfigured = await isConvexEnvConfigured(
+    ctx,
+    "RESEND_SENDER_EMAIL_AUTH",
+  );
+  if (senderConfigured) {
+    console.log("RESEND_SENDER_EMAIL_AUTH is configured.");
+    const overwrite = await promptConfirm(ctx, {
+      key: "overwrite:RESEND_SENDER_EMAIL_AUTH",
+      message: "Overwrite RESEND_SENDER_EMAIL_AUTH?",
+      defaultValue: false,
+    });
+    if (!overwrite) {
+      return undefined;
+    }
+  }
+
+  const sender = await promptText(ctx, {
+    key: "RESEND_SENDER_EMAIL_AUTH",
+    message:
+      requireVariable(step, "RESEND_SENDER_EMAIL_AUTH").details ??
+      "Resend sender email",
+    defaultValue: "",
+    secret: false,
+    required: false,
+  });
+  if (!sender) {
+    return undefined;
+  }
+
+  await ensureConvexEnv(ctx, "RESEND_SENDER_EMAIL_AUTH", sender, {
+    secret: false,
+    force: true,
+  });
+  return sender;
+}
+
+async function probeResend(
+  ctx: RuntimeContext,
+  apiKey: string,
+  from: string,
+  to: string,
+) {
+  if (ctx.options.dryRun) {
+    console.log("DRY RUN: would call Resend email probe.");
+    return;
+  }
+
+  ctx.knownSecrets.add(apiKey);
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to,
+      subject: "Jeomwon setup probe",
+      html: "<p>Jeomwon setup probe succeeded.</p>",
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Resend probe failed with HTTP ${response.status}.`);
+  }
+
+  console.log("Resend probe succeeded.");
+}
+
+async function configureOpenAI(ctx: RuntimeContext) {
+  const step = requireStep(ctx, "openai");
+  section(step.title);
+  console.log(step.requiredMessage ?? "OpenAI can be skipped.");
+
+  const existing = readLocalEnv(ctx, "web").get("OPENAI_API_KEY");
+  if (existing) {
+    console.log("OPENAI_API_KEY is configured in apps/web/.env.local.");
+    const overwrite = await promptConfirm(ctx, {
+      key: "overwrite:OPENAI_API_KEY",
+      message: "Overwrite OPENAI_API_KEY?",
+      defaultValue: false,
+    });
+    if (!overwrite) {
+      await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "openai");
+      return;
+    }
+  } else {
+    const configure = await promptConfirm(ctx, {
+      key: "openai:configure",
+      message: "Configure OpenAI now?",
+      defaultValue: false,
+    });
+    if (!configure) {
+      await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "mock");
+      console.log("OpenAI skipped. AGENT_RUNTIME=mock will be used.");
+      return;
+    }
+  }
+
+  const apiKey = await promptCredentialVariable(
+    ctx,
+    requireVariable(step, "OPENAI_API_KEY"),
+  );
+  if (!apiKey) {
+    await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "mock");
+    console.log("OpenAI deferred (유예됨). AGENT_RUNTIME=mock will be used.");
+    return;
+  }
+  await probeOpenAI(ctx, apiKey);
+  await setLocalEnv(ctx, "web", "OPENAI_API_KEY", apiKey);
+  await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "openai");
+}
+
+async function probeOpenAI(ctx: RuntimeContext, apiKey: string) {
+  if (ctx.options.dryRun) {
+    console.log("DRY RUN: would call OpenAI models probe.");
+    return;
+  }
+
+  ctx.knownSecrets.add(apiKey);
+  const response = await fetch("https://api.openai.com/v1/models", {
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI models probe failed with HTTP ${response.status}.`);
+  }
+
+  console.log("OpenAI models probe succeeded.");
+}
+
+async function configurePolar(
+  ctx: RuntimeContext,
+  deployment: ConvexDeployment,
+) {
+  const step = requireStep(ctx, "polar");
+  section(step.title);
+  if (step.instructions) {
+    console.log(step.instructions);
+  }
+  console.log(`Webhook URL: ${deployment.convexSiteUrl}/polar/events`);
+  for (const instruction of step.additionalInstructions ?? []) {
+    console.log(instruction);
+  }
+
+  await configureConvexSecretVariable(ctx, step, "POLAR_WEBHOOK_SECRET");
+  await configureConvexSecretVariable(ctx, step, "POLAR_ORGANIZATION_TOKEN");
+}
+
+async function configureOptionalLocalSteps(ctx: RuntimeContext) {
+  const handled = new Set<string>(CORE_STEP_ORDER);
+  for (const step of ctx.config.steps) {
+    if (handled.has(step.id as (typeof CORE_STEP_ORDER)[number])) {
+      continue;
+    }
+    if (step.kind !== "local-env") {
+      continue;
+    }
+
+    section(step.title);
+    const configure = await promptConfirm(ctx, {
+      key: `${step.id}:configure`,
+      message: `${step.title} 설정을 진행할까요?`,
+      defaultValue: false,
+    });
+    if (!configure) {
+      console.log(`${step.title} skipped.`);
+      continue;
+    }
+    await configureLocalDefaults(ctx, step);
+  }
+}
+
+async function configureConvexSecretVariable(
+  ctx: RuntimeContext,
+  step: StepConfig,
+  name: string,
+) {
+  const variable = requireVariable(step, name);
+  const configured = await isConvexEnvConfigured(ctx, name);
+  if (configured) {
+    console.log(`${name} is configured (value hidden).`);
+    const overwrite = await promptConfirm(ctx, {
+      key: `overwrite:${name}`,
+      message: `Overwrite ${name}?`,
+      defaultValue: false,
+    });
+    if (!overwrite) {
+      return;
+    }
+  }
+
+  const value = await promptCredentialVariable(ctx, variable);
+  if (!value) {
+    return;
+  }
+  await ensureConvexEnv(ctx, name, value, {
+    secret: variable.secret === true,
+    force: true,
+  });
+}
+
+async function promptCredentialVariable(
+  ctx: RuntimeContext,
+  variable: StepVariable,
+) {
+  const stub = stubValue(ctx, variable.name);
+  if (stub !== undefined) {
+    ctx.knownSecrets.add(stub);
+    console.log(`${variable.name}: using stub value (hidden).`);
+    return stub;
+  }
+
+  const defaultValue = variable.defaultValue ?? "";
+  if (ctx.options.dryRun) {
+    console.log(`DRY RUN: would prompt for ${variable.name} (value hidden).`);
+    recordDeferredKey(ctx, variable.name);
+    return undefined;
+  }
+
+  if (ctx.options.nonInteractive) {
+    if (defaultValue) {
+      ctx.knownSecrets.add(defaultValue);
+      return defaultValue;
+    }
+    logDeferredKey(ctx, variable.name, "missing non-interactive value");
+    return undefined;
+  }
+
+  const suffix = defaultValue ? ` [${defaultValue}]` : "";
+  const value = await promptSecret(
+    `${variable.details ?? variable.name}${suffix}: `,
+  );
+  const finalValue = value.trim() || defaultValue;
+  if (!finalValue) {
+    logDeferredKey(ctx, variable.name, "no value provided");
+    return undefined;
+  }
+
+  ctx.knownSecrets.add(finalValue);
+  return finalValue;
+}
+
+async function getValueForVariable(
+  ctx: RuntimeContext,
+  variable: StepVariable,
+  input: {
+    prompt: string;
+    defaultValue: string;
+  },
+) {
+  return await promptText(ctx, {
+    key: variable.name,
+    message: input.prompt,
+    defaultValue: input.defaultValue,
+    secret: variable.secret === true,
+    required: variable.required !== false,
+  });
+}
+
+async function ensureConvexEnv(
+  ctx: RuntimeContext,
+  name: string,
+  value: string,
+  options: {
+    secret: boolean;
+    overwritePromptKey?: string;
+    alreadyConfigured?: boolean;
+    force?: boolean;
+  },
+) {
+  if (options.secret) {
+    ctx.knownSecrets.add(value);
+  }
+
+  const configured =
+    options.alreadyConfigured ?? (await isConvexEnvConfigured(ctx, name));
+  if (configured && !options.force) {
+    console.log(`${name} is configured (value hidden).`);
+    const overwrite = await promptConfirm(ctx, {
+      key: options.overwritePromptKey ?? `overwrite:${name}`,
+      message: `Overwrite ${name}?`,
+      defaultValue: false,
+    });
+    if (!overwrite) {
+      return;
+    }
+  }
+
+  if (ctx.options.dryRun) {
+    console.log(`DRY RUN: would set Convex env ${name} (value hidden).`);
+    return;
+  }
+
+  const result = await runCommand(ctx, "npx", [
+    "convex",
+    "env",
+    "set",
+    "--",
+    name,
+    value,
+  ]);
+
+  if (result.code !== 0) {
+    throw new Error(`Failed to set Convex env ${name}.`);
+  }
+
+  const verified = await isConvexEnvConfigured(ctx, name);
+  if (!verified) {
+    throw new Error(`Convex env ${name} was not readable after set.`);
+  }
+
+  console.log(`${name} set and verified (value hidden).`);
+}
+
+async function isConvexEnvConfigured(ctx: RuntimeContext, name: string) {
+  if (ctx.options.dryRun) {
+    return ctx.stubs.existingConvexEnv?.[name] === true;
+  }
+
+  const result = await runCommand(ctx, "npx", ["convex", "env", "get", name]);
+  return result.code === 0;
+}
+
+async function setLocalEnv(
+  ctx: RuntimeContext,
+  projectId: string,
+  name: string,
+  value: string,
+) {
+  const project = getProject(ctx, projectId);
+  if (!project.envFile) {
+    throw new Error(`Project ${projectId} has no envFile.`);
+  }
+
+  if (isLikelySecretName(name)) {
+    ctx.knownSecrets.add(value);
+  }
+
+  let pending = ctx.localEnvWrites.get(projectId);
+  if (!pending) {
+    pending = new Map();
+    ctx.localEnvWrites.set(projectId, pending);
+  }
+  pending.set(name, value);
+
+  if (ctx.options.dryRun) {
+    console.log(`DRY RUN: would write ${name} to ${project.envFile}.`);
+    return;
+  }
+
+  const envPath = path.join(ctx.root, project.envFile);
+  const current = fs.existsSync(envPath)
+    ? fs.readFileSync(envPath, "utf8")
+    : "";
+  const next = upsertEnvText(current, new Map([[name, value]]));
+  fs.writeFileSync(envPath, next);
+  console.log(`${project.envFile}: ${name} configured.`);
+}
+
+async function finalizeEnvFiles(ctx: RuntimeContext) {
+  section("Finish");
+  const missingByFile = new Map<string, string[]>();
+
+  for (const project of ctx.config.projects) {
+    if (
+      project.type !== "envFile" ||
+      !project.envFile ||
+      !project.exampleFile
+    ) {
+      continue;
+    }
+
+    const envPath = path.join(ctx.root, project.envFile);
+    const examplePath = path.join(ctx.root, project.exampleFile);
+    const example = fs.existsSync(examplePath)
+      ? fs.readFileSync(examplePath, "utf8")
+      : "";
+    const exampleKeys = parseEnvKeys(example);
+    const existingText = fs.existsSync(envPath)
+      ? fs.readFileSync(envPath, "utf8")
+      : example;
+
+    const updates = new Map<string, string>();
+    for (const key of exampleKeys) {
+      if (!parseEnv(existingText).has(key)) {
+        updates.set(key, "");
+      }
+    }
+
+    const pending = ctx.localEnvWrites.get(project.id);
+    if (pending) {
+      for (const [key, value] of pending) {
+        updates.set(key, value);
+      }
+    }
+
+    if (ctx.options.dryRun) {
+      console.log(`DRY RUN: would ensure ${project.envFile}.`);
+    } else if (!fs.existsSync(envPath)) {
+      fs.writeFileSync(envPath, upsertEnvText(example, updates));
+      console.log(`${project.envFile} created from ${project.exampleFile}.`);
+    } else if (updates.size > 0) {
+      fs.writeFileSync(envPath, upsertEnvText(existingText, updates));
+      console.log(`${project.envFile} updated with missing keys.`);
+    } else {
+      console.log(`${project.envFile} already has example keys.`);
+    }
+
+    const finalValues = new Map([...parseEnv(existingText), ...updates]);
+    for (const [key, value] of readLocalEnv(ctx, project.id)) {
+      finalValues.set(key, value);
+    }
+    const missing = exampleKeys.filter((key) => !finalValues.has(key));
+    if (missing.length > 0) {
+      missingByFile.set(project.envFile, missing);
+    }
+  }
+
+  if (missingByFile.size > 0) {
+    console.log("Missing local env keys:");
+    for (const [file, keys] of missingByFile) {
+      console.log(`- ${file}: ${keys.join(", ")}`);
+    }
+  } else {
+    console.log("No missing local env keys from .env.example files.");
+  }
+}
+
+function printCompletion(ctx: RuntimeContext, deployment: ConvexDeployment) {
+  console.log("");
+  console.log("Setup complete.");
+  console.log(`Convex: ${deployment.convexUrl}`);
+  printDeferredSummary(ctx);
+  console.log("Smoke QA: bun run qa");
+  console.log("Dashboard: bun dev:app -> http://localhost:3000");
+  console.log("Web chat: bun dev:web -> http://localhost:3001");
+  console.log("Use localhost. Do not use 127.0.0.1 with Next 16 dev.");
+}
+
+function printDeferredSummary(ctx: RuntimeContext) {
+  if (ctx.deferredKeys.size === 0) {
+    console.log("Deferred/missing credential keys: none.");
+    return;
+  }
+
+  console.log("Deferred/missing credential keys (values hidden):");
+  for (const key of [...ctx.deferredKeys].sort()) {
+    console.log(`- ${key}`);
+  }
+  console.log(
+    "`bun setup` is idempotent; rerun it after preparing these values.",
+  );
+}
+
+function recordDeferredKey(ctx: RuntimeContext, name: string) {
+  ctx.deferredKeys.add(name);
+}
+
+function logDeferredKey(ctx: RuntimeContext, name: string, reason: string) {
+  if (!ctx.deferredKeys.has(name)) {
+    console.log(`${name} deferred (유예됨; ${reason}; value hidden).`);
+  }
+  recordDeferredKey(ctx, name);
+}
+
+async function promptConfirm(
+  ctx: RuntimeContext,
+  input: {
+    key: string;
+    message: string;
+    defaultValue: boolean;
+  },
+) {
+  const stub = ctx.stubs.answers?.[input.key];
+  if (typeof stub === "boolean") {
+    console.log(`${input.message} ${stub ? "yes" : "no"} (stub)`);
+    return stub;
+  }
+  if (typeof stub === "string") {
+    const normalized = stub.trim().toLowerCase();
+    const value = ["y", "yes", "true", "1"].includes(normalized);
+    console.log(`${input.message} ${value ? "yes" : "no"} (stub)`);
+    return value;
+  }
+  if (ctx.options.yes) {
+    return input.defaultValue;
+  }
+  if (ctx.options.nonInteractive) {
+    return input.defaultValue;
+  }
+
+  const suffix = input.defaultValue ? "Y/n" : "y/N";
+  const answer = await promptLine(`${input.message} (${suffix}) `);
+  const normalized = answer.trim().toLowerCase();
+  if (!normalized) {
+    return input.defaultValue;
+  }
+  return ["y", "yes"].includes(normalized);
+}
+
+async function promptText(
+  ctx: RuntimeContext,
+  input: {
+    key: string;
+    message: string;
+    defaultValue: string;
+    secret: boolean;
+    required: boolean;
+  },
+) {
+  const stub = stubValue(ctx, input.key);
+  if (stub !== undefined) {
+    if (input.secret) {
+      ctx.knownSecrets.add(stub);
+      console.log(`${input.key}: using stub value (hidden).`);
+    } else {
+      console.log(`${input.key}: using stub value ${stub}.`);
+    }
+    return stub;
+  }
+
+  if (ctx.options.nonInteractive) {
+    if (input.defaultValue || !input.required) {
+      return input.defaultValue;
+    }
+    throw new Error(`Missing required non-interactive value: ${input.key}`);
+  }
+
+  const suffix = input.defaultValue ? ` [${input.defaultValue}]` : "";
+  const value = input.secret
+    ? await promptSecret(`${input.message}${suffix}: `)
+    : await promptLine(`${input.message}${suffix}: `);
+  const finalValue = value.trim() || input.defaultValue;
+
+  if (input.required && !finalValue) {
+    throw new Error(`${input.key} is required.`);
+  }
+  if (input.secret && finalValue) {
+    ctx.knownSecrets.add(finalValue);
+  }
+  return finalValue;
+}
+
+function stubValue(ctx: RuntimeContext, key: string) {
+  return ctx.stubs.values?.[key] ?? process.env[`JEOMWON_SETUP_${key}`];
+}
+
+async function promptLine(message: string) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  try {
+    return await rl.question(message);
+  } finally {
+    rl.close();
+  }
+}
+
+async function promptSecret(message: string) {
+  if (!process.stdin.isTTY || !process.stdin.setRawMode) {
+    return await promptLine(message);
+  }
+
+  process.stdout.write(message);
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdin.setEncoding("utf8");
+
+  return await new Promise<string>((resolve, reject) => {
+    let value = "";
+
+    const cleanup = () => {
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+      process.stdin.off("data", onData);
+    };
+
+    const onData = (chunk: string) => {
+      if (chunk === "\u0003") {
+        cleanup();
+        process.stdout.write("\n");
+        reject(new Error("Interrupted."));
+        return;
+      }
+      if (chunk === "\r" || chunk === "\n") {
+        cleanup();
+        process.stdout.write("\n");
+        resolve(value);
+        return;
+      }
+      if (chunk === "\u007f") {
+        value = value.slice(0, -1);
+        return;
+      }
+      value += chunk;
+    };
+
+    process.stdin.on("data", onData);
+  });
+}
+
+async function runInteractiveCommand(
+  ctx: RuntimeContext,
+  command: string,
+  args: string[],
+  cwd = getConvexWorkingDirectory(ctx),
+) {
+  if (ctx.options.dryRun) {
+    console.log(`DRY RUN: would run ${command} ${args.join(" ")}.`);
+    return;
+  }
+
+  const code = await new Promise<number>((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      stdio: "inherit",
+      env: process.env,
+    });
+    child.on("error", reject);
+    child.on("close", (exitCode) => resolve(exitCode ?? 1));
+  });
+
+  if (code !== 0) {
+    throw new Error(`${command} exited with code ${code}.`);
+  }
+}
+
+async function runCommand(
+  ctx: RuntimeContext,
+  command: string,
+  args: string[],
+) {
+  if (ctx.options.dryRun) {
+    return { code: 0, stdout: "", stderr: "" };
+  }
+
+  const cwd = getConvexWorkingDirectory(ctx);
+  return await new Promise<CommandResult>((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: process.env,
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString("utf8");
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString("utf8");
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      resolve({
+        code: code ?? 1,
+        stdout: redact(stdout, ctx.knownSecrets),
+        stderr: redact(stderr, ctx.knownSecrets),
+      });
+    });
+  });
+}
+
+function getConvexWorkingDirectory(ctx: RuntimeContext) {
+  const project = getProject(ctx, "convex");
+  return path.join(ctx.root, project.workingDirectory ?? "packages/backend");
+}
+
+function getProject(ctx: RuntimeContext, id: string) {
+  const project = ctx.projects.get(id);
+  if (!project) {
+    throw new Error(`Unknown setup project: ${id}`);
+  }
+  return project;
+}
+
+function requireStep(ctx: RuntimeContext, id: string) {
+  const step = ctx.config.steps.find((candidate) => candidate.id === id);
+  if (!step) {
+    throw new Error(`Missing setup step: ${id}`);
+  }
+  return step;
+}
+
+function requireVariable(step: StepConfig, name: string) {
+  const variable = step.variables.find((candidate) => candidate.name === name);
+  if (!variable) {
+    throw new Error(`Missing setup variable ${name} in ${step.id}.`);
+  }
+  return variable;
+}
+
+function readLocalEnv(ctx: RuntimeContext, projectId: string) {
+  const project = getProject(ctx, projectId);
+  const fromStub = ctx.stubs.existingLocalEnv?.[projectId];
+  const values = new Map<string, string>();
+  if (fromStub) {
+    for (const [key, value] of Object.entries(fromStub)) {
+      values.set(key, value);
+    }
+  }
+
+  if (project.envFile && !ctx.options.freshDryRun) {
+    const envPath = path.join(ctx.root, project.envFile);
+    if (fs.existsSync(envPath)) {
+      for (const [key, value] of parseEnv(fs.readFileSync(envPath, "utf8"))) {
+        values.set(key, value);
+      }
+    }
+  }
+
+  const pending = ctx.localEnvWrites.get(projectId);
+  if (pending) {
+    for (const [key, value] of pending) {
+      values.set(key, value);
+    }
+  }
+  return values;
+}
+
+function parseEnv(text: string) {
+  const values = new Map<string, string>();
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+    const equals = line.indexOf("=");
+    if (equals === -1) {
+      continue;
+    }
+    const key = line.slice(0, equals).trim();
+    const value = line.slice(equals + 1).trim();
+    values.set(key, unquoteEnvValue(value));
+  }
+  return values;
+}
+
+function parseEnvKeys(text: string) {
+  return [...parseEnv(text).keys()];
+}
+
+function upsertEnvText(text: string, updates: Map<string, string>) {
+  const lines = text ? text.split(/\r?\n/) : [];
+  const seen = new Set<string>();
+  const next = lines.map((line) => {
+    const trimmed = line.trim();
+    const equals = trimmed.indexOf("=");
+    if (!trimmed || trimmed.startsWith("#") || equals === -1) {
+      return line;
+    }
+    const key = trimmed.slice(0, equals).trim();
+    if (!updates.has(key)) {
+      return line;
+    }
+    seen.add(key);
+    return `${key}=${quoteEnvValue(updates.get(key) ?? "")}`;
+  });
+
+  for (const [key, value] of updates) {
+    if (!seen.has(key)) {
+      if (next.length > 0 && next[next.length - 1] !== "") {
+        next.push("");
+      }
+      next.push(`${key}=${quoteEnvValue(value)}`);
+    }
+  }
+
+  return `${next.join("\n").replace(/\n+$/, "")}\n`;
+}
+
+function quoteEnvValue(value: string) {
+  if (!value) {
+    return "";
+  }
+  if (/[\s"'#]/.test(value)) {
+    return JSON.stringify(value);
+  }
+  return value;
+}
+
+function unquoteEnvValue(value: string) {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value.slice(1, -1);
+    }
+  }
+  return value;
+}
+
+function validateUrl(value: string) {
+  try {
+    return new URL(value).toString().replace(/\/$/, "");
+  } catch {
+    throw new Error(`Invalid URL: ${value}`);
+  }
+}
+
+function deriveConvexSiteUrl(convexUrl: string) {
+  const url = new URL(convexUrl);
+  if (!url.hostname.endsWith(".convex.cloud")) {
+    throw new Error(
+      `Cannot derive Convex site URL from ${convexUrl}. Expected *.convex.cloud.`,
+    );
+  }
+  url.hostname = url.hostname.replace(/\.convex\.cloud$/, ".convex.site");
+  url.pathname = "";
+  url.search = "";
+  url.hash = "";
+  return url.toString().replace(/\/$/, "");
+}
+
+function slugify(value: string) {
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "jeomwon";
+}
+
+function isLikelySecretName(name: string) {
+  return /SECRET|TOKEN|PRIVATE|API_KEY|OPENAI_API_KEY/i.test(name);
+}
+
+function redact(value: string, secrets: Set<string>) {
+  let redacted = value;
+  for (const secret of secrets) {
+    if (secret) {
+      redacted = redacted.split(secret).join("[hidden]");
+    }
+  }
+  return redacted;
+}

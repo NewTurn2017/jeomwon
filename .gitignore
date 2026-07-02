@@ -1,0 +1,35 @@
+# Reference clone (read-only, pinned 924e4211 — see template/UPSTREAM.md)
+upstream/
+
+# Dependencies
+**/node_modules/
+
+# Build output
+**/.next/
+**/dist/
+**/out/
+*.tsbuildinfo
+
+# Secrets / local env (keep .env.example tracked)
+.env
+**/.env.local
+**/.env*.local
+*.pem
+*.key
+
+# Caches
+**/.turbo/
+**/.cache/
+**/.convex/
+
+# QA run artifacts
+**/qa-artifacts/
+
+# Local agent / tooling state — not part of the project
+.fablize/
+.senior-mode/
+.codegraph
+.claude/
+.omo/
+.DS_Store
+*.log

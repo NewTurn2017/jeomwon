@@ -1,0 +1,249 @@
+{
+  "schemaVersion": 2,
+  "introMessage": "Jeomwon setup provisions Convex, Google OAuth, Resend, OpenAI, and optional Polar without printing secrets.",
+  "projects": [
+    {
+      "id": "convex",
+      "type": "convex",
+      "workingDirectory": "packages/backend",
+      "exportCommand": "npx convex env set -- {{name}} {{value}}",
+      "importCommand": "npx convex env get {{name}}",
+      "suppressCommandOutput": true,
+      "ignoreLogs": ["✖ Environment variable"]
+    },
+    {
+      "id": "backend",
+      "type": "envFile",
+      "envFile": "packages/backend/.env.local",
+      "exampleFile": "packages/backend/.env.example"
+    },
+    {
+      "id": "web",
+      "type": "envFile",
+      "envFile": "apps/web/.env.local",
+      "exampleFile": "apps/web/.env.example"
+    },
+    {
+      "id": "app",
+      "type": "envFile",
+      "envFile": "apps/app/.env.local",
+      "exampleFile": "apps/app/.env.example"
+    }
+  ],
+  "steps": [
+    {
+      "id": "app-url",
+      "kind": "local-env",
+      "title": "App URL",
+      "description": "The dashboard app URL linked from the public web app.",
+      "variables": [
+        {
+          "name": "NEXT_PUBLIC_APP_URL",
+          "projects": ["web"],
+          "details": "Use localhost for Next dev. 127.0.0.1 is blocked by Next 16 dev cross-origin checks.",
+          "defaultValue": "http://localhost:3000",
+          "secret": false
+        }
+      ],
+      "interactive": false
+    },
+    {
+      "id": "site-url",
+      "kind": "convex-env-with-local-default",
+      "title": "Site URL",
+      "description": "The public marketing site URL used by backend emails and server-side links.",
+      "variables": [
+        {
+          "name": "SITE_URL",
+          "projects": ["backend", "convex"],
+          "details": "Use localhost for local Next dev. Production domains should be set separately in production deployments.",
+          "defaultValue": "http://localhost:3001",
+          "secret": false
+        }
+      ],
+      "interactive": false
+    },
+    {
+      "id": "convex",
+      "kind": "convex-provision",
+      "title": "Convex",
+      "description": "Create or reuse a Convex dev cloud deployment, then propagate its URL to the apps.",
+      "instructions": "The wizard checks ~/.convex/config.json. If missing, it can run npx convex login and resume.",
+      "variables": [
+        {
+          "name": "CONVEX_URL",
+          "projects": ["backend"],
+          "details": "Written by npx convex dev --once after provisioning.",
+          "template": "{{convexUrl}}",
+          "secret": false
+        },
+        {
+          "name": "NEXT_PUBLIC_CONVEX_URL",
+          "projects": ["web", "app"],
+          "details": "The Convex deployment URL copied from packages/backend/.env.local.",
+          "template": "{{convexUrl}}",
+          "defaultValue": "https://example-123.convex.cloud",
+          "secret": false
+        },
+        {
+          "name": "CONVEX_SITE_URL",
+          "projects": ["convex"],
+          "details": "The Convex HTTP actions URL used for auth callbacks and Polar webhooks.",
+          "template": "{{convexSiteUrl}}",
+          "secret": false
+        }
+      ]
+    },
+    {
+      "id": "convex-auth",
+      "kind": "convex-auth-keys",
+      "title": "Convex Auth keys",
+      "description": "Generate RS256 keys with jose and set Convex Auth deployment env.",
+      "variables": [
+        {
+          "name": "JWT_PRIVATE_KEY",
+          "projects": ["convex"],
+          "details": "RS256 private key generated locally with jose exportPKCS8.",
+          "secret": true
+        },
+        {
+          "name": "JWKS",
+          "projects": ["convex"],
+          "details": "Public JWKS generated locally with jose exportJWK.",
+          "secret": false
+        }
+      ]
+    },
+    {
+      "id": "google-oauth",
+      "kind": "google-oauth",
+      "title": "Google Authentication",
+      "description": "Google OAuth lets operators sign in to the dashboard app.",
+      "instructions": "Create a Google Cloud project, configure the OAuth consent screen, then create an OAuth client.",
+      "variables": [
+        {
+          "name": "AUTH_GOOGLE_ID",
+          "projects": ["convex"],
+          "details": "The client ID from Google Cloud Console > APIs & Services > Credentials.",
+          "info": [
+            "Authorized redirect URI: {{convexSiteUrl}}/api/auth/callback/google",
+            "Authorized JavaScript origins for local dev: http://localhost:3000 and http://localhost:3001"
+          ],
+          "secret": false
+        },
+        {
+          "name": "AUTH_GOOGLE_SECRET",
+          "projects": ["convex"],
+          "details": "The client secret from the same Google OAuth client.",
+          "secret": true
+        }
+      ]
+    },
+    {
+      "id": "dev-anonymous",
+      "kind": "dev-anonymous",
+      "title": "Dev-only Anonymous Authentication",
+      "description": "Optional dev-only shortcut for browser QA. Never enable in production.",
+      "variables": [
+        {
+          "name": "AUTH_DEV_ANONYMOUS",
+          "projects": ["convex", "app"],
+          "details": "Set to 1 only on dev deployments and local app dev env.",
+          "defaultValue": "1",
+          "secret": false
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "resend",
+      "kind": "resend",
+      "title": "Resend",
+      "description": "Resend sends transactional reservation and auth emails.",
+      "instructions": "Create an account at https://resend.com and get an API key.",
+      "variables": [
+        {
+          "name": "RESEND_API_KEY",
+          "projects": ["convex"],
+          "details": "Find your API key in the Resend dashboard under API Keys. It starts with re_.",
+          "secret": true
+        },
+        {
+          "name": "RESEND_SENDER_EMAIL_AUTH",
+          "projects": ["convex"],
+          "details": "A verified sender email address used for authentication and reservation emails.",
+          "required": false,
+          "secret": false
+        }
+      ],
+      "required": false,
+      "skipMode": "capture",
+      "requiredMessage": "Skipping Resend leaves lifecycle email in capture mode."
+    },
+    {
+      "id": "openai",
+      "kind": "openai",
+      "title": "OpenAI",
+      "description": "OpenAI powers the agent runtime when AGENT_RUNTIME=openai.",
+      "variables": [
+        {
+          "name": "OPENAI_API_KEY",
+          "projects": ["web"],
+          "details": "Stored only in apps/web/.env.local for local Next route handlers.",
+          "secret": true
+        },
+        {
+          "name": "AGENT_RUNTIME",
+          "projects": ["web"],
+          "details": "Set to openai when the key is configured, or mock when skipped.",
+          "defaultValue": "mock",
+          "secret": false
+        }
+      ],
+      "required": false,
+      "skipMode": "mock",
+      "requiredMessage": "Skipping OpenAI sets AGENT_RUNTIME=mock."
+    },
+    {
+      "id": "polar",
+      "kind": "polar",
+      "title": "Polar",
+      "description": "Polar billing is shown only when domain.config.features.polar is true.",
+      "instructions": "Create a Polar organization in sandbox first, then configure a raw webhook payload.",
+      "whenFeature": "polar",
+      "variables": [
+        {
+          "name": "POLAR_WEBHOOK_SECRET",
+          "projects": ["convex"],
+          "details": "Create a webhook in Polar Settings > Webhooks. Payload format must be Raw.",
+          "info": ["Webhook URL: {{convexSiteUrl}}/polar/events"],
+          "secret": true
+        },
+        {
+          "name": "POLAR_ORGANIZATION_TOKEN",
+          "projects": ["convex"],
+          "details": "Generate an Organization Access Token with product, checkout, customer, subscription, and portal permissions.",
+          "secret": true
+        }
+      ],
+      "required": false,
+      "additionalInstructions": ["Use Polar Sandbox while developing."]
+    },
+    {
+      "id": "cal-com",
+      "kind": "local-env",
+      "title": "Cal.com",
+      "description": "Optional public booking link for the /talk-to-us page.",
+      "variables": [
+        {
+          "name": "NEXT_PUBLIC_CAL_LINK",
+          "projects": ["web"],
+          "details": "Optional Cal.com link such as https://cal.com/yourusername.",
+          "required": false,
+          "secret": false
+        }
+      ],
+      "required": false
+    }
+  ]
+}

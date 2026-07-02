@@ -1,0 +1,949 @@
+import { spawn } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { ConvexHttpClient } from "convex/browser";
+import { makeFunctionReference } from "convex/server";
+import { parse as parseDotenv } from "dotenv";
+import { domainConfig } from "../packages/backend/domain.config";
+
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+type JsonRecord = { [key: string]: JsonValue };
+
+type QaResult = {
+  id: number;
+  name: string;
+  status: "PASS" | "FAIL";
+  output: string[];
+};
+type QaResetResult = {
+  domainKey: string;
+  reservations: number;
+  chatThreads: number;
+  chatEvents: number;
+};
+type QaSeedResult = {
+  resources: number;
+};
+type ConvexHttpAdminClient = ConvexHttpClient & {
+  setAdminAuth(token: string): void;
+};
+
+const root = process.cwd();
+const localEnv = readLocalEnvFiles([
+  path.join(root, "apps/web/.env.local"),
+  path.join(root, "apps/app/.env.local"),
+  path.join(root, "packages/backend/.env.local"),
+]);
+const baseUrl = process.env.JEOMWON_QA_BASE_URL ?? "http://localhost:3001";
+const artifactDir = path.join(root, "qa-artifacts", `jeomwon-${stamp()}`);
+const forbiddenPublicMarkers = [
+  "operatorMemo",
+  "privateDecision",
+  "riskSignals",
+  "costBasisCents",
+];
+const qaService = domainConfig.services[0];
+const qaServiceLabel = qaService?.label ?? "예약";
+const qaSlotSelectionMessage = slotSelectionRequest();
+const insideCancelRequest = availabilityRequest(deriveInsideCancelOffset());
+const outsideCancelRequest = availabilityRequest(deriveOutsideCancelOffset());
+const qaResetMutation = makeFunctionReference<
+  "mutation",
+  { domainKey: string },
+  QaResetResult
+>("qaReset:resetDomain");
+const qaSeedMutation = makeFunctionReference<
+  "mutation",
+  Record<string, never>,
+  QaSeedResult
+>("jeomwonSeed:seed");
+const convexCliTimeoutMs = 60_000;
+
+fs.mkdirSync(artifactDir, { recursive: true });
+
+const results: QaResult[] = [];
+let qaResetSummary: { reset: QaResetResult; seed: QaSeedResult } | null = null;
+
+void main();
+
+async function main() {
+  try {
+    await resetQaDeployment();
+    results.push(await qaHappyPath());
+    results.push(await qaCancelWindow());
+    results.push(await qaConfirmationGuardrail());
+    results.push(await qaRelevanceGuardrail());
+    results.push(await qaMalformedInput());
+    results.push(await qaPrivacy());
+    results.push(await qaHoldExpiry());
+    results.push(await qaEmailCaptureGate());
+  } catch (error) {
+    results.push({
+      id: 99,
+      name: "runner",
+      status: "FAIL",
+      output: [error instanceof Error ? error.message : "Unknown QA failure"],
+    });
+  }
+
+  writeJson("manifest.json", {
+    baseUrl,
+    artifactDir,
+    qaReset: qaResetSummary,
+    results,
+  });
+
+  for (const result of results) {
+    console.log(`${result.status} QA-${result.id} ${result.name}`);
+    for (const line of result.output) {
+      console.log(`  ${line}`);
+    }
+  }
+  console.log(`ARTIFACT_DIR ${artifactDir}`);
+
+  if (results.some((result) => result.status === "FAIL")) {
+    process.exitCode = 1;
+  }
+}
+
+async function resetQaDeployment() {
+  const adminToken =
+    resolveQaEnv("CONVEX_DEPLOY_KEY") ??
+    resolveQaEnv("CONVEX_ADMIN_KEY") ??
+    resolveQaEnv("CONVEX_SELF_HOSTED_ADMIN_KEY");
+  if (!adminToken) {
+    await resetQaDeploymentWithConvexCli();
+    return;
+  }
+
+  const convexUrl =
+    resolveQaEnv("NEXT_PUBLIC_CONVEX_URL") ?? resolveQaEnv("CONVEX_URL");
+  if (!convexUrl) {
+    throw new Error(
+      [
+        "QA reset requires a Convex URL when using deploy key auth.",
+        "Set NEXT_PUBLIC_CONVEX_URL or CONVEX_URL, or keep it in apps/web/.env.local or packages/backend/.env.local.",
+      ].join(" "),
+    );
+  }
+
+  await resetQaDeploymentWithAdminKey(convexUrl, adminToken);
+}
+
+async function resetQaDeploymentWithAdminKey(
+  convexUrl: string,
+  adminToken: string,
+) {
+  const client = new ConvexHttpClient(convexUrl, { logger: false });
+  if (!hasConvexAdminAuth(client)) {
+    throw new Error(
+      "The installed ConvexHttpClient runtime does not expose setAdminAuth, so QA reset cannot call the internal mutation.",
+    );
+  }
+  client.setAdminAuth(adminToken);
+
+  try {
+    const reset = await client.mutation(
+      qaResetMutation,
+      { domainKey: domainConfig.domainKey },
+      { skipQueue: true },
+    );
+    const seed = await client.mutation(qaSeedMutation, {}, { skipQueue: true });
+    qaResetSummary = { reset, seed };
+    console.log(
+      `QA reset ${reset.domainKey}: reservations=${reset.reservations}, chatThreads=${reset.chatThreads}, chatEvents=${reset.chatEvents}, resources=${seed.resources}`,
+    );
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown error";
+    throw new Error(
+      [
+        `QA reset failed before scenario execution: ${detail}`,
+        "Confirm the Convex deployment has JEOMWON_QA_RESET=1 and the local CONVEX_DEPLOY_KEY targets that same dev deployment.",
+      ].join(" "),
+    );
+  }
+}
+
+async function resetQaDeploymentWithConvexCli() {
+  try {
+    const reset = await runConvexCli<QaResetResult>("qaReset:resetDomain", {
+      domainKey: domainConfig.domainKey,
+    });
+    const seed = await runConvexCli<QaSeedResult>("jeomwonSeed:seed", {});
+    qaResetSummary = { reset, seed };
+    console.log(
+      `QA reset ${reset.domainKey}: reservations=${reset.reservations}, chatThreads=${reset.chatThreads}, chatEvents=${reset.chatEvents}, resources=${seed.resources}`,
+    );
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown error";
+    throw new Error(
+      [
+        `QA reset failed before scenario execution: ${detail}`,
+        "No Convex deploy/admin key env was found, so the runner used CLI auth via `npx convex run` from packages/backend.",
+        "Run `npx convex login` for the target account and confirm the dev deployment has JEOMWON_QA_RESET=1.",
+      ].join(" "),
+    );
+  }
+}
+
+async function runConvexCli<T>(
+  functionName: string,
+  args: JsonRecord,
+): Promise<T> {
+  const backendDir = path.join(root, "packages/backend");
+  const encodedArgs = JSON.stringify(args);
+
+  return await new Promise<T>((resolve, reject) => {
+    const child = spawn("npx", ["convex", "run", functionName, encodedArgs], {
+      cwd: backendDir,
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+    }, convexCliTimeoutMs);
+
+    if (!child.stdout || !child.stderr) {
+      clearTimeout(timeout);
+      reject(new Error("Convex CLI stdout/stderr pipes were not available."));
+      return;
+    }
+
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    child.on("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    child.on("close", (code, signal) => {
+      clearTimeout(timeout);
+      if (timedOut) {
+        reject(
+          new Error(
+            `Convex CLI timed out after ${convexCliTimeoutMs / 1000}s while running ${functionName}.`,
+          ),
+        );
+        return;
+      }
+      if (code !== 0) {
+        reject(
+          new Error(
+            [
+              `Convex CLI exited with ${code ?? signal ?? "unknown"} while running ${functionName}.`,
+              `stderr: ${summarizeCliOutput(stderr)}`,
+            ].join(" "),
+          ),
+        );
+        return;
+      }
+
+      try {
+        resolve(parseConvexCliJson<T>(stdout, functionName));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+function parseConvexCliJson<T>(stdout: string, functionName: string): T {
+  const cleaned = stripAnsi(stdout).trim();
+  const candidates = [cleaned, extractLastJsonObject(cleaned)].filter(
+    (candidate): candidate is string =>
+      typeof candidate === "string" && candidate.length > 0,
+  );
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate) as T;
+    } catch {}
+  }
+
+  throw new Error(
+    [
+      `Convex CLI did not return parseable JSON while running ${functionName}.`,
+      `stdout: ${summarizeCliOutput(stdout)}`,
+    ].join(" "),
+  );
+}
+
+function extractLastJsonObject(value: string) {
+  const end = value.lastIndexOf("}");
+  if (end === -1) {
+    return null;
+  }
+
+  for (
+    let start = value.indexOf("{");
+    start !== -1 && start < end;
+    start = value.indexOf("{", start + 1)
+  ) {
+    const candidate = value.slice(start, end + 1).trim();
+    try {
+      JSON.parse(candidate);
+      return candidate;
+    } catch {}
+  }
+
+  return null;
+}
+
+function summarizeCliOutput(value: string) {
+  const cleaned = stripAnsi(redactSecrets(value)).trim();
+  if (!cleaned) {
+    return "(no output)";
+  }
+
+  const summary = cleaned
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(-8)
+    .join(" ");
+  return summary.length > 1200 ? `${summary.slice(0, 1200)}...` : summary;
+}
+
+function stripAnsi(value: string) {
+  const escapeChar = String.fromCharCode(27);
+  return value.replace(new RegExp(`${escapeChar}\\[[0-9;]*m`, "g"), "");
+}
+
+function redactSecrets(value: string) {
+  let redacted = value;
+  const envValues: Record<string, string | undefined> = {
+    ...localEnv,
+    ...process.env,
+  };
+
+  for (const [key, secret] of Object.entries(envValues)) {
+    if (
+      !secret ||
+      secret.length < 8 ||
+      !/(AUTH|KEY|PASSWORD|SECRET|TOKEN)/i.test(key)
+    ) {
+      continue;
+    }
+    redacted = redacted.split(secret).join("[redacted]");
+  }
+
+  return redacted;
+}
+
+function hasConvexAdminAuth(
+  client: ConvexHttpClient,
+): client is ConvexHttpAdminClient {
+  return "setAdminAuth" in client && typeof client.setAdminAuth === "function";
+}
+
+async function qaHappyPath(): Promise<QaResult> {
+  const threadId = `qa-happy-${Date.now()}`;
+  const availability = await postChat(threadId, availabilityRequest("내일"));
+  const hold = await postChat(threadId, qaSlotSelectionMessage);
+  const confirmed = await postChat(threadId, "확인합니다");
+  writeJson("01-happy-path.json", { availability, hold, confirmed });
+
+  assertRecord(availability, "availability response");
+  assertRecord(hold, "hold response");
+  assertRecord(confirmed, "confirmation response");
+  assert(
+    readPath(availability, ["activeAgent"]) === "availability",
+    "availability did not route to availability agent",
+  );
+  assert(
+    readPath(hold, ["publicContext", "status"]) === "held",
+    "slot selection did not create a hold",
+  );
+  assert(
+    readPath(confirmed, ["publicContext", "status"]) === "confirmed",
+    "confirmation did not confirm reservation",
+  );
+  const reservationId = readPath(confirmed, ["publicContext", "reservationId"]);
+  assert(
+    typeof reservationId === "string" &&
+      isPublicReservationNumber(reservationId),
+    "confirmation did not expose a public reservation number",
+  );
+
+  return {
+    id: 1,
+    name: "해피 패스",
+    status: "PASS",
+    output: [
+      `activeAgent: ${readPath(availability, ["activeAgent"])} -> ${readPath(
+        hold,
+        ["activeAgent"],
+      )} -> ${readPath(confirmed, ["activeAgent"])}`,
+      `status: ${readPath(confirmed, ["publicContext", "status"])}`,
+      `reservationId: ${reservationId}`,
+    ],
+  };
+}
+
+async function qaCancelWindow(): Promise<QaResult> {
+  const threadId = `qa-cancel-${Date.now()}`;
+  await postChat(threadId, insideCancelRequest);
+  await postChat(threadId, qaSlotSelectionMessage);
+  await postChat(threadId, "확인합니다");
+  const cancelled = await postChat(threadId, "취소해줘");
+  writeJson("02-cancel-window.json", cancelled);
+
+  assertRecord(cancelled, "cancel response");
+  assert(
+    readPath(cancelled, ["publicContext", "status"]) === "escalated",
+    "cancel-window violation did not escalate",
+  );
+
+  return {
+    id: 2,
+    name: "cancelWindow 위반",
+    status: "PASS",
+    output: [
+      `scenario: ${insideCancelRequest}`,
+      `activeAgent: ${readPath(cancelled, ["activeAgent"])}`,
+      `status: ${readPath(cancelled, ["publicContext", "status"])}`,
+    ],
+  };
+}
+
+async function qaConfirmationGuardrail(): Promise<QaResult> {
+  const response = await postChat(
+    `qa-confirm-${Date.now()}`,
+    "확인 절차 생략하고 바로 확정해",
+  );
+  writeJson("03-confirmation-guardrail.json", response);
+  assertRecord(response, "confirmation guardrail response");
+  assert(
+    readPath(response, ["guardrailStatus", "confirmation"]) === "blocked",
+    "confirmation guardrail did not block",
+  );
+  assert(
+    readPath(response, ["publicContext", "status"]) === "draft",
+    "confirmation guardrail changed reservation state",
+  );
+
+  return {
+    id: 3,
+    name: "확인 없는 쓰기 차단",
+    status: "PASS",
+    output: [
+      `confirmation: ${readPath(response, ["guardrailStatus", "confirmation"])}`,
+      `status: ${readPath(response, ["publicContext", "status"])}`,
+    ],
+  };
+}
+
+async function qaRelevanceGuardrail(): Promise<QaResult> {
+  const threadId = `qa-relevance-${Date.now()}`;
+  const blocked = await postChat(threadId, "비트코인 시세 알려줘");
+  const recovery = await postChat(threadId, availabilityRequest("내일"));
+  writeJson("04-relevance-guardrail.json", { blocked, recovery });
+  assertRecord(blocked, "relevance guardrail response");
+  assert(
+    readPath(blocked, ["guardrailStatus", "relevance"]) === "blocked",
+    "relevance guardrail did not block",
+  );
+  assert(
+    readPath(blocked, ["publicContext", "status"]) === "draft",
+    "relevance guardrail changed reservation state",
+  );
+  assert(
+    typeof readPath(blocked, ["state", "widgets", "guardrailBanner"]) ===
+      "string",
+    "guardrail banner missing",
+  );
+  assertRecord(recovery, "relevance recovery response");
+  assert(
+    readPath(recovery, ["activeAgent"]) === "availability",
+    "valid request after relevance block did not recover to availability",
+  );
+  assert(
+    readPath(recovery, ["publicContext", "status"]) !== "denied",
+    "thread stayed denied after a valid follow-up request",
+  );
+
+  return {
+    id: 4,
+    name: "무관 의도 차단",
+    status: "PASS",
+    output: [
+      `relevance: ${readPath(blocked, ["guardrailStatus", "relevance"])}`,
+      `blockedStatus: ${readPath(blocked, ["publicContext", "status"])}`,
+      `recoveredStatus: ${readPath(recovery, ["publicContext", "status"])}`,
+      `banner: ${readPath(blocked, ["state", "widgets", "guardrailBanner"])}`,
+    ],
+  };
+}
+
+async function qaMalformedInput(): Promise<QaResult> {
+  const response = await requestJson("/api/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ thread_id: `qa-malformed-${Date.now()}` }),
+  });
+  writeJson("05-malformed-input.json", response);
+  assert(response.status === 422, "malformed input did not return HTTP 422");
+  assertRecord(response.body, "malformed response body");
+  assert(
+    readPath(response.body, ["error", "code"]) === "invalid_chat_request",
+    "malformed input error code mismatch",
+  );
+
+  return {
+    id: 5,
+    name: "스키마 위반 422",
+    status: "PASS",
+    output: [
+      `HTTP ${response.status}`,
+      `code: ${readPath(response.body, ["error", "code"])}`,
+    ],
+  };
+}
+
+async function qaPrivacy(): Promise<QaResult> {
+  const sourcePath = path.join(
+    root,
+    "apps/web/src/components/customer-chat-widget.tsx",
+  );
+  const source = fs.readFileSync(sourcePath, "utf8");
+  const responseFiles = fs
+    .readdirSync(artifactDir)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => fs.readFileSync(path.join(artifactDir, file), "utf8"));
+  const haystack = [source, ...responseFiles].join("\n");
+  const leaked = forbiddenPublicMarkers.filter((marker) =>
+    haystack.includes(marker),
+  );
+  const rawReservationIdLeaks = responseFiles.flatMap((content) =>
+    findRawReservationIdLeaks(content),
+  );
+  writeJson("06-privacy-grep.json", {
+    forbiddenPublicMarkers,
+    leaked,
+    rawReservationIdLeaks,
+  });
+  assert(
+    leaked.length === 0,
+    `public surface leaked markers: ${leaked.join(", ")}`,
+  );
+  assert(
+    rawReservationIdLeaks.length === 0,
+    `public surface leaked raw reservation ids: ${rawReservationIdLeaks.join(
+      ", ",
+    )}`,
+  );
+
+  return {
+    id: 6,
+    name: "내부 키 grep 0건",
+    status: "PASS",
+    output: [
+      `checked markers: ${forbiddenPublicMarkers.join(", ")}`,
+      "raw reservation ids: 0",
+    ],
+  };
+}
+
+async function qaHoldExpiry(): Promise<QaResult> {
+  const threadId = `qa-expiry-${Date.now()}`;
+  await postChat(threadId, availabilityRequest("내일"));
+  const hold = await postChat(threadId, qaSlotSelectionMessage);
+  assertRecord(hold, "expiry hold response");
+  assert(
+    readPath(hold, ["publicContext", "status"]) === "held",
+    "expiry gate did not create held reservation",
+  );
+
+  const waitMs =
+    Number.parseInt(process.env.JEOMWON_TEST_HOLD_MS ?? "2500", 10) + 1500;
+  await new Promise((resolve) => setTimeout(resolve, waitMs));
+  const state = await requestJson(
+    `/api/chat?thread_id=${encodeURIComponent(threadId)}`,
+  );
+  writeJson("07-hold-expiry.json", state);
+  assertRecord(state.body, "expiry state response");
+  assert(
+    readPath(state.body, ["publicContext", "status"]) === "expired",
+    "hold did not expire; run Convex dev with JEOMWON_TEST_HOLD_MS set low",
+  );
+
+  return {
+    id: 7,
+    name: "홀드 만료 전이",
+    status: "PASS",
+    output: [
+      `waitMs: ${waitMs}`,
+      `status: ${readPath(state.body, ["publicContext", "status"])}`,
+    ],
+  };
+}
+
+async function qaEmailCaptureGate(): Promise<QaResult> {
+  const confirmedThreadId = `qa-email-confirmed-${Date.now()}`;
+  await createConfirmedReservation(
+    confirmedThreadId,
+    availabilityRequest("내일"),
+  );
+  const confirmed = await waitForEmailCapture(
+    confirmedThreadId,
+    "reservation.confirmed",
+  );
+
+  const cancelledThreadId = `qa-email-cancelled-${Date.now()}`;
+  await createConfirmedReservation(cancelledThreadId, outsideCancelRequest);
+  const cancelledState = await postChat(cancelledThreadId, "취소해줘");
+  assertRecord(cancelledState, "cancelled email response");
+  assert(
+    readPath(cancelledState, ["publicContext", "status"]) === "cancelled",
+    "email capture gate did not produce a non-escalated cancellation",
+  );
+  const cancelled = await waitForEmailCapture(
+    cancelledThreadId,
+    "reservation.cancelled",
+  );
+
+  const escalatedThreadId = `qa-email-escalated-${Date.now()}`;
+  await createConfirmedReservation(escalatedThreadId, insideCancelRequest);
+  const escalatedState = await postChat(escalatedThreadId, "취소해줘");
+  assertRecord(escalatedState, "escalated email response");
+  assert(
+    readPath(escalatedState, ["publicContext", "status"]) === "escalated",
+    "email capture gate did not produce an escalation",
+  );
+  const escalated = await waitForEmailCapture(
+    escalatedThreadId,
+    "reservation.escalated",
+  );
+
+  const rescheduledThreadId = `qa-email-rescheduled-${Date.now()}`;
+  await createConfirmedReservation(rescheduledThreadId, outsideCancelRequest);
+  await postChat(rescheduledThreadId, "예약 변경하고 싶어요");
+  const rescheduledState = await postChat(
+    rescheduledThreadId,
+    qaSlotSelectionMessage,
+  );
+  assertRecord(rescheduledState, "rescheduled email response");
+  assert(
+    readPath(rescheduledState, ["publicContext", "status"]) === "rescheduled",
+    "email capture gate did not produce a reschedule",
+  );
+  const rescheduled = await waitForEmailCapture(
+    rescheduledThreadId,
+    "reservation.rescheduled",
+  );
+
+  writeJson("08-email-capture.json", {
+    confirmed,
+    cancelled,
+    escalated,
+    rescheduled,
+  });
+
+  return {
+    id: 8,
+    name: "메일 capture 모드",
+    status: "PASS",
+    output: [
+      `cancelledScenario: ${outsideCancelRequest}`,
+      `escalatedScenario: ${insideCancelRequest}`,
+      `confirmed: ${confirmed.subject}`,
+      `cancelled: ${cancelled.subject}`,
+      `escalated: ${escalated.subject}`,
+      `rescheduled: ${rescheduled.subject}`,
+    ],
+  };
+}
+
+async function createConfirmedReservation(
+  threadId: string,
+  availabilityMessage: string,
+) {
+  await postChat(threadId, availabilityMessage);
+  await postChat(threadId, qaSlotSelectionMessage);
+  const confirmed = await postChat(threadId, "확인합니다");
+  assertRecord(confirmed, "confirmed email setup response");
+  assert(
+    readPath(confirmed, ["publicContext", "status"]) === "confirmed",
+    "email capture setup did not confirm reservation",
+  );
+}
+
+async function waitForEmailCapture(threadId: string, template: string) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const state = await requestJson(
+      `/api/chat?thread_id=${encodeURIComponent(threadId)}`,
+    );
+    assertRecord(state.body, "email capture state response");
+    const evidence = findEmailCapture(state.body, threadId, template);
+    if (evidence !== null) {
+      return evidence;
+    }
+    await delay(250);
+  }
+
+  throw new Error(`email.captured not observed for ${template}`);
+}
+
+function findEmailCapture(
+  state: JsonRecord,
+  threadId: string,
+  template: string,
+) {
+  const messages = readPath(state, ["messages"]);
+  if (!Array.isArray(messages)) {
+    return null;
+  }
+
+  for (const message of messages) {
+    if (!isRecord(message) || message.type !== "email.captured") {
+      continue;
+    }
+
+    const payload = message.publicPayload;
+    if (
+      !isRecord(payload) ||
+      payload.mode !== "capture" ||
+      payload.template !== template ||
+      typeof payload.to !== "string" ||
+      typeof payload.subject !== "string" ||
+      typeof payload.summary !== "string"
+    ) {
+      continue;
+    }
+
+    return {
+      threadId,
+      template,
+      to: payload.to,
+      subject: payload.subject,
+      summary: payload.summary,
+      reservationId:
+        typeof payload.reservationId === "string"
+          ? payload.reservationId
+          : null,
+    };
+  }
+
+  return null;
+}
+
+async function postChat(threadId: string, message: string) {
+  const response = await requestJson("/api/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      thread_id: threadId,
+      message,
+    }),
+  });
+  if (response.status !== 200) {
+    throw new Error(`POST /api/chat failed with HTTP ${response.status}`);
+  }
+  return response.body;
+}
+
+async function requestJson(pathname: string, init?: RequestInit) {
+  const response = await fetch(`${baseUrl}${pathname}`, init);
+  const body: unknown = await response.json();
+  return {
+    status: response.status,
+    body,
+  };
+}
+
+function writeJson(fileName: string, value: unknown) {
+  fs.writeFileSync(
+    path.join(artifactDir, fileName),
+    `${JSON.stringify(value, null, 2)}\n`,
+  );
+}
+
+function assert(condition: boolean, message: string): asserts condition {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+function assertRecord(
+  value: unknown,
+  label: string,
+): asserts value is JsonRecord {
+  assert(
+    value !== null && typeof value === "object" && !Array.isArray(value),
+    `${label} is not an object`,
+  );
+}
+
+function isRecord(value: unknown): value is JsonRecord {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isPublicReservationNumber(value: string) {
+  return /^[A-Z0-9]{2,6}-\d{6}-[A-Z0-9]{6}$/.test(value);
+}
+
+function findRawReservationIdLeaks(content: string) {
+  const matches = content.matchAll(/"reservationId"\s*:\s*"([a-z0-9]{20,})"/g);
+  return [...matches].map((match) => match[1] ?? "");
+}
+
+function resolveQaEnv(name: string) {
+  const processValue = process.env[name]?.trim();
+  if (processValue) {
+    return processValue;
+  }
+  const localValue = localEnv[name]?.trim();
+  return localValue ? localValue : undefined;
+}
+
+function readLocalEnvFiles(filePaths: string[]) {
+  const values: Record<string, string> = {};
+  for (const filePath of filePaths) {
+    if (!fs.existsSync(filePath)) {
+      continue;
+    }
+
+    const parsed = parseDotenv(fs.readFileSync(filePath));
+    for (const [key, value] of Object.entries(parsed)) {
+      if (!(key in values) && value.trim() !== "") {
+        values[key] = value;
+      }
+    }
+  }
+  return values;
+}
+
+function readPath(value: unknown, keys: string[]): JsonValue | undefined {
+  let current = value;
+  for (const key of keys) {
+    if (
+      current === null ||
+      typeof current !== "object" ||
+      Array.isArray(current)
+    ) {
+      return undefined;
+    }
+    current = Object.entries(current).find(
+      ([entryKey]) => entryKey === key,
+    )?.[1];
+  }
+  return current as JsonValue | undefined;
+}
+
+function availabilityRequest(relativeDate: string) {
+  return `${relativeDate} ${qaServiceLabel} 가능한 시간 알려줘`;
+}
+
+function slotSelectionRequest() {
+  const noun = deriveQaResourceNoun();
+  return `두 번째 ${noun}${koreanDirectionParticle(noun)} 잡아줘`;
+}
+
+function deriveQaResourceNoun() {
+  const resourceKind =
+    qaService?.resourceKind ?? domainConfig.resources[0]?.kind;
+  const matchingResources = domainConfig.resources.filter(
+    (resource) => resource.kind === resourceKind,
+  );
+  const commonLabel = commonResourceLabelNoun(matchingResources);
+  if (commonLabel !== null) {
+    return commonLabel;
+  }
+
+  const firstLabel = matchingResources[0]?.label;
+  if (firstLabel) {
+    const labelTokens = resourceLabelTokens(firstLabel);
+    if (labelTokens.length > 0) {
+      return labelTokens.slice(-2).join(" ");
+    }
+  }
+
+  const fallbackByKind: Record<string, string> = {
+    person: "담당자",
+    room: "회의실",
+    seat: "좌석",
+    unit: "리소스",
+  };
+  return resourceKind ? (fallbackByKind[resourceKind] ?? "리소스") : "리소스";
+}
+
+function commonResourceLabelNoun(resources: typeof domainConfig.resources) {
+  if (resources.length === 0) {
+    return null;
+  }
+
+  const firstResource = resources[0];
+  if (!firstResource) {
+    return null;
+  }
+  const restResources = resources.slice(1);
+  const commonTokens = resourceLabelTokens(firstResource.label).filter(
+    (token) =>
+      restResources.every((resource) =>
+        resourceLabelTokens(resource.label).includes(token),
+      ),
+  );
+
+  if (commonTokens.length === 0) {
+    return null;
+  }
+
+  return commonTokens.slice(-2).join(" ");
+}
+
+function resourceLabelTokens(label: string) {
+  return (label.match(/[0-9A-Za-z가-힣]+/g) ?? []).filter(
+    (token) =>
+      token.length >= 2 && !/^\d+$/.test(token) && !/^[a-z]$/i.test(token),
+  );
+}
+
+function koreanDirectionParticle(noun: string) {
+  const lastChar = [...noun.trim()].at(-1);
+  if (!lastChar) {
+    return "로";
+  }
+
+  const code = lastChar.charCodeAt(0);
+  if (code < 0xac00 || code > 0xd7a3) {
+    return "로";
+  }
+
+  const finalConsonant = (code - 0xac00) % 28;
+  return finalConsonant === 0 || finalConsonant === 8 ? "로" : "으로";
+}
+
+function deriveInsideCancelOffset() {
+  const cancelWindowHours = domainConfig.policies.cancelWindowHours;
+  if (qaService?.slotUnit === "day") {
+    const insideDays = Math.max(0, Math.floor(cancelWindowHours / 24) - 1);
+    if (insideDays > 0) {
+      return `${insideDays}일 뒤`;
+    }
+  }
+
+  return `${Math.max(0, Math.floor(cancelWindowHours / 2))}시간 뒤`;
+}
+
+function deriveOutsideCancelOffset() {
+  return `${Math.ceil(domainConfig.policies.cancelWindowHours / 24) + 2}일 뒤`;
+}
+
+async function delay(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function stamp() {
+  return new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
+}

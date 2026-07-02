@@ -1,0 +1,50 @@
+{
+  "$schema": "https://turborepo.org/schema.json",
+  "globalDependencies": ["**/.env"],
+  "globalPassThroughEnv": [
+    "JEOMWON_QA_BASE_URL",
+    "JEOMWON_SETUP_STUBS",
+    "JEOMWON_SETUP_STUB_FILE",
+    "JEOMWON_TEST_HOLD_MS",
+    "AGENT_RUNTIME"
+  ],
+  "ui": "stream",
+  "tasks": {
+    "topo": {
+      "dependsOn": ["^topo"]
+    },
+    "build": {
+      "env": ["RESEND_API_KEY", "LOOPS_ENDPOINT", "LOOPS_API_KEY"],
+      "inputs": ["$TURBO_DEFAULT$", ".env"],
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "next-env.d.ts", ".expo/**"]
+    },
+    "@pension-stay/email#build": {
+      "env": ["RESEND_API_KEY", "LOOPS_ENDPOINT", "LOOPS_API_KEY"],
+      "inputs": ["$TURBO_DEFAULT$", ".env"],
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "start": {
+      "cache": false
+    },
+    "test": {
+      "cache": false
+    },
+    "clean": {
+      "cache": false
+    },
+    "dev": {
+      "inputs": ["$TURBO_DEFAULT$", ".env"],
+      "persistent": true,
+      "cache": false
+    },
+    "lint": {
+      "dependsOn": ["^topo"]
+    },
+    "typecheck": {
+      "dependsOn": ["^topo"],
+      "outputs": []
+    }
+  }
+}

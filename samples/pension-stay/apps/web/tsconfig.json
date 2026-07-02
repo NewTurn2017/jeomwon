@@ -1,0 +1,29 @@
+{
+  "extends": "@pension-stay/typescript/nextjs.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@pension-stay/agents": ["../../packages/agents/src/index.ts"],
+      "@pension-stay/agents/*": ["../../packages/agents/src/*"]
+    },
+    "strict": true,
+    "allowJs": true,
+    "noEmit": true,
+    "jsx": "preserve",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "next.config.js",
+    "next.config.mjs",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}

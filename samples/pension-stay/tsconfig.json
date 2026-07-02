@@ -1,0 +1,3 @@
+{
+  "extends": "@pension-stay/typescript/base.json"
+}

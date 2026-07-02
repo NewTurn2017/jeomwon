@@ -1,0 +1,4 @@
+# ponytail: bun 1.3+ defaults to isolated linker; upstream(v1, bun 1.1) relied on hoisting.
+# Phase 1.5 upgrade may revisit with proper per-package declarations.
+[install]
+linker = "hoisted"
