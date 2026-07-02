@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -93,6 +94,12 @@ if (existsSync(emailSamplePath)) {
 	await writeProjectFile(emailSamplePath, renderReservationSample(pack));
 }
 
+formatGeneratedFiles(
+	[domainConfigPath, seedPath, emailSamplePath].filter((path) =>
+		existsSync(path),
+	),
+);
+
 console.log(`Injected domain pack: ${pack.domainKey}`);
 console.log(`Wrote ${domainConfigPath}`);
 console.log(`Wrote ${seedPath}`);
@@ -112,6 +119,35 @@ async function readJson(path) {
 async function writeProjectFile(path, content) {
 	await mkdir(dirname(path), { recursive: true });
 	await writeFile(path, `${content.trim()}\n`, "utf8");
+}
+
+// Generated TS is emitted one-property-per-line; biome's formatter (project
+// config, enforced by the email package `lint`) rewraps any line over its print
+// width, so long copy strings would otherwise fail `bun run lint` on a fresh
+// project. Run the project formatter here so injected files are lint-clean at
+// rest. cwd = targetDir so biome resolves the project biome.json (2-space).
+function formatGeneratedFiles(paths) {
+	if (paths.length === 0) {
+		return;
+	}
+	const localBiome = join(targetDir, "node_modules/.bin/biome");
+	// `bunx biome` resolves the unrelated npm package named `biome`, not the
+	// formatter, so the fallback must name the scoped package explicitly.
+	const attempts = existsSync(localBiome)
+		? [[localBiome, ["format", "--write", ...paths]]]
+		: [
+				["bunx", ["--offline", "@biomejs/biome", "format", "--write", ...paths]],
+				["bunx", ["@biomejs/biome", "format", "--write", ...paths]],
+			];
+	for (const [command, args] of attempts) {
+		const result = spawnSync(command, args, { cwd: targetDir, stdio: "ignore" });
+		if (result.status === 0) {
+			return;
+		}
+	}
+	console.warn(
+		"WARN: could not run biome to format generated files. Run `bun run format` in the project after `bun setup`.",
+	);
 }
 
 function validateDomainPack(value) {
