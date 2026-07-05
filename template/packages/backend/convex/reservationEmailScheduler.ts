@@ -1,4 +1,4 @@
-import type { ReservationEmailKind } from "@v1/email/reservation";
+import type { ReservationEmailKind } from "@jeomwon/email/reservation";
 import { domainConfig } from "../domain.config";
 import type { PublicContext } from "../src/agent-contract";
 import { internal } from "./_generated/api";

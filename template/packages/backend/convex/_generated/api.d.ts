@@ -27,7 +27,6 @@ import type * as reservationEmailScheduler from "../reservationEmailScheduler.js
 import type * as subscriptions from "../subscriptions.js";
 import type * as users from "../users.js";
 import type * as utils_validators from "../utils/validators.js";
-import type * as web from "../web.js";
 
 import type {
   ApiFromModules,
@@ -55,7 +54,6 @@ declare const fullApi: ApiFromModules<{
   subscriptions: typeof subscriptions;
   users: typeof users;
   "utils/validators": typeof utils_validators;
-  web: typeof web;
 }>;
 
 /**

@@ -5,7 +5,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-} from "@v1/ui/select";
+} from "@jeomwon/ui/select";
 import { Languages } from "lucide-react";
 import { useChangeLocale, useCurrentLocale } from "@/locales/client";
 
@@ -25,7 +25,7 @@ export function LanguageSwitcher() {
 
   return (
     <Select value={locale} onValueChange={changeLocale}>
-      <SelectTrigger className="h-6 rounded border-primary/20 bg-secondary !px-2 hover:border-primary/40">
+      <SelectTrigger className="h-6 rounded border-border bg-muted !px-2 hover:border-primary/40">
         <div className="flex items-start gap-2">
           <Languages className="h-[14px] w-[14px]" />
           <span className="text-xs font-medium">{formatLanguage(locale)}</span>
@@ -36,7 +36,7 @@ export function LanguageSwitcher() {
           <SelectItem
             key={value}
             value={value}
-            className="text-sm font-medium text-primary/60"
+            className="font-medium text-muted-foreground text-sm"
           >
             {text}
           </SelectItem>

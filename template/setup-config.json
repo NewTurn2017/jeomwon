@@ -228,22 +228,6 @@
       ],
       "required": false,
       "additionalInstructions": ["Use Polar Sandbox while developing."]
-    },
-    {
-      "id": "cal-com",
-      "kind": "local-env",
-      "title": "Cal.com",
-      "description": "Optional public booking link for the /talk-to-us page.",
-      "variables": [
-        {
-          "name": "NEXT_PUBLIC_CAL_LINK",
-          "projects": ["web"],
-          "details": "Optional Cal.com link such as https://cal.com/yourusername.",
-          "required": false,
-          "secret": false
-        }
-      ],
-      "required": false
     }
   ]
 }

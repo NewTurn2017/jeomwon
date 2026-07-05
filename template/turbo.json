@@ -14,13 +14,13 @@
       "dependsOn": ["^topo"]
     },
     "build": {
-      "env": ["RESEND_API_KEY", "LOOPS_ENDPOINT", "LOOPS_API_KEY"],
+      "env": ["RESEND_API_KEY"],
       "inputs": ["$TURBO_DEFAULT$", ".env"],
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**", "next-env.d.ts", ".expo/**"]
     },
-    "@v1/email#build": {
-      "env": ["RESEND_API_KEY", "LOOPS_ENDPOINT", "LOOPS_API_KEY"],
+    "@jeomwon/email#build": {
+      "env": ["RESEND_API_KEY"],
       "inputs": ["$TURBO_DEFAULT$", ".env"],
       "dependsOn": ["^build"],
       "outputs": []

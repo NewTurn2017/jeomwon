@@ -1,4 +1,4 @@
-import { domainConfig } from "@v1/backend/domain.config";
+import { domainConfig } from "@jeomwon/backend/domain.config";
 import { notFound } from "next/navigation";
 
 export default async function BillingSettingsPage() {

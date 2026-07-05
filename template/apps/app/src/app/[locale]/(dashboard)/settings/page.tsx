@@ -1,16 +1,16 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
+import { api } from "@jeomwon/backend/convex/_generated/api";
+import type { Id } from "@jeomwon/backend/convex/_generated/dataModel";
+import * as validators from "@jeomwon/backend/convex/utils/validators";
+import { Button } from "@jeomwon/ui/button";
+import { Input } from "@jeomwon/ui/input";
+import type { ConvexUploadResponse } from "@jeomwon/ui/upload-input";
+import { UploadInput } from "@jeomwon/ui/upload-input";
+import { useDoubleCheck } from "@jeomwon/ui/utils";
 import { useForm } from "@tanstack/react-form";
 import { zodValidator } from "@tanstack/zod-form-adapter";
-import { api } from "@v1/backend/convex/_generated/api";
-import type { Id } from "@v1/backend/convex/_generated/dataModel";
-import * as validators from "@v1/backend/convex/utils/validators";
-import { Button } from "@v1/ui/button";
-import { Input } from "@v1/ui/input";
-import type { ConvexUploadResponse } from "@v1/ui/upload-input";
-import { UploadInput } from "@v1/ui/upload-input";
-import { useDoubleCheck } from "@v1/ui/utils";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { Upload } from "lucide-react";
 import Image from "next/image";
@@ -63,13 +63,13 @@ export default function DashboardSettings() {
   return (
     <div className="flex h-full w-full flex-col gap-6">
       {/* Avatar */}
-      <div className="flex w-full flex-col items-start rounded-lg border border-border bg-card">
+      <section className="flex w-full flex-col items-start rounded-lg border border-border bg-card">
         <div className="flex w-full items-start justify-between rounded-lg p-6">
           <div className="flex flex-col gap-2">
-            <h2 className="text-xl font-medium text-primary">
+            <h2 className="font-semibold text-card-foreground text-xl">
               {t("avatar.title")}
             </h2>
-            <p className="text-sm font-normal text-primary/60">
+            <p className="text-muted-foreground text-sm">
               {t("avatar.description")}
             </p>
           </div>
@@ -87,10 +87,10 @@ export default function DashboardSettings() {
                 height={80}
               />
             ) : (
-              <div className="h-20 w-20 rounded-full bg-gradient-to-br from-lime-400 from-10% via-cyan-300 to-blue-500" />
+              <div className="h-20 w-20 rounded-full border border-border bg-muted" />
             )}
             <div className="absolute z-10 hidden h-full w-full items-center justify-center bg-primary/40 group-hover:flex">
-              <Upload className="h-6 w-6 text-secondary" />
+              <Upload className="h-6 w-6 text-primary-foreground" />
             </div>
           </label>
           <UploadInput
@@ -104,8 +104,8 @@ export default function DashboardSettings() {
             onUploadComplete={handleUpdateUserImage}
           />
         </div>
-        <div className="flex min-h-14 w-full items-center justify-between rounded-lg rounded-t-none border-t border-border bg-secondary px-6 dark:bg-card">
-          <p className="text-sm font-normal text-primary/60">
+        <div className="flex min-h-14 w-full items-center justify-between rounded-lg rounded-t-none border-border border-t bg-muted px-6">
+          <p className="text-muted-foreground text-sm">
             {t("avatar.uploadHint")}
           </p>
           {user.avatarUrl && (
@@ -121,7 +121,7 @@ export default function DashboardSettings() {
             </Button>
           )}
         </div>
-      </div>
+      </section>
 
       {/* Username */}
       <form
@@ -134,9 +134,11 @@ export default function DashboardSettings() {
       >
         <div className="flex w-full flex-col gap-4 rounded-lg p-6">
           <div className="flex flex-col gap-2">
-            <h2 className="text-xl font-medium text-primary">Your Username</h2>
-            <p className="text-sm font-normal text-primary/60">
-              This is your username. It will be displayed on your profile.
+            <h2 className="font-semibold text-card-foreground text-xl">
+              {t("username.title")}
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              {t("username.description")}
             </p>
           </div>
           <usernameForm.Field
@@ -147,7 +149,7 @@ export default function DashboardSettings() {
           >
             {(field) => (
               <Input
-                placeholder="Username"
+                placeholder={t("username.placeholder")}
                 autoComplete="off"
                 required
                 value={field.state.value}
@@ -166,28 +168,28 @@ export default function DashboardSettings() {
             </p>
           )}
         </div>
-        <div className="flex min-h-14 w-full items-center justify-between rounded-lg rounded-t-none border-t border-border bg-secondary px-6 dark:bg-card">
-          <p className="text-sm font-normal text-primary/60">
-            Please use 32 characters at maximum.
+        <div className="flex min-h-14 w-full items-center justify-between rounded-lg rounded-t-none border-border border-t bg-muted px-6">
+          <p className="text-muted-foreground text-sm">
+            {t("username.maxLengthHint")}
           </p>
           <Button type="submit" size="sm">
-            Save
+            {t("username.saveButton")}
           </Button>
         </div>
       </form>
 
       {/* Delete Account */}
-      <div className="flex w-full flex-col items-start rounded-lg border border-destructive bg-card">
+      <section className="flex w-full flex-col items-start rounded-lg border border-destructive/40 bg-card">
         <div className="flex flex-col gap-2 p-6">
-          <h2 className="text-xl font-medium text-primary">
+          <h2 className="font-semibold text-card-foreground text-xl">
             {t("deleteAccount.title")}
           </h2>
-          <p className="text-sm font-normal text-primary/60">
+          <p className="text-muted-foreground text-sm">
             {t("deleteAccount.description")}
           </p>
         </div>
-        <div className="flex min-h-14 w-full items-center justify-between rounded-lg rounded-t-none border-t border-border bg-red-500/10 px-6 dark:bg-red-500/10">
-          <p className="text-sm font-normal text-primary/60">
+        <div className="flex min-h-14 w-full items-center justify-between rounded-lg rounded-t-none border-border border-t bg-destructive/10 px-6">
+          <p className="text-muted-foreground text-sm">
             {t("deleteAccount.warning")}
           </p>
           <Button
@@ -202,7 +204,7 @@ export default function DashboardSettings() {
               : t("deleteAccount.deleteButton")}
           </Button>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { domainConfig } from "@v1/backend/domain.config";
+import { domainConfig } from "@jeomwon/backend/domain.config";
 import type {
   AgentName,
   AvailabilitySearchArgs,
@@ -12,9 +12,9 @@ import type {
   PublicSlot,
   PublicThreadState,
   RescheduleArgs,
-} from "@v1/backend/src/agent-contract";
-import { normalizeConvexArgs } from "@v1/backend/src/boundary";
-import { jeomwonConvex } from "@v1/backend/src/convex-refs";
+} from "@jeomwon/backend/src/agent-contract";
+import { normalizeConvexArgs } from "@jeomwon/backend/src/boundary";
+import { jeomwonConvex } from "@jeomwon/backend/src/convex-refs";
 import { ConvexHttpClient } from "convex/browser";
 
 export type AgentRuntimeMode = "mock" | "openai";

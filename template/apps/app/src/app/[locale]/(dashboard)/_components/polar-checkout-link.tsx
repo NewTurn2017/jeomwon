@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckoutLink } from "@convex-dev/polar/react";
-import { api } from "@v1/backend/convex/_generated/api";
+import { api } from "@jeomwon/backend/convex/_generated/api";
 
 export function PolarCheckoutLink({
   children,

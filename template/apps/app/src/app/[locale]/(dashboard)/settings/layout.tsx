@@ -1,4 +1,4 @@
-import { domainConfig } from "@v1/backend/domain.config";
+import { domainConfig } from "@jeomwon/backend/domain.config";
 import { I18nProviderClient } from "@/locales/client";
 import { SettingsLayoutContainer } from "./settings-layout-container";
 

@@ -1,9 +1,17 @@
 {
-  "extends": "@v1/typescript/nextjs.json",
+  "extends": "../../tooling/typescript/nextjs.json",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@jeomwon/backend": ["../../packages/backend"],
+      "@jeomwon/backend/*": ["../../packages/backend/*"],
+      "@jeomwon/email/reservation": [
+        "../../packages/email/src/reservation.tsx"
+      ],
+      "@jeomwon/ui/globals.css": ["../../packages/ui/src/globals.css"],
+      "@jeomwon/ui/utils": ["../../packages/ui/src/utils/index.ts"],
+      "@jeomwon/ui/*": ["../../packages/ui/src/components/*"]
     },
     "strict": true
   },

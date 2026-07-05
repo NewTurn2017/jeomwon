@@ -1,9 +1,7 @@
-import "@v1/ui/globals.css";
+import "@jeomwon/ui/globals.css";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
-import { TooltipProvider } from "@v1/ui/tooltip";
-import { cn } from "@v1/ui/utils";
-import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
+import { TooltipProvider } from "@jeomwon/ui/tooltip";
+import { cn } from "@jeomwon/ui/utils";
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import { I18nProviderClient } from "@/locales/client";
@@ -33,12 +31,7 @@ export default async function RootLayout({
   return (
     <ConvexAuthNextjsServerProvider>
       <html lang={locale} suppressHydrationWarning>
-        <body
-          className={cn(
-            `${GeistSans.variable} ${GeistMono.variable}`,
-            "antialiased",
-          )}
-        >
+        <body className={cn("font-sans antialiased")}>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"

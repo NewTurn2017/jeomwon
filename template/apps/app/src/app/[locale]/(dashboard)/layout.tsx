@@ -1,6 +1,6 @@
 import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
-import { api } from "@v1/backend/convex/_generated/api";
-import { domainConfig } from "@v1/backend/domain.config";
+import { api } from "@jeomwon/backend/convex/_generated/api";
+import { domainConfig } from "@jeomwon/backend/domain.config";
 import { fetchQuery, preloadQuery } from "convex/nextjs";
 import { redirect } from "next/navigation";
 import { Navigation } from "./_components/navigation";
@@ -20,7 +20,7 @@ export default async function Layout({
     ? await preloadQuery(api.subscriptions.listAllProducts, {}, { token })
     : null;
   return (
-    <div className="flex min-h-[100vh] w-full flex-col bg-secondary dark:bg-black">
+    <div className="flex min-h-[100vh] w-full flex-col bg-muted/40">
       <Navigation
         isPolarEnabled={domainConfig.features.polar}
         preloadedUser={preloadedUser}

@@ -78,7 +78,7 @@ if (existsSync(targetDir)) {
 
 await mkdir(targetDir, { recursive: true });
 await copyTemplate(TEMPLATE_ROOT, targetDir);
-await rewriteProject(targetDir, slug, projectName);
+await rewriteProject(targetDir, slug);
 
 console.log(`Scaffolded ${projectName}`);
 console.log(`Target: ${targetDir}`);
@@ -122,7 +122,7 @@ function shouldExclude(name) {
 	return EXCLUDED_NAMES.has(name) || name === ".env.local";
 }
 
-async function rewriteProject(root, slugValue, displayName) {
+async function rewriteProject(root, slugValue) {
 	const files = await listFiles(root);
 
 	for (const file of files) {
@@ -133,14 +133,8 @@ async function rewriteProject(root, slugValue, displayName) {
 		let text = await readFile(file, "utf8");
 		const original = text;
 		text = text
-			.replaceAll("@v1/", `@${slugValue}/`)
-			.replaceAll('"name": "v1"', `"name": "${slugValue}"`)
-			.replaceAll("<b>Create v1</b>", `<b>${escapeHtml(displayName)}</b>`)
-			.replaceAll("Create v1", displayName)
-			.replaceAll("new v1 project", `new ${displayName} project`)
-			.replaceAll("v1 project", `${displayName} project`)
-			.replaceAll("cd v1", `cd ${slugValue}`)
-			.replaceAll("get-convex/v1 v1", `get-convex/v1 ${slugValue}`);
+			.replaceAll("@jeomwon/", `@${slugValue}/`)
+			.replaceAll('"name": "jeomwon-app"', `"name": "${slugValue}"`);
 
 		if (text !== original) {
 			await writeFile(file, text, "utf8");
@@ -190,12 +184,4 @@ function slugify(value) {
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-+|-+$/g, "")
 		.slice(0, 48);
-}
-
-function escapeHtml(value) {
-	return value
-		.replaceAll("&", "&amp;")
-		.replaceAll("<", "&lt;")
-		.replaceAll(">", "&gt;")
-		.replaceAll('"', "&quot;");
 }

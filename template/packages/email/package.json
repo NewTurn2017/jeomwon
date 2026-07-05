@@ -1,5 +1,5 @@
 {
-  "name": "@v1/email",
+  "name": "@jeomwon/email",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -25,7 +25,7 @@
     "react-email": "^6.0.0"
   },
   "devDependencies": {
-    "@v1/typescript": "workspace:*",
+    "@jeomwon/typescript": "workspace:*",
     "@react-email/ui": "^6.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

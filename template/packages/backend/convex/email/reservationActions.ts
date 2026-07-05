@@ -3,7 +3,7 @@
 import {
   type ReservationEmailKind,
   renderReservationEmail,
-} from "@v1/email/reservation";
+} from "@jeomwon/email/reservation";
 import { v } from "convex/values";
 import { domainConfig } from "../../domain.config";
 import { internal } from "../_generated/api";

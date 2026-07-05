@@ -3,13 +3,26 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-} from "@v1/ui/select";
-import { cn } from "@v1/ui/utils";
+} from "@jeomwon/ui/select";
+import { cn } from "@jeomwon/ui/utils";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useScopedI18n } from "@/locales/client";
 
 export function ThemeSwitcher({ triggerClass }: { triggerClass?: string }) {
+  const t = useScopedI18n("navigation");
   const { theme: currentTheme, setTheme, themes } = useTheme();
+
+  function formatTheme(theme: string | undefined) {
+    if (theme === "light") {
+      return t("themeOptions.light");
+    }
+    if (theme === "dark") {
+      return t("themeOptions.dark");
+    }
+    return t("themeOptions.system");
+  }
+
   return (
     <Select
       value={currentTheme}
@@ -17,7 +30,7 @@ export function ThemeSwitcher({ triggerClass }: { triggerClass?: string }) {
     >
       <SelectTrigger
         className={cn(
-          "h-6 rounded border-primary/20 bg-secondary !px-2 hover:border-primary/40",
+          "h-6 rounded border-border bg-muted !px-2 hover:border-primary/40",
           triggerClass,
         )}
       >
@@ -30,8 +43,8 @@ export function ThemeSwitcher({ triggerClass }: { triggerClass?: string }) {
             <Monitor className="h-[14px] w-[14px]" />
           )}
           {currentTheme && (
-            <span className="text-xs font-medium">
-              {currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1)}
+            <span className="font-medium text-xs">
+              {formatTheme(currentTheme)}
             </span>
           )}
         </div>
@@ -41,9 +54,9 @@ export function ThemeSwitcher({ triggerClass }: { triggerClass?: string }) {
           <SelectItem
             key={theme}
             value={theme}
-            className={`text-sm font-medium text-primary/60 ${theme === currentTheme && "text-primary"}`}
+            className={`font-medium text-muted-foreground text-sm ${theme === currentTheme && "text-foreground"}`}
           >
-            {theme && theme.charAt(0).toUpperCase() + theme.slice(1)}
+            {formatTheme(theme)}
           </SelectItem>
         ))}
       </SelectContent>

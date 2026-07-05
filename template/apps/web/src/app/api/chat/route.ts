@@ -2,13 +2,13 @@ import {
   createConvexAgentToolbox,
   normalizeRuntimeMode,
   runAgentTurn,
-} from "@v1/agents";
+} from "@jeomwon/agents";
 import {
   BoundaryError,
   invalidRequest,
   normalizeConvexArgs,
   readStringField,
-} from "@v1/backend/src/boundary";
+} from "@jeomwon/backend/src/boundary";
 import type { NextRequest } from "next/server";
 import { env } from "@/env";
 
