@@ -6,12 +6,14 @@
 
 AI 점원이 가게 프런트를 지킵니다: 고객은 챗으로 예약·변경·취소하고, 불변식(슬롯 충돌, 홀드, 취소 가능 시간)은 Convex mutation 안에서 강제되며, 사장님은 실시간 대시보드로 전 과정을 지켜봅니다.
 
+생성되는 UI는 그대로 상용 가능한 수준입니다: 라이트 톤의 도메인 인식 랜딩(서비스·영업시간·정책을 `domain.config`에서 렌더), 카카오톡 스타일 챗 위젯(좌우 말풍선, 한국어 상태 라벨, IME 안전 입력 — 원시 enum이나 API 에러를 고객에게 노출하지 않음), 그리고 행동 순서로 배치된 한국어 운영자 대시보드(에스컬레이션 큐 승인/유지 → 예약 목록 → 에이전트 활동 타임라인).
+
 ## 빠른 시작
 
 ### Claude Code로 (권장)
 
 ```bash
-git clone <this-repo> jeomwon && cd jeomwon
+git clone https://github.com/NewTurn2017/jeomwon.git && cd jeomwon
 ln -sfn "$(pwd)/skill" ~/.claude/skills/jeomwon
 ```
 
@@ -34,11 +36,11 @@ bun dev          # web + app + backend 병렬 실행
 
 | 경로 | 설명 |
 |---|---|
-| `template/` | get-convex/v1 핀 고정 패치 벤더링(`template/UPSTREAM.md` 참고) + CS AI 코어 내장: `domain.config.ts` 주도 에이전트(triage + 4), 반응형 챗 위젯, 관리자 대시보드(캘린더/좌석 그리드), React Email 4종, `bun setup` 위저드 |
+| `template/` | 프로젝트 원본, jeomwon으로 풀 리브랜드 완료(get-convex/v1에서 파생, 핀은 `docs/upstream-report.md`에 기록): `domain.config.ts` 주도 에이전트(triage + 4), 카카오톡 스타일 챗 위젯, 운영자 대시보드(캘린더/좌석 그리드 위젯), React Email 4종, `bun setup` 위저드 |
 | `skill/` | Claude Code 스킬: `SKILL.md` fast path, `REFERENCE.md` 방법론, `EXAMPLES.md` 도메인 팩(미용실, PC방, 도서관, 펜션, 진료, generic), `scripts/{scaffold,inject,verify}.mjs` |
-| `samples/pension-stay/` | 셀프 증명: 킷으로 실제 생성한 펜션(일 단위 숙박) 프로젝트, template 수정과 동기화 유지 |
+| `samples/pension-stay/` | 셀프 증명: 킷으로 실제 생성한 펜션(일 단위 숙박) 프로젝트. 주기적으로 재생성하므로 최신 template보다 뒤처질 수 있음 |
 | `docs/plan.md` | 살아있는 계획서 — 아키텍처 결정, 페이즈 로그, 백로그 |
-| `upstream/` | get-convex/v1 읽기 전용 참조 클론 (gitignore 대상, 핀은 `template/UPSTREAM.md`에 기록) |
+| `upstream/` | get-convex/v1 읽기 전용 참조 클론 (gitignore 대상, 핀은 `docs/upstream-report.md`에 기록) |
 
 ## QA 게이트
 
@@ -65,4 +67,4 @@ QA는 3021/3022 포트를 사용하고, Next dev 접속은 반드시 `localhost`
 
 ## 상태
 
-로드맵 Phase 0~7 완료(template QA 8/8, 펜션 샘플 QA 8/8, 브라우저 실증 포함). 잔여 백로그: 킷 배포 채널. 라이선스: `template/LICENSE.md`는 upstream 라이선스를 따르며, 킷 루트 라이선스는 아직 미정입니다.
+로드맵 Phase 0~7 완료 + UI 전면 재설계 완료(스타터 브랜딩 전면 제거, 재설계 후 template QA 8/8과 양 앱 브라우저 실증 확인). 스킬 단독 설치는 scaffold의 원격 template 폴백으로 지원되며, 실 GitHub 다운로드는 레포 공개 시점부터 동작합니다. 잔여 백로그: 레포 공개 전환, 전 과정 리허설, `samples/pension-stay` 재생성. 라이선스: `template/LICENSE.md`는 upstream 라이선스를 따르며, 킷 루트 라이선스는 아직 미정입니다.
