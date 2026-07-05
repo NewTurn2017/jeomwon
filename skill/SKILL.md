@@ -32,7 +32,7 @@ The interview must converge to exactly one domain pack JSON object. Its shape is
 
 ## Script Contract
 
-- `scaffold.mjs` copies `template/` into a target directory, excludes dependency/build/env artifacts, replaces `@v1/` with the project npm scope, and prints the next commands.
+- `scaffold.mjs` copies `template/` into a target directory, excludes dependency/build/env artifacts, replaces `@jeomwon/` with the project npm scope, and prints the next commands.
 - `inject.mjs` validates the domain pack JSON, writes `packages/backend/domain.config.ts`, and regenerates the resource seed mutation.
 - `verify.mjs` runs offline install, typecheck, lint, build, and optionally QA when `JEOMWON_QA_BASE_URL` points at a running generated web app.
 
