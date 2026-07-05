@@ -17,6 +17,8 @@ ln -sfn "$(pwd)/skill" ~/.claude/skills/jeomwon
 
 이후 Claude Code 세션에서 도메인을 설명하세요 (예: "PC방 좌석 예약 시스템 만들어줘"). 스킬이 인터뷰하고, `template/`에서 프로젝트를 스캐폴드하고, 도메인 팩을 주입한 뒤 검증 게이트를 실행합니다.
 
+시작 경로는 두 가지입니다. 레포 전체를 클론한 경우 `scaffold.mjs`는 로컬 `template/` 디렉터리를 그대로 사용합니다. `skill/`만 설치한 경우 로컬 `template/`이 없으면 `JEOMWON_TEMPLATE_REF`(기본 `main`)의 GitHub tarball을 새로 내려받습니다. 오프라인 또는 사설 네트워크 검증에는 `JEOMWON_TEMPLATE_ARCHIVE=/path/to/jeomwon.tar.gz`를 지정하세요.
+
 ### Claude Code 없이
 
 생성된 프로젝트(그리고 `template/` 자체)에는 자급자족 셋업 위저드가 내장돼 있습니다:

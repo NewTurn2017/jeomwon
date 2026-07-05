@@ -17,6 +17,8 @@ ln -sfn "$(pwd)/skill" ~/.claude/skills/jeomwon
 
 Then in a Claude Code session, describe your domain (e.g. "PC방 좌석 예약 시스템 만들어줘"). The skill interviews you, scaffolds a project from `template/`, injects a domain pack, and runs the verification gates.
 
+You can start from either a full repo clone or a skill-only install. In a repo clone, `scaffold.mjs` uses the local `template/` directory. With only `skill/` installed, `scaffold.mjs` downloads a fresh GitHub tarball for `JEOMWON_TEMPLATE_REF` (default `main`); set `JEOMWON_TEMPLATE_ARCHIVE=/path/to/jeomwon.tar.gz` for offline or private-network scaffolds.
+
 ### Without Claude Code
 
 The generated project (and `template/` itself) ships a self-contained setup wizard:

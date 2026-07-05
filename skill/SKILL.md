@@ -10,7 +10,9 @@ Use this skill to turn one operational reservation domain into a generated Jeomw
 ## Fast Path
 
 1. Interview for a single domain pack JSON.
-2. Run `bun skill/scripts/scaffold.mjs <target-dir> <project-name>` from the kit repo.
+2. Scaffold from one of two starts:
+   - Repo clone: run `bun skill/scripts/scaffold.mjs <target-dir> <project-name>` from the kit repo; it uses local `template/`.
+   - Skill-only install: run the installed `scripts/scaffold.mjs`; when local `template/` is absent it downloads the GitHub tarball (`JEOMWON_TEMPLATE_REF`, default `main`; `JEOMWON_TEMPLATE_ARCHIVE` for offline tarballs).
 3. Save the domain pack JSON and run `bun skill/scripts/inject.mjs <target-dir> <domain-pack.json>`.
 4. Tell the user to run `bun setup` inside the generated project for Convex, Google OAuth, Resend, OpenAI, and optional Polar.
 5. Run `bun skill/scripts/verify.mjs <target-dir>` when local dependencies are cached or install is allowed. Run with `JEOMWON_QA_BASE_URL=http://localhost:3001` only after Convex/web are running.
