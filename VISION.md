@@ -60,7 +60,7 @@
 
 ## 4. 로드맵 (마일스톤 초안)
 
-- **M0 — 기반 안정화**: 대기 커밋 정리 · **issue C 해결**(zod 충돌 풀고 실 LLM 추론을 옵션으로 배선; 결정론=기본/QA 경로 유지) · QA 하니스 business-hours-aware 견고화 · 현행 기능 세트 문서화.
+- **M0 — 기반 안정화 ✅**: 대기 커밋 정리(M0.1) · **issue C 해결**(M0.2 — zod 충돌 풀고 실 LLM 추론을 옵션으로 배선; 결정론=기본/QA 경로 유지) · QA 하니스 business-hours-aware 견고화(M0.3) · 현행 기능 세트 문서화(M0.4 — [FEATURES.md](./FEATURES.md)).
 - **M1 — 코어 모듈화**: 예약 수명주기를 경계 있는 모듈로 정리 + 팩 토글 넘어서는 **feature registry/조합 시스템**.
 - **M2 — 스킬 묶음**: 에이전트가 불변식 준수하며 기능/툴/정책을 **코드로** 확장하는 스킬 suite.
 - **M3 — 라이브러리 primitive**: availability engine · hold/lock · policy engine · widget kit을 재사용 라이브러리로 문서화.
