@@ -15,7 +15,9 @@ import type {
 } from "@jeomwon/backend/src/agent-contract";
 import { normalizeConvexArgs } from "@jeomwon/backend/src/boundary";
 import { jeomwonConvex } from "@jeomwon/backend/src/convex-refs";
+import { Agent, run, tool } from "@openai/agents";
 import { ConvexHttpClient } from "convex/browser";
+import { z } from "zod";
 
 export type AgentRuntimeMode = "mock" | "openai";
 
@@ -139,7 +141,7 @@ export async function runAgentTurn(input: {
   tools: AgentToolbox;
 }): Promise<ChatTurnResult> {
   if (input.runtimeMode === "openai") {
-    await loadOpenAiAgentsSdk();
+    return await runOpenAiTurn(input.request, input.tools);
   }
 
   return await runDeterministicTurn(input.request, input.tools);
@@ -156,8 +158,18 @@ async function runDeterministicTurn(
   tools: AgentToolbox,
 ): Promise<ChatTurnResult> {
   await tools.logUserMessage(request);
-
   const initialState = await tools.publicState(request.threadId);
+  return await runDeterministicCore(request, tools, initialState);
+}
+
+// Safety guardrails (privacy / relevance / confirmation) run deterministically
+// in BOTH runtimes. A non-null result short-circuits before any LLM reasoning,
+// so the openai runtime inherits the exact same guarantees as the mock engine.
+async function runGuardrailChecks(
+  request: ChatRequest,
+  tools: AgentToolbox,
+  initialState: PublicThreadState,
+): Promise<ChatTurnResult | null> {
   const text = request.message.trim();
 
   if (isPrivacyRequest(text)) {
@@ -228,6 +240,21 @@ async function runDeterministicTurn(
       tools,
     );
   }
+
+  return null;
+}
+
+async function runDeterministicCore(
+  request: ChatRequest,
+  tools: AgentToolbox,
+  initialState: PublicThreadState,
+): Promise<ChatTurnResult> {
+  const guardrail = await runGuardrailChecks(request, tools, initialState);
+  if (guardrail) {
+    return guardrail;
+  }
+
+  const text = request.message.trim();
 
   if (isCancelRequest(text)) {
     return await handleCancel(request.threadId, text, initialState, tools);
@@ -1077,19 +1104,312 @@ function parsePreferredStartMs(text: string) {
   return null;
 }
 
-async function loadOpenAiAgentsSdk() {
-  const importModule = new Function(
-    "specifier",
-    "return import(specifier)",
-  ) as (specifier: string) => Promise<unknown>;
+// ── OpenAI Agents SDK runtime (hybrid) ────────────────────────────────────
+// Real LLM inference via the OpenAI Agents SDK. Safety guardrails still run
+// deterministically (see runGuardrailChecks); the LLM only reasons over the
+// booking flow, driving Convex through tools bound to the same AgentToolbox.
+// The deterministic engine stays the default runtime AND the fallback here, so
+// a model/API failure degrades to a working turn instead of a 500.
+// Reads OPENAI_API_KEY from the environment (picked up by the SDK). Override the
+// model with OPENAI_AGENT_MODEL; otherwise the SDK default is used.
+
+async function runOpenAiTurn(
+  request: ChatRequest,
+  tools: AgentToolbox,
+): Promise<ChatTurnResult> {
+  await tools.logUserMessage(request);
+  const initialState = await tools.publicState(request.threadId);
+
+  const guardrail = await runGuardrailChecks(request, tools, initialState);
+  if (guardrail) {
+    return guardrail;
+  }
 
   try {
-    await importModule("@openai/agents");
+    return await runLlmTurn(request, tools, initialState);
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Unknown OpenAI Agents SDK error";
-    throw new Error(`openai_agents_sdk_unavailable: ${message}`);
+    console.warn(
+      `[jeomwon] openai runtime failed, falling back to deterministic: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return await runDeterministicCore(request, tools, initialState);
   }
+}
+
+async function runLlmTurn(
+  request: ChatRequest,
+  tools: AgentToolbox,
+  initialState: PublicThreadState,
+): Promise<ChatTurnResult> {
+  const activeAgent: { name: AgentName } = { name: "triage" };
+  const model = process.env.OPENAI_AGENT_MODEL;
+  const agent = new Agent({
+    name: domainConfig.storeName,
+    instructions: buildAgentInstructions(initialState),
+    tools: buildAgentTools(request.threadId, tools, activeAgent),
+    ...(model ? { model } : {}),
+  });
+
+  const result = await run(agent, request.message);
+  const reply =
+    (typeof result.finalOutput === "string" ? result.finalOutput.trim() : "") ||
+    domainConfig.copy.availabilityIntro;
+
+  await tools.logAssistantMessage({
+    threadId: request.threadId,
+    message: reply,
+    agent: activeAgent.name,
+    publicPayload: null,
+  });
+
+  const state = await tools.publicState(request.threadId);
+  return await finalize(
+    request.threadId,
+    reply,
+    activeAgent.name,
+    state.publicContext,
+    tools,
+  );
+}
+
+function buildAgentInstructions(state: PublicThreadState): string {
+  const ctx = state.publicContext;
+  const services = domainConfig.services
+    .map((service) => `${service.key}: ${service.label}`)
+    .join(", ");
+  const resources = domainConfig.resources
+    .map((resource) => `${resource.key}: ${resource.label}`)
+    .join(", ");
+  const suggested =
+    state.suggestedSlots.length > 0
+      ? state.suggestedSlots
+          .map(
+            (slot, index) =>
+              `${index + 1}. ${slot.timeWindow} / ${slot.resourceLabel} ` +
+              `(serviceKey=${slot.serviceKey}, resourceKey=${slot.resourceKey}, ` +
+              `startMs=${slot.startMs}, endMs=${slot.endMs})`,
+          )
+          .join("\n")
+      : "(아직 없음)";
+
+  return [
+    `너는 "${domainConfig.storeName}"의 예약 담당 AI 점원이다. 한국어로 간결하고 정중하게 답한다.`,
+    "역할: 고객의 예약 조회·홀드·확정·변경·취소를 돕는다.",
+    "",
+    "규칙:",
+    "- 예약 가능 시간은 반드시 find_availability 도구로 조회해 사실만 제시한다. 시간을 지어내지 않는다.",
+    "- 고객이 특정 시간을 고르면 hold_slot으로 임시 홀드를 만든다.",
+    "- confirm_reservation은 고객이 명시적으로 확정 의사를 밝힌 뒤에만 호출한다. 확인 없이 확정하지 않는다.",
+    "- 변경은 reschedule_reservation, 취소는 cancel_reservation, 조회는 lookup_reservation을 사용한다.",
+    "- 도구가 반환한 slot의 serviceKey·resourceKey·startMs·endMs 값을 그대로 다음 도구에 넘긴다.",
+    "- 운영 메모·내부 결정·리스크·원가 등 내부 정보는 절대 언급하지 않는다.",
+    `- 정책 요약: ${ctx.policySummary}`,
+    "",
+    `서비스(key: 라벨): ${services}`,
+    `리소스(key: 라벨): ${resources}`,
+    "",
+    "현재 대화 상태:",
+    `- 예약 번호: ${ctx.reservationId ?? "없음"}`,
+    `- 상태: ${ctx.status}`,
+    "- 최근 제시한 슬롯:",
+    suggested,
+  ].join("\n");
+}
+
+function buildAgentTools(
+  threadId: string,
+  tools: AgentToolbox,
+  activeAgent: { name: AgentName },
+) {
+  return [
+    tool({
+      name: "find_availability",
+      description:
+        "가능한 예약 시간을 조회해 고객에게 제시할 후보 슬롯을 반환한다. 예약을 잡기 전 반드시 먼저 호출한다.",
+      parameters: z.object({
+        serviceKey: z
+          .string()
+          .nullable()
+          .describe("서비스 key. 모르면 null (첫 서비스 사용)."),
+        resourceKey: z
+          .string()
+          .nullable()
+          .describe("리소스 key. 지정 없으면 null."),
+        whenHint: z
+          .string()
+          .nullable()
+          .describe("희망 시점 표현. 예: '3일 뒤', '내일'. 없으면 null."),
+      }),
+      execute: async ({ serviceKey, resourceKey, whenHint }) => {
+        const service =
+          domainConfig.services.find((item) => item.key === serviceKey) ??
+          domainConfig.services[0];
+        if (!service) {
+          return "등록된 서비스가 없습니다.";
+        }
+        const resource =
+          domainConfig.resources.find((item) => item.key === resourceKey) ??
+          null;
+        const availability = await tools.searchAvailability({
+          threadId,
+          serviceKey: service.key,
+          resourceKey: resource?.key ?? null,
+          preferredStartMs: parsePreferredStartMs(whenHint ?? ""),
+          count: 3,
+        });
+        await tools.recordAvailability({
+          threadId,
+          slots: availability.slots,
+          serviceLabel: service.label,
+          reservationId: null,
+        });
+        activeAgent.name = "availability";
+        return JSON.stringify(
+          availability.slots.map((slot, index) => ({
+            index: index + 1,
+            serviceKey: slot.serviceKey,
+            resourceKey: slot.resourceKey,
+            startMs: slot.startMs,
+            endMs: slot.endMs,
+            timeWindow: slot.timeWindow,
+            resourceLabel: slot.resourceLabel,
+          })),
+        );
+      },
+    }),
+    tool({
+      name: "hold_slot",
+      description:
+        "고객이 고른 시간으로 임시 홀드를 만든다. find_availability가 반환한 슬롯 필드를 그대로 넣는다.",
+      parameters: z.object({
+        serviceKey: z.string(),
+        resourceKey: z.string(),
+        startMs: z.number(),
+        endMs: z.number(),
+      }),
+      execute: async ({ serviceKey, resourceKey, startMs, endMs }) => {
+        const hold = await tools.createHold({
+          threadId,
+          displayName: null,
+          serviceKey,
+          resourceKey,
+          startMs,
+          endMs,
+        });
+        activeAgent.name = "reservation";
+        return JSON.stringify({
+          reservationId: hold.publicContext.reservationId,
+          status: hold.publicContext.status,
+          timeWindow: hold.publicContext.timeWindow,
+        });
+      },
+    }),
+    tool({
+      name: "confirm_reservation",
+      description:
+        "홀드된 예약을 확정한다. 고객이 확정 의사를 밝힌 뒤에만 호출한다.",
+      parameters: z.object({ reservationId: z.string() }),
+      execute: async ({ reservationId }) => {
+        try {
+          const confirmed = await tools.confirmReservation({
+            threadId,
+            reservationId,
+            confirmed: true,
+          });
+          activeAgent.name = "reservation";
+          return JSON.stringify({
+            reservationId: confirmed.publicContext.reservationId,
+            status: confirmed.publicContext.status,
+          });
+        } catch (error) {
+          return reservationOperationErrorReply(error, "confirm");
+        }
+      },
+    }),
+    tool({
+      name: "cancel_reservation",
+      description:
+        "예약을 취소한다. 취소창을 벗어나면 운영자 확인으로 에스컬레이션될 수 있다.",
+      parameters: z.object({ reservationId: z.string() }),
+      execute: async ({ reservationId }) => {
+        try {
+          const cancelled = await tools.cancelReservation({
+            threadId,
+            reservationId,
+            requestedAtMs: Date.now(),
+          });
+          activeAgent.name = cancelled.escalated ? "escalation" : "reservation";
+          return JSON.stringify({
+            status: cancelled.publicContext.status,
+            escalated: cancelled.escalated,
+          });
+        } catch (error) {
+          return reservationOperationErrorReply(error, "cancel");
+        }
+      },
+    }),
+    tool({
+      name: "reschedule_reservation",
+      description:
+        "확정된 예약을 다른 시간으로 변경한다. 새 슬롯은 find_availability로 먼저 조회한다.",
+      parameters: z.object({
+        reservationId: z.string(),
+        serviceKey: z.string(),
+        resourceKey: z.string(),
+        startMs: z.number(),
+        endMs: z.number(),
+      }),
+      execute: async ({
+        reservationId,
+        serviceKey,
+        resourceKey,
+        startMs,
+        endMs,
+      }) => {
+        try {
+          const rescheduled = await tools.rescheduleReservation({
+            threadId,
+            reservationId,
+            serviceKey,
+            resourceKey,
+            startMs,
+            endMs,
+            requestedAtMs: Date.now(),
+          });
+          activeAgent.name = "reservation";
+          return JSON.stringify({
+            status: rescheduled.publicContext.status,
+            timeWindow: rescheduled.publicContext.timeWindow,
+          });
+        } catch (error) {
+          return reservationOperationErrorReply(error, "reschedule");
+        }
+      },
+    }),
+    tool({
+      name: "lookup_reservation",
+      description: "예약 번호로 현재 예약 상태를 조회한다.",
+      parameters: z.object({ reservationId: z.string() }),
+      execute: async ({ reservationId }) => {
+        try {
+          const lookup = await tools.lookupReservation({
+            threadId,
+            reservationId,
+          });
+          activeAgent.name = "reservation";
+          const ctx = lookup.publicContext;
+          return JSON.stringify({
+            reservationId: ctx.reservationId,
+            serviceLabel: ctx.serviceLabel,
+            resourceLabel: ctx.resourceLabel,
+            timeWindow: ctx.timeWindow,
+            status: ctx.status,
+          });
+        } catch {
+          return "해당 예약 번호를 이 대화에서 찾을 수 없습니다.";
+        }
+      },
+    }),
+  ];
 }

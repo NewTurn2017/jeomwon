@@ -35,8 +35,7 @@
 - 리소스 4종(person/seat/room/unit) × slot 3종(minutes:30/hour/day) × 위젯 2종.
 
 ### 2.3 알려진 한계·버그 (이번 세션 발견)
-- **[C · 미해결] 실 LLM 챗이 죽는다** — `@openai/agents@0.12`(peer zod ^4) ↔ 고정 `zod 3.25.76` 비호환. "openai" 런타임이 SDK import에서 크래시(`undefined.type` @ zod/v3). 실 키 `bun dev` 챗 500.
-- **[설계 관찰] "real LLM chat"은 아직 미구현** — `runAgentTurn`은 mock/openai **둘 다 같은 결정론 엔진**을 돌리고, "openai"는 `loadOpenAiAgentsSdk()` **import 게이트만** 추가. 실제 LLM 추론은 안 물려 있음.
+- **[C · 해결 (M0.2)] 실 LLM 챗** — zod를 전역 v4로 올려(`@openai/agents@0.12` peer 충족) import 크래시 제거하고, `"openai"` 런타임에 OpenAI Agents SDK 실 추론을 배선. LLM이 tool(find/hold/confirm/cancel/reschedule/lookup)로 Convex 상태를 실제 구동. 관측: 실 키 3턴 예약(eligible→held→confirmed) 성공, fallback 없음. 결정론은 기본·QA·폴백으로 유지, 가드레일(privacy/relevance/confirmation)은 두 런타임 공통 결정론 선차단(방어심층).
 - **[QA 취약] 하니스가 business-hours-aware 아님** — `deriveInsideCancelOffset`("cancelWindow/2 시간 뒤")이 좁은 시간대/휴무일 팩에서 예약을 다음 창(>24h)으로 밀어 QA-2가 실행 시각에 따라 flaky.
 - **[스킬 범위] 스킬이 "설정 생성기"에 머묾** — SKILL.md Output Contract: *"Do not generate domain-specific code outside that pack; inject.mjs is the only path."* → **전문 기능을 코드로 만드는 경로가 스킬에 없다.** (북극성과의 가장 큰 갭)
 

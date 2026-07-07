@@ -31,7 +31,7 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "remeda": "^2.39.0",
-    "zod": "^3.25.76"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@jeomwon/typescript": "workspace:*",

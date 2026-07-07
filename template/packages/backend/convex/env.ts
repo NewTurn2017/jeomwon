@@ -3,12 +3,12 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
-    CONVEX_SITE_URL: z.string().url(),
+    CONVEX_SITE_URL: z.url(),
     POLAR_ORGANIZATION_TOKEN: z.optional(z.string().min(1)),
     POLAR_WEBHOOK_SECRET: z.optional(z.string().min(1)),
     RESEND_API_KEY: z.optional(z.string().min(1)),
-    RESEND_SENDER_EMAIL_AUTH: z.optional(z.string().email()),
-    SITE_URL: z.string().url(),
+    RESEND_SENDER_EMAIL_AUTH: z.optional(z.email()),
+    SITE_URL: z.url(),
     AUTH_GOOGLE_ID: z.string().min(1),
     AUTH_GOOGLE_SECRET: z.string().min(1),
   },
