@@ -47,8 +47,13 @@ export const sendReservationEmail = internalAction({
         },
       },
     });
+    // During QA (dev deployment env JEOMWON_QA_RESET=1) always capture instead
+    // of sending: keeps the 8-gate email check deterministic and never fires a
+    // real Resend send, so a production RESEND_API_KEY can stay configured.
+    const captureMode =
+      !env.RESEND_API_KEY || process.env.JEOMWON_QA_RESET === "1";
     const payload = {
-      mode: env.RESEND_API_KEY ? "sent" : "capture",
+      mode: captureMode ? "capture" : "sent",
       to: args.to,
       subject: content.subject,
       summary: content.summary,
@@ -56,7 +61,7 @@ export const sendReservationEmail = internalAction({
       template: args.kind,
     } as const;
 
-    if (!env.RESEND_API_KEY) {
+    if (captureMode) {
       await ctx.runMutation(
         internal.email.reservationEvents.recordReservationEmailEvent,
         {
