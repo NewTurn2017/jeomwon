@@ -5,6 +5,13 @@ import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
 import { parse as parseDotenv } from "dotenv";
 import { domainConfig } from "../packages/backend/domain.config";
+import {
+  alignToSlot,
+  isInsideCancelWindow,
+  isSlotAllowed,
+  serviceEndMs,
+  slotStepMs,
+} from "../packages/backend/convex/jeomwonLib";
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -13,7 +20,7 @@ type JsonRecord = { [key: string]: JsonValue };
 type QaResult = {
   id: number;
   name: string;
-  status: "PASS" | "FAIL";
+  status: "PASS" | "FAIL" | "SKIP";
   output: string[];
 };
 type QaResetResult = {
@@ -43,6 +50,8 @@ const forbiddenPublicMarkers = [
   "riskSignals",
   "costBasisCents",
 ];
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 const qaService = domainConfig.services[0];
 const qaServiceLabel = qaService?.label ?? "예약";
 const qaSlotSelectionMessage = slotSelectionRequest();
@@ -392,6 +401,17 @@ async function qaHappyPath(): Promise<QaResult> {
 }
 
 async function qaCancelWindow(): Promise<QaResult> {
+  if (!insideCancelFeasible()) {
+    return {
+      id: 2,
+      name: "cancelWindow 위반",
+      status: "SKIP",
+      output: [
+        "운영시간상 cancel-window 안쪽 예약이 불가능한 실행 시각 — escalation 검사 생략(결정론적).",
+      ],
+    };
+  }
+
   const threadId = `qa-cancel-${Date.now()}`;
   await postChat(threadId, insideCancelRequest);
   await postChat(threadId, qaSlotSelectionMessage);
@@ -613,18 +633,23 @@ async function qaEmailCaptureGate(): Promise<QaResult> {
     "reservation.cancelled",
   );
 
-  const escalatedThreadId = `qa-email-escalated-${Date.now()}`;
-  await createConfirmedReservation(escalatedThreadId, insideCancelRequest);
-  const escalatedState = await postChat(escalatedThreadId, "취소해줘");
-  assertRecord(escalatedState, "escalated email response");
-  assert(
-    readPath(escalatedState, ["publicContext", "status"]) === "escalated",
-    "email capture gate did not produce an escalation",
-  );
-  const escalated = await waitForEmailCapture(
-    escalatedThreadId,
-    "reservation.escalated",
-  );
+  // Escalation needs a reservation inside the cancel window; skip deterministically
+  // when the pack's open hours make that impossible at this run time.
+  let escalated: Awaited<ReturnType<typeof waitForEmailCapture>> | null = null;
+  if (insideCancelFeasible()) {
+    const escalatedThreadId = `qa-email-escalated-${Date.now()}`;
+    await createConfirmedReservation(escalatedThreadId, insideCancelRequest);
+    const escalatedState = await postChat(escalatedThreadId, "취소해줘");
+    assertRecord(escalatedState, "escalated email response");
+    assert(
+      readPath(escalatedState, ["publicContext", "status"]) === "escalated",
+      "email capture gate did not produce an escalation",
+    );
+    escalated = await waitForEmailCapture(
+      escalatedThreadId,
+      "reservation.escalated",
+    );
+  }
 
   const rescheduledThreadId = `qa-email-rescheduled-${Date.now()}`;
   await createConfirmedReservation(rescheduledThreadId, outsideCancelRequest);
@@ -659,7 +684,7 @@ async function qaEmailCaptureGate(): Promise<QaResult> {
       `escalatedScenario: ${insideCancelRequest}`,
       `confirmed: ${confirmed.subject}`,
       `cancelled: ${cancelled.subject}`,
-      `escalated: ${escalated.subject}`,
+      `escalated: ${escalated ? escalated.subject : "(생략 — 운영시간상 inside-window 불가)"}`,
       `rescheduled: ${rescheduled.subject}`,
     ],
   };
@@ -924,20 +949,75 @@ function koreanDirectionParticle(noun: string) {
   return finalConsonant === 0 || finalConsonant === 8 ? "로" : "으로";
 }
 
-function deriveInsideCancelOffset() {
-  const cancelWindowHours = domainConfig.policies.cancelWindowHours;
-  if (qaService?.slotUnit === "day") {
-    const insideDays = Math.max(0, Math.floor(cancelWindowHours / 24) - 1);
-    if (insideDays > 0) {
-      return `${insideDays}일 뒤`;
+// Scan forward from `afterMs` for the first slot the availability engine would
+// actually allow (business hours + blackouts), using the engine's own pure
+// helpers so the harness and runtime never disagree.
+function nextAllowedSlotStart(afterMs: number): number | null {
+  const service = qaService ?? domainConfig.services[0];
+  if (!service) {
+    return null;
+  }
+  const step = slotStepMs(service);
+  const horizonMs = afterMs + 21 * DAY_MS;
+  for (
+    let cursor = alignToSlot(afterMs, service);
+    cursor < horizonMs;
+    cursor += step
+  ) {
+    const start = alignToSlot(cursor, service);
+    if (isSlotAllowed(start, serviceEndMs(service, start), service)) {
+      return start;
     }
   }
+  return null;
+}
 
-  return `${Math.max(0, Math.floor(cancelWindowHours / 2))}시간 뒤`;
+// Business-hours-aware cancel-window offset. Anchors to a REAL open slot on the
+// correct side of the cancel window, then expresses it as an offset phrase the
+// agent parser accepts ("N시간 뒤" / "N일 뒤"). A raw `now + offset` can land after
+// hours and roll unpredictably across the 24h boundary, which made QA flaky by
+// run time; anchoring to an allowed slot (with margin) makes it deterministic.
+function cancelWindowOffset(
+  kind: "inside" | "outside",
+  nowMs: number = Date.now(),
+): string {
+  const service = qaService ?? domainConfig.services[0];
+  const cancelWindowMs = domainConfig.policies.cancelWindowHours * HOUR_MS;
+  // outside: comfortably past the window; inside: soon but well within it.
+  const afterMs =
+    kind === "outside" ? nowMs + cancelWindowMs + 6 * HOUR_MS : nowMs + HOUR_MS;
+  const slotStart = nextAllowedSlotStart(afterMs);
+  if (slotStart === null) {
+    // Degenerate pack (no open slot found) — fall back to the old heuristic.
+    return kind === "outside"
+      ? `${Math.ceil(domainConfig.policies.cancelWindowHours / 24) + 2}일 뒤`
+      : `${Math.max(1, Math.floor(domainConfig.policies.cancelWindowHours / 2))}시간 뒤`;
+  }
+  const deltaMs = slotStart - nowMs;
+  // Bias rounding so the re-resolved slot stays on the intended side: inside
+  // rounds down (never past the window), outside rounds up (never before it).
+  const round = kind === "inside" ? Math.floor : Math.ceil;
+  if (service?.slotUnit === "day") {
+    return `${Math.max(1, round(deltaMs / DAY_MS))}일 뒤`;
+  }
+  return `${Math.max(1, round(deltaMs / HOUR_MS))}시간 뒤`;
+}
+
+// True when an availability slot inside the cancel window actually exists at this
+// run time. For packs with closed gaps wider than the cancel window (e.g. a
+// weekend), no such slot exists at some run times, making the escalation-by-late-
+// cancel scenario physically impossible — the harness then skips it deterministically.
+function insideCancelFeasible(nowMs: number = Date.now()): boolean {
+  const slot = nextAllowedSlotStart(nowMs + HOUR_MS);
+  return slot !== null && isInsideCancelWindow(slot, nowMs);
+}
+
+function deriveInsideCancelOffset() {
+  return cancelWindowOffset("inside");
 }
 
 function deriveOutsideCancelOffset() {
-  return `${Math.ceil(domainConfig.policies.cancelWindowHours / 24) + 2}일 뒤`;
+  return cancelWindowOffset("outside");
 }
 
 async function delay(ms: number) {

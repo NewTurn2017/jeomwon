@@ -36,7 +36,7 @@
 
 ### 2.3 알려진 한계·버그 (이번 세션 발견)
 - **[C · 해결 (M0.2)] 실 LLM 챗** — zod를 전역 v4로 올려(`@openai/agents@0.12` peer 충족) import 크래시 제거하고, `"openai"` 런타임에 OpenAI Agents SDK 실 추론을 배선. LLM이 tool(find/hold/confirm/cancel/reschedule/lookup)로 Convex 상태를 실제 구동. 관측: 실 키 3턴 예약(eligible→held→confirmed) 성공, fallback 없음. 결정론은 기본·QA·폴백으로 유지, 가드레일(privacy/relevance/confirmation)은 두 런타임 공통 결정론 선차단(방어심층).
-- **[QA 취약] 하니스가 business-hours-aware 아님** — `deriveInsideCancelOffset`("cancelWindow/2 시간 뒤")이 좁은 시간대/휴무일 팩에서 예약을 다음 창(>24h)으로 밀어 QA-2가 실행 시각에 따라 flaky.
+- **[QA · 해결 (M0.3)] 하니스 business-hours-aware** — cancel-window 오프셋을 엔진의 순수 헬퍼(`isSlotAllowed`/`alignToSlot`/`isInsideCancelWindow`)로 계산해 **실제 열린 슬롯**을 창의 올바른 쪽에 앵커(floor/ceil 반올림)한다. 좁은 시간대/휴무일 팩처럼 창 안쪽 슬롯이 물리적으로 불가능한 실행 시각엔 escalation 검사를 **결정론적 SKIP**(runner에 SKIP 상태 추가). 검증: 순수 시뮬레이션 672 실행시각 × 웨비나/데모 팩 — 웨비나 0 misclassify·0 skip, 데모 feasible 590건 0 misclassify·불가 82건 skip. 라이브 `bun run qa` 8/8.
 - **[스킬 범위] 스킬이 "설정 생성기"에 머묾** — SKILL.md Output Contract: *"Do not generate domain-specific code outside that pack; inject.mjs is the only path."* → **전문 기능을 코드로 만드는 경로가 스킬에 없다.** (북극성과의 가장 큰 갭)
 
 ### 2.4 이번 세션에 이미 고친 것 (커밋 대기, `template/`)
