@@ -52,7 +52,7 @@
 |---|---|---|---|
 | 기능 | 고정 세트(예약 수명주기)만 | 모듈식 전문 기능 조립 | 대기자·보증금·노쇼·멤버십·다지점·리뷰·리마인더 등 **모듈화 + 조합 시스템** 필요 |
 | 커스터마이즈 | 팩 JSON(설정성) | 설정 + **코드 확장** | 팩 밖 기능을 안전하게 추가하는 경로 부재 |
-| 스킬 | 단일 좁은 스킬 1개 | 스킬 묶음(suite) | `jeomwon-feature`/`-agent-tool`/`-policy` 등 확장 스킬 필요 |
+| 스킬 | 단일 `jeomwon` 스킬 + 도메인 팩 경로 | 단일 스킬 안의 코드 확장 규약 | REFERENCE Code Extension Contract로 후속 코드 확장 절차를 고정하고, 분리 스킬·registry는 반복 패턴 검증 전까지 유보 |
 | 에이전트 | 결정론 엔진(+깨진 openai 게이트) | 실 LLM or 하이브리드 확정 | 실 LLM 경로 복구/구현 or 결정론 확정 결단 |
 | 라이브러리성 | template 내부에 뒤섞임 | 재사용 primitive(가용성·락·정책·위젯 엔진) | 경계 있는 라이브러리화 |
 
@@ -61,8 +61,8 @@
 ## 4. 로드맵 (마일스톤 초안)
 
 - **M0 — 기반 안정화 ✅**: 대기 커밋 정리(M0.1) · **issue C 해결**(M0.2 — zod 충돌 풀고 실 LLM 추론을 옵션으로 배선; 결정론=기본/QA 경로 유지) · QA 하니스 business-hours-aware 견고화(M0.3) · 현행 기능 세트 문서화(M0.4 — [FEATURES.md](./FEATURES.md)).
-- **M1 — 코어 모듈화 진행 중**: 예약 수명주기를 `engine/availability`·`policy`·`lifecycle` 경계로 정리하고, registry 대신 `features.waitlist` notify-only 파일럿으로 팩 토글 + 단일 훅 확장 seam을 먼저 실증. feature registry/조합 시스템은 확장 패턴 3개+ 반복 시로 유보.
-- **M2 — 스킬 묶음**: 에이전트가 불변식 준수하며 기능/툴/정책을 **코드로** 확장하는 스킬 suite.
+- **M1 — 코어 모듈화 ✅**: 예약 수명주기를 `engine/availability`·`policy`·`lifecycle` 경계로 정리하고, registry 대신 `features.waitlist` notify-only 파일럿으로 팩 토글 + 단일 훅 확장 seam을 먼저 실증. feature registry/조합 시스템은 확장 패턴 3개+ 반복 시로 유보.
+- **M2 — 코드확장 규약 + blind 실증 프로토콜**: 단일 `jeomwon` 스킬을 유지하고, `REFERENCE.md` Code Extension Contract로 후속 코드 확장 절차와 blind generated-app proof 입력·판정 규칙을 고정한다. 2026-07-09 blind proof로 실증 완료 — 살롱 팩 생성물에서 규약 텍스트만으로 노쇼 마킹을 완주(오프라인 게이트 그린, 라이브 QA-10 off=SKIP/on=PASS, 기존 게이트 무회귀).
 - **M3 — 라이브러리 primitive**: availability engine · hold/lock · policy engine · widget kit을 재사용 라이브러리로 문서화.
 - **M4 — DX & 갤러리**: 기능 모듈 갤러리 · 예제 · 테스트 · 원커맨드 플로우.
 
@@ -73,7 +73,7 @@
 1. **에이전트 → 하이브리드**: 결정론 엔진을 기본값·QA 경로로 유지하고, 실 LLM 추론을 **옵션으로 실제 배선**. issue C(zod 충돌)는 회피가 아니라 **해결**한다.
 2. **모듈 시스템 → 팩 토글 먼저 + 코드확장은 스킬 규약**: 현행 `features` 토글을 견고화하고, 코드 전문기능은 스킬-가이드 컨벤션(불변식 상속 + 정해진 시퀀스)으로 안전 확장. 정식 플러그인 프레임워크는 확장 패턴이 3개+ 반복될 때.
 3. **모노레포 → 현 구조 유지 + 폴더 경계만 정리**: `packages` 남발 금지. availability/policy/widget은 백엔드 내부 폴더 경계로만 분리. 여러 app에서 재사용이 실제 증명될 때만 패키지로 승격.
-4. **스킬 입도 → 단일 `jeomwon` 스킬 + 코드확장 규약 추가**: 스킬 하나 유지, REFERENCE에 코드확장 규약 신설. 스킬 쪼개기는 확장 패턴이 반복된 뒤.
+4. **스킬 입도 → 단일 `jeomwon` 스킬 + 코드확장 규약 추가**: 스킬 하나 유지, REFERENCE에 코드확장 규약 신설. 스킬 분리는 확장 패턴이 반복된 뒤.
 5. **타깃 → 오픈소스 지향·내부품질 먼저**: 상용 인프라(과금/멀티테넌시)는 안 짓고, 내부에서 견고히 굳힌 뒤 공개. `upstream/` 가드레일과 정합.
 6. **폴더/네이밍 → 최소 정리 (현 위치 유지)**: `skill/` 폴더명·스킬명 `jeomwon` 유지, 기획문서는 루트. 지금 이동/개명 없음.
 

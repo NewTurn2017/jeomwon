@@ -171,5 +171,5 @@ QA는 business-hours-aware — cancel-window 오프셋을 엔진 순수 헬퍼(`
 
 ## 알려진 한계 (VISION 2.3 참고)
 
-- 전문 기능(보증금·노쇼·멤버십·다지점 등)을 **코드로** 추가하는 일반 registry 경로는 아직 유보 — 대기자는 `features.waitlist`와 단일 훅으로 먼저 실증.
-- 스킬은 현재 "설정 생성기"(`inject.mjs`가 유일한 도메인 코드 경로).
+- 전문 기능(보증금·노쇼·멤버십·다지점 등)을 위한 일반 registry 경로는 아직 없다. 후속 코드 확장은 `skill/REFERENCE.md`의 Code Extension Contract를 따라 불변식 상속, 기능 소유 모듈, 명명된 훅, off-default `extension.config.ts`, SKIP-aware QA 게이트로 진행한다.
+- M1 대기자 파일럿은 현재 참조 패턴이다. 정식 plugin framework나 범용 생성기는 확장 패턴이 3개 이상 반복 검증된 뒤로 유보한다.
