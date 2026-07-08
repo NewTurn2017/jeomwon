@@ -54,7 +54,6 @@ export const sendReservationEmail = internalAction({
       !env.RESEND_API_KEY || process.env.JEOMWON_QA_RESET === "1";
     const payload = {
       mode: captureMode ? "capture" : "sent",
-      to: args.to,
       subject: content.subject,
       summary: content.summary,
       reservationId: args.publicContext.reservationId,
@@ -99,6 +98,7 @@ function agentForKind(kind: ReservationEmailKind) {
     case "reservation.confirmed":
     case "reservation.rescheduled":
     case "reservation.cancelled":
+    case "reservation.waitlist_opened":
       return "reservation";
     case "reservation.escalated":
       return "escalation";

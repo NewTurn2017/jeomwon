@@ -313,12 +313,21 @@ function validatePolicies(policies) {
 
 function validateFeatures(features) {
 	assertRecord(features, "features");
-	requireExactKeys(features, ["email", "polar"], "features");
+	const keys = ["email", "polar"];
+	if (features.waitlist !== undefined) {
+		keys.push("waitlist");
+	}
+	requireExactKeys(features, keys, "features");
 	if (typeof features.email !== "boolean") {
 		fail("features.email must be boolean");
 	}
 	if (typeof features.polar !== "boolean") {
 		fail("features.polar must be boolean");
+	}
+	if (features.waitlist === undefined) {
+		features.waitlist = false;
+	} else if (typeof features.waitlist !== "boolean") {
+		fail("features.waitlist must be boolean");
 	}
 }
 
@@ -429,6 +438,7 @@ export type DomainConfig = {
   features: {
     email: boolean;
     polar: boolean;
+    waitlist: boolean;
   };
   copy: DomainCopy;
 };

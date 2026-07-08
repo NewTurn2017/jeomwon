@@ -5,7 +5,6 @@ import * as validators from "@jeomwon/backend/convex/utils/validators";
 import { Button } from "@jeomwon/ui/button";
 import { Input } from "@jeomwon/ui/input";
 import { useForm } from "@tanstack/react-form";
-import { zodValidator } from "@tanstack/zod-form-adapter";
 import { useMutation, useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -22,7 +21,6 @@ export default function OnboardingUsername() {
   const { pending } = useFormStatus();
 
   const form = useForm({
-    validatorAdapter: zodValidator(),
     defaultValues: {
       username: "",
     },
@@ -76,7 +74,7 @@ export default function OnboardingUsername() {
             <form.Field
               name="username"
               validators={{
-                onSubmit: validators.username,
+                onSubmit: validateUsername,
               }}
               // biome-ignore lint/correctness/noChildrenProp: tanstack best practice
               children={(field) => (
@@ -119,4 +117,12 @@ export default function OnboardingUsername() {
       </section>
     </main>
   );
+}
+
+function validateUsername({ value }: { value: string }) {
+  const result = validators.username.safeParse(value);
+  if (result.success) {
+    return undefined;
+  }
+  return result.error.issues.map((issue) => issue.message).join(" ");
 }

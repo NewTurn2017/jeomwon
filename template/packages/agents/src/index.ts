@@ -12,6 +12,7 @@ import type {
   PublicSlot,
   PublicThreadState,
   RescheduleArgs,
+  WaitlistArgs,
 } from "@jeomwon/backend/src/agent-contract";
 import { normalizeConvexArgs } from "@jeomwon/backend/src/boundary";
 import { jeomwonConvex } from "@jeomwon/backend/src/convex-refs";
@@ -45,6 +46,7 @@ export type AgentToolbox = {
     serviceLabel: string | null;
     reservationId: string | null;
   }): Promise<{ publicContext: PublicContext }>;
+  joinWaitlist(args: WaitlistArgs): Promise<{ publicContext: PublicContext }>;
   lookupReservation(
     args: LookupReservationArgs,
   ): Promise<{ publicContext: PublicContext }>;
@@ -99,6 +101,10 @@ export function createConvexAgentToolbox(convexUrl: string): AgentToolbox {
         jeomwonConvex.agentTools.recordAvailability,
         input,
       );
+    },
+    async joinWaitlist(args) {
+      normalizeConvexArgs(args);
+      return await client.mutation(jeomwonConvex.agentTools.joinWaitlist, args);
     },
     async lookupReservation(args) {
       normalizeConvexArgs(args);
@@ -340,12 +346,20 @@ async function handleAvailability(
     preferredStartMs: parsePreferredStartMs(text),
     count: 3,
   });
-  const recorded = await tools.recordAvailability({
+  let recorded = await tools.recordAvailability({
     threadId,
     slots: availability.slots,
     serviceLabel: service.label,
     reservationId: options.reservationId ?? null,
   });
+  if (availability.slots.length === 0 && domainConfig.features.waitlist) {
+    recorded = await tools.joinWaitlist({
+      threadId,
+      serviceKey: service.key,
+      resourceKey: resource?.key ?? null,
+      preferredStartMs: parsePreferredStartMs(text),
+    });
+  }
   const reply =
     availability.slots.length > 0
       ? `${domainConfig.copy.availabilityIntro}\n${availability.slots
@@ -1200,6 +1214,11 @@ function buildAgentInstructions(state: PublicThreadState): string {
     "규칙:",
     "- 예약 가능 시간은 반드시 find_availability 도구로 조회해 사실만 제시한다. 시간을 지어내지 않는다.",
     "- 고객이 특정 시간을 고르면 hold_slot으로 임시 홀드를 만든다.",
+    ...(domainConfig.features.waitlist
+      ? [
+          "- 가능한 시간이 없고 고객이 대기를 원하면 join_waitlist로 대기 요청을 접수한다.",
+        ]
+      : []),
     "- confirm_reservation은 고객이 명시적으로 확정 의사를 밝힌 뒤에만 호출한다. 확인 없이 확정하지 않는다.",
     "- 변경은 reschedule_reservation, 취소는 cancel_reservation, 조회는 lookup_reservation을 사용한다.",
     "- 도구가 반환한 slot의 serviceKey·resourceKey·startMs·endMs 값을 그대로 다음 도구에 넘긴다.",
@@ -1222,7 +1241,7 @@ function buildAgentTools(
   tools: AgentToolbox,
   activeAgent: { name: AgentName },
 ) {
-  return [
+  const agentTools = [
     tool({
       name: "find_availability",
       description:
@@ -1412,4 +1431,60 @@ function buildAgentTools(
       },
     }),
   ];
+
+  if (domainConfig.features.waitlist) {
+    agentTools.push(
+      tool({
+        name: "join_waitlist",
+        description:
+          "가능한 시간이 없을 때 고객의 대기 요청을 접수한다. find_availability 후 슬롯이 없을 때만 사용한다.",
+        parameters: z.object({
+          serviceKey: z
+            .string()
+            .nullable()
+            .describe("서비스 key. 모르면 null (첫 서비스 사용)."),
+          resourceKey: z
+            .string()
+            .nullable()
+            .describe("리소스 key. 지정 없으면 null."),
+          whenHint: z
+            .string()
+            .nullable()
+            .describe("희망 시점 표현. 예: '3일 뒤', '내일'. 없으면 null."),
+        }),
+        execute: async ({ serviceKey, resourceKey, whenHint }) => {
+          try {
+            const joined = await tools.joinWaitlist({
+              threadId,
+              serviceKey,
+              resourceKey,
+              preferredStartMs: parsePreferredStartMs(whenHint ?? ""),
+            });
+            activeAgent.name = "availability";
+            return JSON.stringify({
+              reservationId: joined.publicContext.reservationId,
+              status: joined.publicContext.status,
+              nextStep: joined.publicContext.nextStep,
+            });
+          } catch (error) {
+            if (error instanceof Error && error.message.includes("disabled")) {
+              return "대기 접수 기능이 비활성화되어 있습니다.";
+            }
+            if (
+              error instanceof Error &&
+              error.message.includes("availability_exists")
+            ) {
+              return "현재 가능한 시간이 있습니다. 먼저 가능한 시간을 안내해 주세요.";
+            }
+            if (error instanceof Error && error.message.includes("not_found")) {
+              return "요청한 서비스나 리소스를 확인할 수 없습니다. 가능한 항목을 다시 조회해 주세요.";
+            }
+            return "대기 접수 상태를 확인할 수 없습니다. 다른 시간을 다시 확인해 주세요.";
+          }
+        },
+      }),
+    );
+  }
+
+  return agentTools;
 }

@@ -64,6 +64,7 @@ type DomainPack = {
   features: {
     email: boolean;
     polar: boolean;
+    waitlist?: boolean;
   };
   copy: {
     chatTitle: string;
@@ -106,6 +107,8 @@ Validation gates:
 - `durationMinutes` is positive when present; day services normally omit it.
 - `confirmationRequired` must be `true`.
 - `notificationEmail` must be an email-like string.
+- `features.waitlist` is optional for backward compatibility and defaults to
+  `false`; when present it must be boolean.
 - Every copy field is a non-empty string.
 
 ## Verification Gates

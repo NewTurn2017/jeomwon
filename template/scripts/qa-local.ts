@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // One-command local QA gate.
 // Prepares the dev Convex deployment, boots the web app in mock runtime,
-// runs the 8-gate scenario suite, then tears everything back down.
+// runs the 9-gate scenario suite, then tears everything back down.
 // Safe by design: refuses to run against anything but a `dev:` deployment,
 // forces email capture via JEOMWON_QA_RESET (never sends real mail), and
 // always unsets the QA env + stops the server on exit.
@@ -117,7 +117,7 @@ async function main(): Promise<number> {
   await waitForReady(baseUrl, 90_000);
   ok(`웹 서버 준비 완료 ${gray(baseUrl)}`);
 
-  step(3, "8게이트 스모크 QA 실행");
+  step(3, "9게이트 스모크 QA 실행");
   const qa = spawnSync("bun", ["run", "qa:run"], {
     cwd: root,
     stdio: "inherit",
@@ -134,7 +134,7 @@ async function main(): Promise<number> {
 
   const code = qa.status ?? 1;
   if (code === 0) {
-    console.log(`\n  ${green("✓")} ${bold("QA 통과")} ${gray("— 8게이트 전부")}`);
+    console.log(`\n  ${green("✓")} ${bold("QA 통과")} ${gray("— 9게이트 전부")}`);
   } else {
     console.log(
       `\n  ${red("✗")} ${bold("QA 실패")} ${gray(`(exit ${code})`)} — 위 로그 확인`,

@@ -5,6 +5,7 @@ export const reservationEmailKindValidator = v.union(
   v.literal("reservation.rescheduled"),
   v.literal("reservation.cancelled"),
   v.literal("reservation.escalated"),
+  v.literal("reservation.waitlist_opened"),
 );
 
 const reservationStatusValidator = v.union(
@@ -33,7 +34,6 @@ export const publicContextValidator = v.object({
 
 export const emailEventPayloadValidator = v.object({
   mode: v.union(v.literal("capture"), v.literal("sent")),
-  to: v.string(),
   subject: v.string(),
   summary: v.string(),
   reservationId: v.union(v.string(), v.null()),

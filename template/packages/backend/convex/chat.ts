@@ -4,7 +4,7 @@ import {
   defaultGuardrailStatus,
   defaultPublicContext,
   publicDomainSnapshot,
-} from "./jeomwonLib";
+} from "./engine/lifecycle";
 
 export const domainPublicConfig = query({
   args: {},

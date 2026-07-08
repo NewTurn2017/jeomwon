@@ -98,6 +98,7 @@ export type DomainConfig = {
   features: {
     email: boolean;
     polar: boolean;
+    waitlist: boolean;
   };
   copy: DomainCopy;
 };
@@ -148,6 +149,7 @@ export const domainConfig: DomainConfig = {
   features: {
     email: true,
     polar: false,
+    waitlist: false,
   },
   copy: {
     chatTitle: "예약 도우미",

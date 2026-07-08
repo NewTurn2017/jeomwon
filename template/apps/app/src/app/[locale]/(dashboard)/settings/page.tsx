@@ -10,7 +10,6 @@ import type { ConvexUploadResponse } from "@jeomwon/ui/upload-input";
 import { UploadInput } from "@jeomwon/ui/upload-input";
 import { useDoubleCheck } from "@jeomwon/ui/utils";
 import { useForm } from "@tanstack/react-form";
-import { zodValidator } from "@tanstack/zod-form-adapter";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { Upload } from "lucide-react";
 import Image from "next/image";
@@ -47,7 +46,6 @@ export default function DashboardSettings() {
   };
 
   const usernameForm = useForm({
-    validatorAdapter: zodValidator(),
     defaultValues: {
       username: user?.username,
     },
@@ -144,7 +142,7 @@ export default function DashboardSettings() {
           <usernameForm.Field
             name="username"
             validators={{
-              onSubmit: validators.username,
+              onSubmit: validateUsername,
             }}
           >
             {(field) => (
@@ -207,4 +205,12 @@ export default function DashboardSettings() {
       </section>
     </div>
   );
+}
+
+function validateUsername({ value }: { value: string | undefined }) {
+  const result = validators.username.safeParse(value);
+  if (result.success) {
+    return undefined;
+  }
+  return result.error.issues.map((issue) => issue.message).join(" ");
 }

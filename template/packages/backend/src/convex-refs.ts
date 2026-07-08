@@ -16,6 +16,7 @@ import type {
   PublicSlot,
   PublicThreadState,
   RescheduleArgs,
+  WaitlistArgs,
 } from "./agent-contract";
 
 export const jeomwonConvex = {
@@ -84,6 +85,11 @@ export const jeomwonConvex = {
       },
       { publicContext: PublicContext }
     >("agentTools:recordAvailability"),
+    joinWaitlist: makeFunctionReference<
+      "mutation",
+      WaitlistArgs,
+      { publicContext: PublicContext }
+    >("agentTools:joinWaitlist"),
     lookupReservation: makeFunctionReference<
       "mutation",
       LookupReservationArgs,

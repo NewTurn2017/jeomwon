@@ -182,6 +182,13 @@ export type AvailabilitySearchArgs = {
   count: number;
 };
 
+export type WaitlistArgs = {
+  threadId: string;
+  serviceKey: string | null;
+  resourceKey: string | null;
+  preferredStartMs: number | null;
+};
+
 export type HoldArgs = {
   threadId: string;
   displayName: string | null;

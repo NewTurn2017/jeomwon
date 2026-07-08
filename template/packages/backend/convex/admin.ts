@@ -11,7 +11,7 @@ import {
   publicContextFromReservation,
   serviceByKey,
   timeWindowLabel,
-} from "./jeomwonLib";
+} from "./engine/lifecycle";
 import { scheduleReservationEmail } from "./reservationEmailScheduler";
 
 const actionValidator = v.union(

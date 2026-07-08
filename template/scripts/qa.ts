@@ -5,13 +5,17 @@ import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
 import { parse as parseDotenv } from "dotenv";
 import { domainConfig } from "../packages/backend/domain.config";
+import type {
+  PublicContext,
+  PublicSlot,
+} from "../packages/backend/src/agent-contract";
 import {
   alignToSlot,
-  isInsideCancelWindow,
   isSlotAllowed,
   serviceEndMs,
   slotStepMs,
-} from "../packages/backend/convex/jeomwonLib";
+} from "../packages/backend/convex/engine/availability";
+import { isInsideCancelWindow } from "../packages/backend/convex/engine/policy";
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -67,6 +71,54 @@ const qaSeedMutation = makeFunctionReference<
   Record<string, never>,
   QaSeedResult
 >("jeomwonSeed:seed");
+const searchAvailabilityQuery = makeFunctionReference<
+  "query",
+  {
+    threadId: string;
+    serviceKey: string | null;
+    resourceKey: string | null;
+    preferredStartMs: number | null;
+    count: number;
+  },
+  { slots: PublicSlot[] }
+>("agentTools:searchAvailability");
+const joinWaitlistMutation = makeFunctionReference<
+  "mutation",
+  {
+    threadId: string;
+    serviceKey: string | null;
+    resourceKey: string | null;
+    preferredStartMs: number | null;
+  },
+  { publicContext: PublicContext }
+>("agentTools:joinWaitlist");
+const createHoldMutation = makeFunctionReference<
+  "mutation",
+  {
+    threadId: string;
+    displayName: string | null;
+    serviceKey: string;
+    resourceKey: string;
+    startMs: number;
+    endMs: number;
+  },
+  { publicContext: PublicContext; holdExpiresAtMs: number }
+>("agentTools:createHold");
+const confirmReservationMutation = makeFunctionReference<
+  "mutation",
+  { threadId: string; reservationId: string; confirmed: boolean },
+  { publicContext: PublicContext }
+>("agentTools:confirmReservation");
+const cancelReservationMutation = makeFunctionReference<
+  "mutation",
+  { threadId: string; reservationId: string; requestedAtMs: number },
+  { publicContext: PublicContext; escalated: boolean }
+>("agentTools:cancelReservation");
+const lookupReservationMutation = makeFunctionReference<
+  "mutation",
+  { threadId: string; reservationId: string },
+  { publicContext: PublicContext }
+>("agentTools:lookupReservation");
 const convexCliTimeoutMs = 60_000;
 
 fs.mkdirSync(artifactDir, { recursive: true });
@@ -87,6 +139,7 @@ async function main() {
     results.push(await qaPrivacy());
     results.push(await qaHoldExpiry());
     results.push(await qaEmailCaptureGate());
+    results.push(await qaWaitlistGate());
   } catch (error) {
     results.push({
       id: 99,
@@ -690,6 +743,178 @@ async function qaEmailCaptureGate(): Promise<QaResult> {
   };
 }
 
+async function qaWaitlistGate(): Promise<QaResult> {
+  if (!domainConfig.features.waitlist) {
+    return {
+      id: 9,
+      name: "대기자 접수·알림",
+      status: "SKIP",
+      output: [
+        "features.waitlist=false — 대기자 접수/알림 게이트는 결정론적으로 생략.",
+      ],
+    };
+  }
+
+  const convexUrl =
+    resolveQaEnv("NEXT_PUBLIC_CONVEX_URL") ?? resolveQaEnv("CONVEX_URL");
+  if (!convexUrl) {
+    throw new Error(
+      "waitlist QA requires NEXT_PUBLIC_CONVEX_URL or CONVEX_URL for direct saturation mutations",
+    );
+  }
+
+  const client = new ConvexHttpClient(convexUrl, { logger: false });
+  const resource = qaWaitlistResource();
+  const saturated = await saturateWaitlistResource(client, resource.key);
+  const zeroSlots = await client.query(searchAvailabilityQuery, {
+    threadId: `qa-waitlist-zero-${Date.now()}`,
+    serviceKey: qaService?.key ?? null,
+    resourceKey: resource.key,
+    preferredStartMs: null,
+    count: 1,
+  });
+  assert(
+    zeroSlots.slots.length === 0,
+    `waitlist saturation left ${zeroSlots.slots.length} available slot(s)`,
+  );
+
+  const waitlistThreadId = `qa-waitlist-${Date.now()}`;
+  const joined = await postChat(
+    waitlistThreadId,
+    `${availabilityRequest("내일")} ${resource.label}`,
+  );
+  assertRecord(joined, "waitlist join response");
+  assert(
+    readPath(joined, ["publicContext", "status"]) === "waitlisted",
+    "waitlist join did not expose waitlisted status",
+  );
+  const waitlistReservationId = readPath(joined, [
+    "publicContext",
+    "reservationId",
+  ]);
+  assert(
+    typeof waitlistReservationId === "string" &&
+      isPublicReservationNumber(waitlistReservationId),
+    "waitlist join did not expose a public reservation number",
+  );
+  const duplicateJoined = await postChat(
+    waitlistThreadId,
+    `${availabilityRequest("내일")} ${resource.label}`,
+  );
+  assertRecord(duplicateJoined, "duplicate waitlist join response");
+  assert(
+    readPath(duplicateJoined, ["publicContext", "reservationId"]) ===
+      waitlistReservationId,
+    "duplicate waitlist join did not reuse the existing waitlist row",
+  );
+  const lookup = await client.mutation(lookupReservationMutation, {
+    threadId: waitlistThreadId,
+    reservationId: waitlistReservationId,
+  });
+  assert(
+    lookup.publicContext.status === "waitlisted",
+    "waitlist row lookup did not return status waitlisted",
+  );
+
+  const invalidKeyRejected = await expectMutationRejects(
+    () =>
+      client.mutation(joinWaitlistMutation, {
+        threadId: `qa-waitlist-invalid-${Date.now()}`,
+        serviceKey: "__missing_service__",
+        resourceKey: resource.key,
+        preferredStartMs: null,
+      }),
+    "not_found",
+  );
+  const availableResource =
+    domainConfig.resources.find(
+      (candidate) => candidate.key !== resource.key,
+    ) ?? null;
+  let availabilityExistsRejected = "SKIP";
+  if (availableResource !== null) {
+    availabilityExistsRejected = (await expectMutationRejects(
+      () =>
+        client.mutation(joinWaitlistMutation, {
+          threadId: `qa-waitlist-available-${Date.now()}`,
+          serviceKey: qaService?.key ?? null,
+          resourceKey: availableResource.key,
+          preferredStartMs: null,
+        }),
+      "availability_exists",
+    ))
+      ? "PASS"
+      : "FAIL";
+    assert(
+      availabilityExistsRejected === "PASS",
+      "waitlist join did not reject a resource with available slots",
+    );
+  }
+
+  const secondWaitlistThreadId = `qa-waitlist-second-${Date.now()}`;
+  const secondJoined = await postChat(
+    secondWaitlistThreadId,
+    `${availabilityRequest("내일")} ${resource.label}`,
+  );
+  assertRecord(secondJoined, "second waitlist join response");
+  const secondWaitlistReservationId = readPath(secondJoined, [
+    "publicContext",
+    "reservationId",
+  ]);
+  assert(
+    typeof secondWaitlistReservationId === "string" &&
+      isPublicReservationNumber(secondWaitlistReservationId),
+    "second waitlist join did not expose a public reservation number",
+  );
+  await client.mutation(cancelReservationMutation, {
+    threadId: waitlistThreadId,
+    reservationId: waitlistReservationId,
+    requestedAtMs: Date.now(),
+  });
+  await assertNoWaitlistSlotOpened(secondWaitlistThreadId);
+
+  await client.mutation(cancelReservationMutation, {
+    threadId: saturated.first.threadId,
+    reservationId: saturated.first.reservationId,
+    requestedAtMs: Date.now(),
+  });
+  const slotOpened = await waitForWaitlistSlotOpened(secondWaitlistThreadId);
+  const email = await waitForEmailCapture(
+    secondWaitlistThreadId,
+    "reservation.waitlist_opened",
+  );
+
+  writeJson("09-waitlist.json", {
+    resource,
+    saturatedCount: saturated.count,
+    waitlistReservationId,
+    duplicateWaitlistReservationId: readPath(duplicateJoined, [
+      "publicContext",
+      "reservationId",
+    ]),
+    secondWaitlistReservationId,
+    invalidKeyRejected,
+    availabilityExistsRejected,
+    slotOpened,
+    email,
+  });
+
+  return {
+    id: 9,
+    name: "대기자 접수·알림",
+    status: "PASS",
+    output: [
+      `resource: ${resource.key}`,
+      `saturatedReservations: ${saturated.count}`,
+      `waitlistStatus: ${lookup.publicContext.status}`,
+      `duplicateReservationReused: ${waitlistReservationId}`,
+      `invalidKeyRejected: ${invalidKeyRejected}`,
+      `availabilityExistsRejected: ${availabilityExistsRejected}`,
+      `chatEvent: ${slotOpened.type}`,
+      `emailTemplate: ${email.template}`,
+    ],
+  };
+}
+
 async function createConfirmedReservation(
   threadId: string,
   availabilityMessage: string,
@@ -702,6 +927,137 @@ async function createConfirmedReservation(
     readPath(confirmed, ["publicContext", "status"]) === "confirmed",
     "email capture setup did not confirm reservation",
   );
+}
+
+function qaWaitlistResource() {
+  const service = qaService ?? domainConfig.services[0];
+  assert(service !== undefined, "waitlist QA requires at least one service");
+  const resource =
+    domainConfig.resources.find(
+      (candidate) => candidate.kind === service.resourceKind,
+    ) ?? domainConfig.resources[0];
+  assert(resource !== undefined, "waitlist QA requires at least one resource");
+  return resource;
+}
+
+async function saturateWaitlistResource(
+  client: ConvexHttpClient,
+  resourceKey: string,
+) {
+  const confirmed: { threadId: string; reservationId: string }[] = [];
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    const availability = await client.query(searchAvailabilityQuery, {
+      threadId: `qa-waitlist-scan-${Date.now()}-${attempt}`,
+      serviceKey: qaService?.key ?? null,
+      resourceKey,
+      preferredStartMs: null,
+      count: 10,
+    });
+    if (availability.slots.length === 0) {
+      const first = confirmed[0];
+      assert(
+        first !== undefined,
+        "waitlist saturation created no reservations",
+      );
+      return { count: confirmed.length, first };
+    }
+
+    for (const [index, slot] of availability.slots.entries()) {
+      const threadId = `qa-waitlist-fill-${Date.now()}-${attempt}-${index}`;
+      const hold = await client.mutation(createHoldMutation, {
+        threadId,
+        displayName: null,
+        serviceKey: slot.serviceKey,
+        resourceKey: slot.resourceKey,
+        startMs: slot.startMs,
+        endMs: slot.endMs,
+      });
+      const reservationId = hold.publicContext.reservationId;
+      assert(
+        typeof reservationId === "string",
+        "waitlist saturation hold did not return reservationId",
+      );
+      const confirmedReservation = await client.mutation(
+        confirmReservationMutation,
+        {
+          threadId,
+          reservationId,
+          confirmed: true,
+        },
+      );
+      assert(
+        confirmedReservation.publicContext.status === "confirmed",
+        "waitlist saturation did not confirm reservation",
+      );
+      confirmed.push({ threadId, reservationId });
+    }
+  }
+
+  throw new Error("waitlist saturation exceeded 120 search iterations");
+}
+
+async function waitForWaitlistSlotOpened(threadId: string) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const state = await requestJson(
+      `/api/chat?thread_id=${encodeURIComponent(threadId)}`,
+    );
+    assertRecord(state.body, "waitlist slot-opened state response");
+    const messages = readPath(state.body, ["messages"]);
+    if (Array.isArray(messages)) {
+      const event = messages.find(
+        (message) =>
+          isRecord(message) &&
+          message.type === "waitlist.slotOpened" &&
+          message.message === "자리가 났어요. 지금 예약 가능합니다.",
+      );
+      if (isRecord(event)) {
+        return {
+          type: String(event.type),
+          message: String(event.message),
+        };
+      }
+    }
+    await delay(250);
+  }
+
+  throw new Error("waitlist.slotOpened not observed");
+}
+
+async function assertNoWaitlistSlotOpened(threadId: string) {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const state = await requestJson(
+      `/api/chat?thread_id=${encodeURIComponent(threadId)}`,
+    );
+    assertRecord(state.body, "waitlist no-slot-opened state response");
+    const messages = readPath(state.body, ["messages"]);
+    if (Array.isArray(messages)) {
+      const event = messages.find(
+        (message) =>
+          isRecord(message) && message.type === "waitlist.slotOpened",
+      );
+      assert(
+        event === undefined,
+        "waitlisted row cancellation emitted waitlist.slotOpened",
+      );
+    }
+    await delay(250);
+  }
+}
+
+async function expectMutationRejects(
+  runMutation: () => Promise<unknown>,
+  expectedMessage: string,
+) {
+  try {
+    await runMutation();
+  } catch (error) {
+    return (
+      error instanceof Error &&
+      error.message.toLowerCase().includes(expectedMessage.toLowerCase())
+    );
+  }
+
+  return false;
 }
 
 async function waitForEmailCapture(threadId: string, template: string) {
@@ -740,9 +1096,9 @@ function findEmailCapture(
       !isRecord(payload) ||
       payload.mode !== "capture" ||
       payload.template !== template ||
-      typeof payload.to !== "string" ||
       typeof payload.subject !== "string" ||
-      typeof payload.summary !== "string"
+      typeof payload.summary !== "string" ||
+      "to" in payload
     ) {
       continue;
     }
@@ -750,7 +1106,6 @@ function findEmailCapture(
     return {
       threadId,
       template,
-      to: payload.to,
       subject: payload.subject,
       summary: payload.summary,
       reservationId:

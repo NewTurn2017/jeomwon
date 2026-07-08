@@ -44,6 +44,14 @@ tooling            공유 TypeScript 설정
 
 **홀드 만료**: `expireHold` internalMutation이 남은 시간 재확인 후 `held`→`expired` 전이. 로컬 QA는 `JEOMWON_TEST_HOLD_MS`로 만료를 단축.
 
+### 대기자 파일럿 (notify-only)
+
+`features.waitlist`는 기본 `false`인 3번째 기능 토글이다. 꺼져 있으면 슬롯 0개 경로는 기존 문구와 상태 전이를 유지하고, 대기자 row·알림은 만들지 않는다.
+
+켜져 있으면 결정론 엔진은 슬롯 0개일 때 `joinWaitlist`를 호출해 `reservations`에 `status: "waitlisted"` row를 실제 삽입하고 공개 예약번호를 발급한다. 대기 row는 `isActiveReservation`에서 비활성으로 취급되므로 실제 예약 충돌을 막지 않는다.
+
+슬롯이 비는 지점은 `cancelReservation`·`expireReservation`·`rescheduleReservation` 3곳이며, 공통 훅 `engine/waitlist.ts` `onSlotFreed`가 처리한다. 동작은 notify-only: 첫 미알림 대기자 스레드에 `waitlist.slotOpened` 챗 이벤트를 넣고, 운영자 메일 `reservation.waitlist_opened`를 스케줄하며, 대기 row audit에 `waitlist.notified`를 남겨 중복 알림을 막는다. 자동 홀드·자동 승격·고객 이메일 수집은 없다.
+
 ---
 
 ## 3. 불변식 (Convex 뮤테이션이 강제)
@@ -100,7 +108,7 @@ tooling            공유 TypeScript 설정
 - **토글** — `domain.config.ts` `features.email`. off면 스케줄·발송 모두 skip.
 - **경로** — `scheduleReservationEmail`(`reservationEmailScheduler.ts`) → `sendReservationEmail` internalAction(`email/reservationActions.ts`).
 - **capture vs sent** — `RESEND_API_KEY` 없거나 `JEOMWON_QA_RESET=1`이면 **capture**(발송 없이 `email.captured` 이벤트 기록 → QA 결정론 + 프로덕션 키 유지 안전), 아니면 Resend 발송 + `email.sent`.
-- **종류 4** — `reservation.confirmed` / `rescheduled` / `cancelled` / `escalated`. 수신자는 `notificationEmail`.
+- **종류 5** — `reservation.confirmed` / `rescheduled` / `cancelled` / `escalated` / `waitlist_opened`. 수신자는 `notificationEmail`.
 
 ---
 
@@ -126,7 +134,7 @@ tooling            공유 TypeScript 설정
 
 ## 10. 검증
 
-**8게이트 QA** (`scripts/qa.ts`, `bun run qa` = `scripts/qa-local.ts` 오케스트레이터로 원커맨드):
+**9게이트 QA** (`scripts/qa.ts`, `bun run qa` = `scripts/qa-local.ts` 오케스트레이터로 원커맨드):
 
 | # | 이름 | 확인 |
 |---|------|------|
@@ -138,6 +146,7 @@ tooling            공유 TypeScript 설정
 | 6 | 내부 키 grep 0건 | 공개 표면에 내부 마커·원 예약 id 유출 0 |
 | 7 | 홀드 만료 전이 | 홀드 → `expired` (`JEOMWON_TEST_HOLD_MS`) |
 | 8 | 메일 capture 모드 | confirmed/cancelled/(escalated)/rescheduled `email.captured` |
+| 9 | 대기자 접수·알림 | `features.waitlist=false`면 SKIP, on이면 포화→0슬롯→`waitlisted` row→슬롯 해제→`waitlist.slotOpened` + `reservation.waitlist_opened` |
 
 QA는 business-hours-aware — cancel-window 오프셋을 엔진 순수 헬퍼(`nextAllowedSlotStart`/`insideCancelFeasible`)로 실제 열린 슬롯에 앵커, 불가능한 실행시각엔 게이트 2·8을 결정론 SKIP.
 
@@ -153,7 +162,8 @@ QA는 business-hours-aware — cancel-window 오프셋을 엔진 순수 헬퍼(`
 - **슬롯 3종** — `minutes:30` / `hour` / `day`(day는 체크인/체크아웃 시각·라벨 필요).
 - **위젯 2종** — `calendar` / `seatGrid`.
 - **정책** — `cancelWindowHours` · `holdMinutes` · `confirmationRequired`(항상 `true`).
-- **기능 토글** — `features.email` · `features.polar`.
+- **기능 토글** — `features.email` · `features.polar` · `features.waitlist`.
+- **대기자 매트릭스** — `waitlist=false`: gate 9 SKIP, 슬롯 0개 기존 경로 유지. `waitlist=true`: gate 9 PASS 대상, notify-only 접수·알림 활성.
 - **copy** — 인사·거절·확정·취소·홀드만료·정책요약 등 고객 노출 한국어 문구 일체.
 - **영업시간·블랙아웃** — 요일별 open/close 또는 closed, 블랙아웃 구간.
 
@@ -161,5 +171,5 @@ QA는 business-hours-aware — cancel-window 오프셋을 엔진 순수 헬퍼(`
 
 ## 알려진 한계 (VISION 2.3 참고)
 
-- 전문 기능(대기자·보증금·노쇼·멤버십·다지점 등)을 **코드로** 추가하는 경로는 아직 팩 토글 밖 — 스킬-가이드 코드확장 규약이 M1~M2 과제.
+- 전문 기능(보증금·노쇼·멤버십·다지점 등)을 **코드로** 추가하는 일반 registry 경로는 아직 유보 — 대기자는 `features.waitlist`와 단일 훅으로 먼저 실증.
 - 스킬은 현재 "설정 생성기"(`inject.mjs`가 유일한 도메인 코드 경로).
