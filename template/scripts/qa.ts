@@ -781,7 +781,7 @@ async function qaWaitlistGate(): Promise<QaResult> {
   const waitlistThreadId = `qa-waitlist-${Date.now()}`;
   const joined = await postChat(
     waitlistThreadId,
-    `${availabilityRequest("내일")} ${resource.label}`,
+    waitlistJoinRequest(resource.label),
   );
   assertRecord(joined, "waitlist join response");
   assert(
@@ -799,7 +799,7 @@ async function qaWaitlistGate(): Promise<QaResult> {
   );
   const duplicateJoined = await postChat(
     waitlistThreadId,
-    `${availabilityRequest("내일")} ${resource.label}`,
+    waitlistJoinRequest(resource.label),
   );
   assertRecord(duplicateJoined, "duplicate waitlist join response");
   assert(
@@ -853,7 +853,7 @@ async function qaWaitlistGate(): Promise<QaResult> {
   const secondWaitlistThreadId = `qa-waitlist-second-${Date.now()}`;
   const secondJoined = await postChat(
     secondWaitlistThreadId,
-    `${availabilityRequest("내일")} ${resource.label}`,
+    waitlistJoinRequest(resource.label),
   );
   assertRecord(secondJoined, "second waitlist join response");
   const secondWaitlistReservationId = readPath(secondJoined, [
@@ -1223,6 +1223,15 @@ function readPath(value: unknown, keys: string[]): JsonValue | undefined {
 
 function availabilityRequest(relativeDate: string) {
   return `${relativeDate} ${qaServiceLabel} 가능한 시간 알려줘`;
+}
+
+// No relative date: the join request must search from `now` so its horizon
+// matches the saturation window (saturateWaitlistResource uses
+// preferredStartMs=null). A dated request ("내일") shifts the search horizon a
+// day past saturation coverage, leaving unsaturated tail slots that suppress
+// the zero-slot waitlist path and make the gate fail nondeterministically.
+function waitlistJoinRequest(resourceLabel: string) {
+  return `${qaServiceLabel} 가능한 시간 알려줘 ${resourceLabel}`;
 }
 
 function slotSelectionRequest() {
