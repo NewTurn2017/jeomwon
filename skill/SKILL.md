@@ -30,7 +30,9 @@ Ask in this order and stop as soon as the domain pack can be formed:
 
 ## Output Contract
 
-The interview must converge to exactly one domain pack JSON object. Its shape is defined in [REFERENCE.md](REFERENCE.md) and examples live in [EXAMPLES.md](EXAMPLES.md). Do not generate domain-specific code outside that pack; `inject.mjs` is the only path that writes domain-specific names into the project.
+The Fast Path interview must converge to exactly one domain pack JSON object. Its shape is defined in [REFERENCE.md](REFERENCE.md) and examples live in [EXAMPLES.md](EXAMPLES.md). During Fast Path pack/inject generation, do not generate domain-specific code outside that pack; `inject.mjs` is the only path that writes domain-specific names into the project.
+
+For a follow-up request to extend code in a generated project or harden a template seam, first use the [REFERENCE.md](REFERENCE.md) `Code Extension Contract`. Keep `inject.mjs` for domain-pack regeneration only.
 
 ## Script Contract
 
