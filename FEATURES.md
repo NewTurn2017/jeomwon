@@ -3,6 +3,7 @@
 > 골격(`template/`)이 **지금 제공하는** 기능을 코드와 대조해 사실만 기록한 문서.
 > "왜/어디로"는 [VISION.md](./VISION.md), "지금 뭐가 되는가"는 이 문서.
 > 근거: `template/` 소스 대조(2026-07-07). 모든 항목은 실제 파일 경로를 인라인 참조한다.
+> 예약 엔진 primitive 경계는 `template/packages/backend/convex/engine/README.md`를 기준으로 본다.
 
 ---
 

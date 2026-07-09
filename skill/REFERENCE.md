@@ -144,6 +144,7 @@ Pack generation still goes through `domain-pack.json` and `inject.mjs`. The
 positive code extension path is only for follow-up changes after scaffold/inject,
 or for template seam hardening after proof shows the seam belongs in the kit.
 Keep domain-pack regeneration and generated-app code extensions separate.
+Before changing reservation behavior, extension agents must read `template/packages/backend/convex/engine/README.md` for the current engine primitive boundaries.
 
 ### Session Rules are inherited
 

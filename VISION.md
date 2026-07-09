@@ -63,8 +63,8 @@
 - **M0 — 기반 안정화 ✅**: 대기 커밋 정리(M0.1) · **issue C 해결**(M0.2 — zod 충돌 풀고 실 LLM 추론을 옵션으로 배선; 결정론=기본/QA 경로 유지) · QA 하니스 business-hours-aware 견고화(M0.3) · 현행 기능 세트 문서화(M0.4 — [FEATURES.md](./FEATURES.md)).
 - **M1 — 코어 모듈화 ✅**: 예약 수명주기를 `engine/availability`·`policy`·`lifecycle` 경계로 정리하고, registry 대신 `features.waitlist` notify-only 파일럿으로 팩 토글 + 단일 훅 확장 seam을 먼저 실증. feature registry/조합 시스템은 확장 패턴 3개+ 반복 시로 유보.
 - **M2 — 코드확장 규약 + blind 실증 프로토콜**: 단일 `jeomwon` 스킬을 유지하고, `REFERENCE.md` Code Extension Contract로 후속 코드 확장 절차와 blind generated-app proof 입력·판정 규칙을 고정한다. 2026-07-09 blind proof로 실증 완료 — 살롱 팩 생성물에서 규약 텍스트만으로 노쇼 마킹을 완주(오프라인 게이트 그린, 라이브 QA-10 off=SKIP/on=PASS, 기존 게이트 무회귀).
-- **M3 — 라이브러리 primitive**: availability engine · hold/lock · policy engine · widget kit을 재사용 라이브러리로 문서화.
-- **M4 — DX & 갤러리**: 기능 모듈 갤러리 · 예제 · 테스트 · 원커맨드 플로우.
+- **M3 — 라이브러리 primitive ✅ complete**: availability engine · policy engine · reservation lifecycle(hold/concurrency 포함)을 `template/packages/backend/convex/engine/README.md`에 문서화 완료. widget kit 문서화는 존재하지 않는 경계를 만들지 않도록 M4로 이월.
+- **M4 — DX & 갤러리**: widget kit 문서화 · 기능 모듈 갤러리 · 예제 · 테스트 · 원커맨드 플로우.
 
 ---
 
