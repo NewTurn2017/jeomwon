@@ -250,3 +250,83 @@ hooks such as `onSlotFreed` from concrete mutation boundaries in
 `template/packages/backend/convex/agentTools.ts`; the dedupe audit marker is
 `waitlist.notified`; and `template/scripts/qa.ts` gate 9 demonstrates the
 off-toggle SKIP and on-toggle PASS shape.
+
+## Extension Pattern Gallery
+
+Two extensions have followed the Code Extension Contract end to end. This gallery
+documents them as case studies — showing that the contract's five required fields
+work in practice — not as a reusable pattern, registry, or framework. Each case
+below records how those five fields were satisfied.
+
+### Case study: M1 waitlist (kit reference implementation)
+
+Waitlist is the in-kit reference. Its files ship in `template/`, so every path and
+symbol below resolves against this repository.
+
+- **Invariant inheritance** — the feature inherits the Session Rules rather than
+  overriding them: `onSlotFreed` never rewrites the core state-transition rules,
+  and it leans on `isActiveReservation` from
+  `template/packages/backend/convex/engine/lifecycle.ts`, which returns `false` for
+  a `waitlisted` row. `waitlist.ts` itself neither imports nor calls that function;
+  the collision engine
+  (`template/packages/backend/convex/engine/availability.ts`) is what treats a
+  waitlisted row as inactive rather than as a booking collision, and the cancel
+  boundary in `template/packages/backend/convex/agentTools.ts` uses the same
+  function to decide whether a freed slot was active.
+- **Feature-owned module** — the entire feature lives in
+  `template/packages/backend/convex/engine/waitlist.ts`; core modules gain no
+  waitlist branches of their own.
+- **Named hook** — core code reaches the feature through the single named
+  `onSlotFreed(ctx, slot)` hook, imported into
+  `template/packages/backend/convex/agentTools.ts` and called from its three
+  concrete mutation boundaries: `cancelReservation` (only when the cancelled
+  reservation freed an active slot, per `isActiveReservation`), plus
+  `rescheduleReservation` and `expireReservation`, which each call it
+  unconditionally with the freed slot. No generic event bus or dispatch layer is
+  introduced.
+- **Off-default toggle** — `features.waitlist` in
+  `template/packages/backend/domain.config.ts` defaults to `false`, and
+  `onSlotFreed` returns immediately when it is off, so the behavior is opt-in.
+- **SKIP-aware QA gate** — `template/scripts/qa.ts` gate 9 returns a deterministic
+  `SKIP` when the toggle is off and, when on, runs real saturation and notify
+  assertions, writes `09-waitlist.json`, and returns `PASS`; a missing Convex URL
+  throws (`FAIL`), never `SKIP`.
+
+The behavior is deliberately notify-only: the hook inserts a `waitlist.slotOpened`
+chat event, schedules one `reservation.waitlist_opened` mail, and dedupes on the
+`waitlist.notified` audit marker — it never confirms or holds a slot. This is a
+documented case study, not a registry, framework, or reusable extension generator.
+
+### Case study: M2 no-show (external blind proof)
+
+No-show was built by a fresh agent working from the Code Extension Contract text
+alone, in a separate showcase run. Its generated files are
+**not shipped in this repository**; they live in the showcase run at
+`$JEOMWON_SHOWCASE_ROOT/_runs/m2-salon-no-show-20260709-000938` (locally observed
+as `~/dev/side/jeomwon-showcase/_runs/m2-salon-no-show-20260709-000938`). The
+paths below are relative to that run root and are quoted as code, never linked.
+
+- **Invariant inheritance** — the feature inherits the Session Rules:
+  `markReservationNoShow` in `packages/backend/convex/engine/noShow.ts` marks only
+  a `confirmed` reservation, checks start-time passage by store-timezone calendar
+  parts (not runtime `getHours`), dedupes on prior audit, and adds no fees,
+  sanctions, or customer PII.
+- **Feature-owned module** — the implementation is contained in
+  `packages/backend/convex/engine/noShow.ts`; the admin surface only calls into it.
+- **Named hook** — the concrete `packages/backend/convex/admin.ts` boundary calls
+  the named `markReservationNoShow` and `noShowActionState` functions directly,
+  with no event bus or generic dispatch.
+- **Off-default toggle** — `extensionConfig.features.noShow` in
+  `packages/backend/extension.config.ts` is enabled only when
+  `JEOMWON_EXTENSION_NO_SHOW === "1"`, so it defaults off.
+- **SKIP-aware QA gate** — `scripts/qa.ts` adds gate 10 (the next id after
+  waitlist's 9): a deterministic `SKIP` when the toggle is off, and real
+  mark/duplicate/future assertions with a `10-no-show.json` artifact when on;
+  a toggle-on setup gap throws (`FAIL`), never `SKIP`.
+
+Two kinds of evidence back this case and must not be conflated. Source-only review:
+`.omo/evidence/m2-salon-no-show-code-review.md` records an APPROVE from source
+inspection with no git and no live QA. Runtime proof: the QA manifest
+`qa-artifacts/jeomwon-2026-07-08T15-39-28-778Z/manifest.json` shows gate 9 `SKIP`
+and gate 10 `PASS`. Because the run is external, this stays a documented case
+study, not a registry or framework, and no showcase code is copied into the kit.
