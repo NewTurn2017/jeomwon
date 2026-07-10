@@ -1,3 +1,4 @@
+import { Logo } from "@jeomwon/ui/logo";
 import { GoogleSignin } from "@/components/google-signin";
 import { getScopedI18n } from "@/locales/server";
 
@@ -14,9 +15,7 @@ export default async function Page() {
       <section className="grid w-full max-w-4xl overflow-hidden rounded-lg border border-border bg-card shadow-sm md:grid-cols-[1fr_380px]">
         <div className="flex min-h-80 flex-col justify-between border-border border-b p-8 md:border-r md:border-b-0">
           <div>
-            <div className="inline-flex rounded-md border border-border bg-background px-3 py-2 font-semibold text-foreground text-sm">
-              Jeomwon
-            </div>
+            <Logo width={40} height={40} />
             <h1 className="mt-8 max-w-xl font-semibold text-3xl text-card-foreground leading-tight">
               {t("title")}
             </h1>

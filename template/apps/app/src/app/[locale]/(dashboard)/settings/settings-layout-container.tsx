@@ -15,8 +15,7 @@ export function SettingsLayoutContainer({
 }) {
   const t = useScopedI18n("settings.sidebar");
   const pathname = usePathname();
-  const normalizedPath =
-    pathname.replace(/^\/(ko|en|fr|es)(?=\/|$)/, "") || "/";
+  const normalizedPath = pathname.replace(/^\/(ko|en)(?=\/|$)/, "") || "/";
   const isSettingsPath = normalizedPath === "/settings";
   const isBillingPath = normalizedPath === "/settings/billing";
 

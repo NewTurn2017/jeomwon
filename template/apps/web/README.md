@@ -34,7 +34,6 @@ Source: `./src/components/`.
 |---|---|---|
 | `CustomerChatWidget` | `customer-chat-widget.tsx` | Floating chat surface (no props). Owns the reservation conversation: subscribes to public state, sends turns, and renders messages and the reservation card. |
 | `ChatCtaButton` | `chat-cta-button.tsx` | Call-to-action button. On click it dispatches the `jeomwon:open-chat` window event instead of calling a handler prop. |
-| `AnimatedText` | `animated-text.tsx` | Self-contained text-scramble presentational component. Available in the codebase but not currently mounted by any route. |
 | `Header` | `header.tsx` | Public page header; embeds a `ChatCtaButton`. |
 | `Footer` | `footer.tsx` | Public page footer. |
 | `ConvexClientProvider` | `../app/convex-client-provider.tsx` | Convex React client provider; also the mount point for `CustomerChatWidget`. |

@@ -6,13 +6,30 @@ import { Button } from "@jeomwon/ui/button";
 import { Switch } from "@jeomwon/ui/switch";
 import { useQuery } from "convex/react";
 import { useState } from "react";
-import { useScopedI18n } from "@/locales/client";
+import { useCurrentLocale, useScopedI18n } from "@/locales/client";
+
+function formatPrice(
+  amount: number,
+  currency: string | undefined,
+  locale: string,
+) {
+  const value = amount / 100;
+  if (!currency) {
+    return new Intl.NumberFormat(locale).format(value);
+  }
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: currency.toUpperCase(),
+  }).format(value);
+}
 
 const Plan = ({
   name,
   description,
   isCurrent,
   amount,
+  currency,
+  locale,
   interval,
   intervalLabel,
   onChangeInterval,
@@ -21,6 +38,8 @@ const Plan = ({
   description: string | null;
   isCurrent: boolean;
   amount: number;
+  currency?: string;
+  locale: string;
   interval?: "month" | "year";
   intervalLabel?: string;
   onChangeInterval?: () => void;
@@ -36,7 +55,7 @@ const Plan = ({
           <span className="font-medium text-base text-foreground">{name}</span>
           {Boolean(amount) && (
             <span className="flex items-center rounded-md bg-muted px-1.5 font-medium text-muted-foreground text-sm">
-              ${amount / 100} / {intervalLabel}
+              {formatPrice(amount, currency, locale)} / {intervalLabel}
             </span>
           )}
         </div>
@@ -66,6 +85,7 @@ const Plan = ({
 
 export default function BillingSettings() {
   const t = useScopedI18n("settings.billing");
+  const locale = useCurrentLocale();
   const user = useQuery(api.users.getUser);
   const products = useQuery(api.subscriptions.listAllProducts);
 
@@ -93,7 +113,7 @@ export default function BillingSettings() {
         <p className="text-muted-foreground text-sm leading-6">
           {t("demoDescription")}{" "}
           <a
-            href="https://stripe.com/docs/testing#cards"
+            href="https://polar.sh/docs/developers/sandbox"
             target="_blank"
             rel="noreferrer"
             className="font-medium text-primary underline"
@@ -125,6 +145,7 @@ export default function BillingSettings() {
               description={t("freeDescription")}
               isCurrent={!user.subscription}
               amount={0}
+              locale={locale}
             />
             {selectedPlanInterval === "month" && monthlyProProduct && (
               <Plan
@@ -132,6 +153,8 @@ export default function BillingSettings() {
                 description={monthlyProProduct.description}
                 isCurrent={false}
                 amount={monthlyProProduct.prices[0]?.priceAmount ?? 0}
+                currency={monthlyProProduct.prices[0]?.priceCurrency}
+                locale={locale}
                 interval={selectedPlanInterval}
                 intervalLabel={t("monthly")}
                 onChangeInterval={() => {
@@ -147,6 +170,8 @@ export default function BillingSettings() {
                 description={yearlyProProduct.description}
                 isCurrent={false}
                 amount={yearlyProProduct.prices[0]?.priceAmount ?? 0}
+                currency={yearlyProProduct.prices[0]?.priceCurrency}
+                locale={locale}
                 interval={selectedPlanInterval}
                 intervalLabel={t("yearly")}
                 onChangeInterval={() => {

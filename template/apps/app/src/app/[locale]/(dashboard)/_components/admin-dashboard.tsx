@@ -47,12 +47,17 @@ const statusStyles = {
 } satisfies Record<ReservationStatus, string>;
 
 export function AdminDashboard() {
+  const t = useScopedI18n("dashboard");
   const snapshot = useQuery(jeomwonConvex.admin.dashboardSnapshot, {});
 
   if (!snapshot) {
     return (
       <main className="w-full bg-muted/40 px-4 py-6 sm:px-6 lg:py-8">
-        <section className="mx-auto grid w-full max-w-screen-xl gap-4">
+        <section
+          aria-busy="true"
+          className="mx-auto grid w-full max-w-screen-xl gap-4"
+        >
+          <span className="sr-only">{t("loading")}</span>
           <div className="h-56 animate-pulse rounded-lg border border-border bg-card" />
           <div className="h-80 animate-pulse rounded-lg border border-border bg-card" />
           <div className="h-56 animate-pulse rounded-lg border border-border bg-card" />
@@ -257,7 +262,10 @@ function EscalationQueue({ snapshot }: { snapshot: AdminDashboardSnapshot }) {
       </div>
       <div className="p-5">
         {error ? (
-          <p className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm">
+          <p
+            role="alert"
+            className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm"
+          >
             {error}
           </p>
         ) : null}

@@ -71,9 +71,18 @@ export default function DashboardSettings() {
               {t("avatar.description")}
             </p>
           </div>
+          <UploadInput
+            id="avatar_field"
+            type="file"
+            accept="image/*"
+            className="peer sr-only"
+            required
+            generateUploadUrl={generateUploadUrl}
+            onUploadComplete={handleUpdateUserImage}
+          />
           <label
             htmlFor="avatar_field"
-            className="group relative flex cursor-pointer overflow-hidden rounded-full transition active:scale-95"
+            className="group relative flex cursor-pointer overflow-hidden rounded-full transition active:scale-95 peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-card"
           >
             {user.avatarUrl ? (
               <Image
@@ -91,16 +100,6 @@ export default function DashboardSettings() {
               <Upload className="h-6 w-6 text-primary-foreground" />
             </div>
           </label>
-          <UploadInput
-            id="avatar_field"
-            type="file"
-            accept="image/*"
-            className="peer sr-only"
-            required
-            tabIndex={user ? -1 : 0}
-            generateUploadUrl={generateUploadUrl}
-            onUploadComplete={handleUpdateUserImage}
-          />
         </div>
         <div className="flex min-h-14 w-full items-center justify-between rounded-lg rounded-t-none border-border border-t bg-muted px-6">
           <p className="text-muted-foreground text-sm">
@@ -153,6 +152,12 @@ export default function DashboardSettings() {
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
+                aria-invalid={field.state.meta?.errors.length > 0 || undefined}
+                aria-describedby={
+                  field.state.meta?.errors.length > 0
+                    ? "settings-username-error"
+                    : undefined
+                }
                 className={`w-80 bg-transparent ${
                   field.state.meta?.errors.length > 0 &&
                   "border-destructive focus-visible:ring-destructive"
@@ -161,7 +166,11 @@ export default function DashboardSettings() {
             )}
           </usernameForm.Field>
           {usernameForm.state.fieldMeta.username?.errors.length > 0 && (
-            <p className="text-sm text-destructive dark:text-destructive-foreground">
+            <p
+              id="settings-username-error"
+              role="alert"
+              className="text-sm text-destructive dark:text-destructive-foreground"
+            >
               {usernameForm.state.fieldMeta.username?.errors.join(" ")}
             </p>
           )}
@@ -201,6 +210,9 @@ export default function DashboardSettings() {
               ? t("deleteAccount.confirmButton")
               : t("deleteAccount.deleteButton")}
           </Button>
+          <span aria-live="assertive" className="sr-only">
+            {doubleCheck ? t("deleteAccount.confirmPrompt") : ""}
+          </span>
         </div>
       </section>
     </div>

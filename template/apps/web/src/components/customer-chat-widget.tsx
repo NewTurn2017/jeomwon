@@ -13,8 +13,8 @@ import {
   X,
 } from "lucide-react";
 import {
-  type FormEvent,
   type KeyboardEvent,
+  type SubmitEvent,
   useEffect,
   useMemo,
   useRef,
@@ -78,6 +78,8 @@ export function CustomerChatWidget() {
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const state = useQuery(
     jeomwonConvex.chat.publicState,
     threadId ? { threadId } : "skip",
@@ -96,10 +98,19 @@ export function CustomerChatWidget() {
   }, []);
 
   useEffect(() => {
-    const openChat = () => setIsOpen(true);
+    const openChat = () => {
+      returnFocusRef.current = document.activeElement as HTMLElement | null;
+      setIsOpen(true);
+    };
     window.addEventListener(openChatEventName, openChat);
     return () => window.removeEventListener(openChatEventName, openChat);
   }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      textareaRef.current?.focus();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -108,7 +119,7 @@ export function CustomerChatWidget() {
     });
   }, [messages.length, publicContext?.status, isOpen]);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = message.trim();
     if (!threadId || !trimmed || isSending) {
@@ -150,23 +161,37 @@ export function CustomerChatWidget() {
     formRef.current?.requestSubmit();
   }
 
+  function closePanel() {
+    setIsOpen(false);
+    returnFocusRef.current?.focus();
+  }
+
+  function handlePanelKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    event.preventDefault();
+    closePanel();
+  }
+
   return (
     <div className="fixed right-4 bottom-4 z-50 flex flex-col items-end gap-3 sm:right-6 sm:bottom-6">
       {isOpen ? (
         <section
           aria-label="예약 채팅"
-          className="flex h-[min(640px,calc(100vh-2rem))] w-[calc(100vw-2rem)] max-w-[400px] flex-col overflow-hidden rounded-lg border border-border bg-secondary shadow-lg"
+          className="chat_room flex h-[min(640px,calc(100vh-2rem))] w-[calc(100vw-2rem)] max-w-[400px] flex-col overflow-hidden rounded-2xl shadow-2xl ring-1 ring-black/5"
+          id="jeomwon-chat-panel"
+          onKeyDown={handlePanelKeyDown}
         >
-          <header className="flex flex-none items-center justify-between border-border border-b bg-card px-4 py-3">
+          <header className="chat_header flex flex-none items-center justify-between px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <StoreAvatar storeName={storeName} />
               <div className="min-w-0">
-                <p className="truncate font-semibold text-card-foreground text-sm">
+                <p className="truncate font-semibold text-sm">
                   {copy?.chatTitle ?? "예약 도우미"}
                 </p>
-                <p className="truncate text-muted-foreground text-xs">
-                  {storeName}
-                </p>
+                <p className="truncate text-xs opacity-70">{storeName}</p>
               </div>
             </div>
             <Button
@@ -175,7 +200,7 @@ export function CustomerChatWidget() {
               size="icon"
               type="button"
               variant="ghost"
-              onClick={() => setIsOpen(false)}
+              onClick={closePanel}
             >
               <X aria-hidden="true" className="h-4 w-4" />
             </Button>
@@ -183,7 +208,10 @@ export function CustomerChatWidget() {
 
           <div
             ref={scrollRef}
+            aria-label="대화 내용"
+            aria-live="polite"
             className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
+            role="log"
           >
             {state?.guardrailBanner ? (
               <SystemNotice>
@@ -242,11 +270,13 @@ export function CustomerChatWidget() {
 
           <form
             ref={formRef}
-            className="flex flex-none items-end gap-2 border-border border-t bg-card p-3"
+            className="chat_inputbar flex flex-none items-end gap-2 p-3"
             onSubmit={submit}
           >
             <textarea
-              className="max-h-28 min-h-10 min-w-0 flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm leading-6 outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              ref={textareaRef}
+              aria-label="예약 문의 메시지 입력"
+              className="chat_textfield max-h-28 min-h-10 min-w-0 flex-1 resize-none rounded-2xl px-4 py-2 text-sm leading-6 outline-none focus-visible:ring-2 focus-visible:ring-ring"
               disabled={isSending}
               placeholder={copy?.chatPlaceholder ?? "예약 문의를 입력하세요"}
               rows={1}
@@ -277,10 +307,20 @@ export function CustomerChatWidget() {
       ) : null}
 
       <Button
-        aria-label="예약 채팅 열기"
+        aria-controls="jeomwon-chat-panel"
+        aria-expanded={isOpen}
+        aria-label={isOpen ? "예약 채팅 닫기" : "예약 채팅 열기"}
         className="h-14 gap-2 rounded-full px-5 shadow-lg"
         type="button"
-        onClick={() => setIsOpen((value) => !value)}
+        onClick={(event) => {
+          if (isOpen) {
+            closePanel();
+            return;
+          }
+
+          returnFocusRef.current = event.currentTarget;
+          setIsOpen(true);
+        }}
       >
         <MessageCircle aria-hidden="true" className="h-5 w-5" />
         예약 문의
@@ -308,8 +348,8 @@ function UserBubble({
 }) {
   return (
     <div className="ml-auto flex max-w-[82%] items-end gap-2">
-      <span className="text-muted-foreground text-[11px]">{timeLabel}</span>
-      <p className="whitespace-pre-line rounded-lg rounded-br-sm bg-primary px-3 py-2 text-primary-foreground text-sm leading-6">
+      <span className="chat_timestamp shrink-0 text-xs">{timeLabel}</span>
+      <p className="chat_bubble--outgoing whitespace-pre-line rounded-2xl rounded-tr-md px-3 py-2 text-sm leading-6">
         {message}
       </p>
     </div>
@@ -329,16 +369,12 @@ function AssistantBubble({
     <div className="flex max-w-[88%] items-start gap-2">
       <StoreAvatar storeName={storeName} />
       <div className="min-w-0">
-        <p className="mb-1 font-medium text-muted-foreground text-xs">
-          {storeName}
-        </p>
+        <p className="chat_sender_name mb-1 font-medium text-xs">{storeName}</p>
         <div className="flex items-end gap-2">
-          <p className="whitespace-pre-line rounded-lg rounded-bl-sm border border-border bg-card px-3 py-2 text-card-foreground text-sm leading-6">
+          <p className="chat_bubble--incoming whitespace-pre-line rounded-2xl rounded-tl-md px-3 py-2 text-sm leading-6">
             {message}
           </p>
-          <span className="shrink-0 text-muted-foreground text-[11px]">
-            {timeLabel}
-          </span>
+          <span className="chat_timestamp shrink-0 text-xs">{timeLabel}</span>
         </div>
       </div>
     </div>
@@ -347,7 +383,7 @@ function AssistantBubble({
 
 function SystemNotice({ children }: { children: string }) {
   return (
-    <p className="mx-auto max-w-[84%] rounded-full bg-muted px-3 py-1.5 text-center text-muted-foreground text-xs leading-5">
+    <p className="chat_system_notice mx-auto max-w-[84%] rounded-full px-3 py-1.5 text-center text-xs leading-5">
       {children}
     </p>
   );
@@ -367,7 +403,7 @@ function ReservationCard({
   return (
     <div className="flex max-w-[92%] items-start gap-2">
       <StoreAvatar storeName={storeName} />
-      <article className="rounded-lg rounded-bl-sm border border-border bg-card p-3 text-card-foreground">
+      <article className="chat_reservation_card rounded-2xl rounded-tl-md p-3">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <CalendarClock aria-hidden="true" className="h-4 w-4" />

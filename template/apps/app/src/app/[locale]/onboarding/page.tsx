@@ -79,12 +79,21 @@ export default function OnboardingUsername() {
               // biome-ignore lint/correctness/noChildrenProp: tanstack best practice
               children={(field) => (
                 <Input
+                  id="username"
                   placeholder={t("usernamePlaceholder")}
                   autoComplete="off"
                   required
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
+                  aria-invalid={
+                    field.state.meta?.errors.length > 0 || undefined
+                  }
+                  aria-describedby={
+                    field.state.meta?.errors.length > 0
+                      ? "onboarding-username-error"
+                      : undefined
+                  }
                   className={`bg-transparent ${
                     field.state.meta?.errors.length > 0 &&
                     "border-destructive focus-visible:ring-destructive"
@@ -96,7 +105,11 @@ export default function OnboardingUsername() {
 
           <div className="flex flex-col">
             {form.state.fieldMeta.username?.errors.length > 0 && (
-              <span className="mb-2 text-sm text-destructive dark:text-destructive-foreground">
+              <span
+                id="onboarding-username-error"
+                role="alert"
+                className="mb-2 text-sm text-destructive dark:text-destructive-foreground"
+              >
                 {form.state.fieldMeta.username?.errors.join(" ")}
               </span>
             )}

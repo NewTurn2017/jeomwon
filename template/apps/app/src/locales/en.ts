@@ -1,14 +1,14 @@
 export default {
+  metadata: {
+    title: "Jeomwon · Reservation Operations",
+    description:
+      "AI reservation operations dashboard for live reservations, escalations, and agent activity in one authenticated operator surface.",
+  },
   dashboard: {
     title: "Reservation Operations",
     description:
       "Monitor live reservations, escalations, and agent activity in one authenticated operator surface.",
-    bodyTitle: "Operations",
-    bodyDescription: "Jeomwon reservation operations data.",
-    bodyTip: "Updates through realtime reservations data.",
-    headerTitle: "Dashboard",
-    headerDescription: "Manage reservations and customer operations.",
-    documentationLink: "Explore Documentation",
+    loading: "Loading",
     statsHeld: "Held",
     statsConfirmed: "Confirmed",
     statsEscalated: "Escalated",
@@ -21,12 +21,6 @@ export default {
     assignedResource: "Assigned resource",
     updatedAt: "Updated",
     holdExpiresAt: "Hold expires",
-    calendarTitle: "Reservation Calendar",
-    resourceColumn: "Resource",
-    closedDay: "The selected date is outside business hours.",
-    seatGridTitle: "Seat Grid",
-    seatGridDescription: "Operator primitive for spatial resource domains.",
-    seatAvailable: "Available",
     escalationTitle: "Escalation Queue",
     escalationDescription:
       "Cancellation requests that require operator judgment.",
@@ -86,7 +80,6 @@ export default {
     dashboard: "Dashboard",
     settings: "Settings",
     billing: "Billing",
-    documentation: "Docs",
     account: "Operator Account",
     free: "Free",
     upgradePro: "Upgrade to PRO",
@@ -111,9 +104,6 @@ export default {
       "You can update your username at any time from account settings.",
   },
   settings: {
-    title: "Settings",
-    headerTitle: "Settings",
-    headerDescription: "Manage your account settings.",
     avatar: {
       title: "Your Avatar",
       description: "This is your avatar. It will be displayed on your profile.",
@@ -135,6 +125,8 @@ export default {
       warning: "This action cannot be undone, proceed with caution.",
       deleteButton: "Delete Account",
       confirmButton: "Are you sure?",
+      confirmPrompt:
+        "Press the delete button again to permanently remove your account.",
     },
     sidebar: {
       general: "General",
@@ -143,8 +135,8 @@ export default {
     billing: {
       demoTitle: "Test billing environment",
       demoDescription:
-        "Jeomwon billing is configured for the Polar test environment in this template. Test card numbers are in the",
-      testCardsLink: "Stripe test card docs",
+        "In this template, Jeomwon billing runs against the Polar sandbox environment. Find test card numbers and payment steps in the",
+      testCardsLink: "Polar sandbox docs",
       planTitle: "Plan",
       currentPlanPrefix: "You are currently on the",
       currentPlanSuffix: "plan.",

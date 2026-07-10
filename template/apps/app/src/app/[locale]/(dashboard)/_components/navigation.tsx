@@ -8,9 +8,15 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@jeomwon/ui/dropdown-menu";
+import { Logo } from "@jeomwon/ui/logo";
 import { cn } from "@jeomwon/ui/utils";
 import { type Preloaded, usePreloadedQuery } from "convex/react";
 import { Check, ChevronDown, ChevronUp, LogOut, Settings } from "lucide-react";
@@ -18,9 +24,12 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useScopedI18n } from "@/locales/client";
-import { LanguageSwitcher } from "./language-switcher";
-import { ThemeSwitcher } from "./theme-switcher";
+import { useTheme } from "next-themes";
+import {
+  useChangeLocale,
+  useCurrentLocale,
+  useScopedI18n,
+} from "@/locales/client";
 
 const PolarCheckoutLink = dynamic(
   () =>
@@ -43,8 +52,7 @@ export function Navigation({
   const { signOut } = useAuthActions();
   const pathname = usePathname();
   const router = useRouter();
-  const normalizedPath =
-    pathname.replace(/^\/(ko|en|fr|es)(?=\/|$)/, "") || "/";
+  const normalizedPath = pathname.replace(/^\/(ko|en)(?=\/|$)/, "") || "/";
   const isDashboardPath = normalizedPath === "/";
   const isSettingsPath = normalizedPath === "/settings";
   const isBillingPath = normalizedPath === "/settings/billing";
@@ -59,10 +67,12 @@ export function Navigation({
     <nav className="sticky top-0 z-50 flex w-full flex-col border-b border-border bg-card/95 px-4 backdrop-blur sm:px-6">
       <div className="mx-auto flex w-full max-w-screen-xl items-center justify-between py-3">
         <div className="flex h-10 items-center gap-2">
-          <Link href="/" className="flex h-10 items-center gap-1">
-            <span className="rounded-md border border-border bg-background px-3 py-1.5 font-semibold text-foreground text-sm">
-              Jeomwon
-            </span>
+          <Link
+            href="/"
+            aria-label="Jeomwon"
+            className="flex h-10 items-center"
+          >
+            <Logo width={32} height={32} />
           </Link>
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
@@ -173,27 +183,8 @@ export function Navigation({
                 <Settings className="h-[18px] w-[18px] stroke-[1.5px] text-muted-foreground group-hover:text-foreground group-focus:text-foreground" />
               </DropdownMenuItem>
 
-              <DropdownMenuItem
-                className={cn(
-                  "group flex h-9 justify-between rounded-md px-2 hover:bg-transparent",
-                )}
-              >
-                <span className="w-full text-muted-foreground text-sm group-hover:text-foreground group-focus:text-foreground">
-                  {t("theme")}
-                </span>
-                <ThemeSwitcher />
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                className={cn(
-                  "group flex h-9 justify-between rounded-md px-2 hover:bg-transparent",
-                )}
-              >
-                <span className="w-full text-muted-foreground text-sm group-hover:text-foreground group-focus:text-foreground">
-                  {t("language")}
-                </span>
-                <LanguageSwitcher />
-              </DropdownMenuItem>
+              <ThemeSubmenu />
+              <LanguageSubmenu />
 
               <DropdownMenuSeparator className="mx-0 my-2" />
 
@@ -292,5 +283,76 @@ function PolarUpgradeMenuItem({
         </PolarCheckoutLink>
       </Button>
     </DropdownMenuItem>
+  );
+}
+
+function ThemeSubmenu() {
+  const t = useScopedI18n("navigation");
+  const { theme, setTheme, themes } = useTheme();
+
+  function formatTheme(value: string) {
+    if (value === "light") {
+      return t("themeOptions.light");
+    }
+    if (value === "dark") {
+      return t("themeOptions.dark");
+    }
+    return t("themeOptions.system");
+  }
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger className="h-9 rounded-md px-2 text-muted-foreground text-sm">
+        {t("theme")}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="bg-card">
+        <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+          {themes.map((value) => (
+            <DropdownMenuRadioItem
+              key={value}
+              value={value}
+              className="text-muted-foreground text-sm"
+            >
+              {formatTheme(value)}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+}
+
+function LanguageSubmenu() {
+  const t = useScopedI18n("navigation");
+  const changeLocale = useChangeLocale();
+  const locale = useCurrentLocale();
+
+  const langs = [
+    { text: "한국어", value: "ko" },
+    { text: "English", value: "en" },
+  ] as const;
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger className="h-9 rounded-md px-2 text-muted-foreground text-sm">
+        {t("language")}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="bg-card">
+        <DropdownMenuRadioGroup
+          value={locale}
+          onValueChange={(value) => changeLocale(value as "ko" | "en")}
+        >
+          {langs.map(({ text, value }) => (
+            <DropdownMenuRadioItem
+              key={value}
+              value={value}
+              className="text-muted-foreground text-sm"
+            >
+              {text}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
   );
 }

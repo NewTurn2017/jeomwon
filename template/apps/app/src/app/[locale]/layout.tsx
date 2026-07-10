@@ -1,16 +1,21 @@
 import "@jeomwon/ui/globals.css";
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { TooltipProvider } from "@jeomwon/ui/tooltip";
 import { cn } from "@jeomwon/ui/utils";
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import { I18nProviderClient } from "@/locales/client";
+import { getScopedI18n } from "@/locales/server";
 import { ConvexClientProvider } from "../convex-client-provider";
 
-export const metadata: Metadata = {
-  title: "Jeomwon",
-  description: "AI reservation operations dashboard",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getScopedI18n("metadata");
+  return {
+    title: t("title"),
+    description: t("description"),
+  };
+}
 
 export const viewport = {
   themeColor: [

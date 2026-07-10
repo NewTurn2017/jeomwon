@@ -1,4 +1,6 @@
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "@jeomwon/ui/globals.css";
+import "@/components/customer-chat-widget.css";
 import { domainConfig } from "@jeomwon/backend/domain.config";
 import { cn } from "@jeomwon/ui/utils";
 import type { Metadata } from "next";

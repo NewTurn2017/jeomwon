@@ -6,7 +6,7 @@ import {
 import { createI18nMiddleware } from "next-international/middleware";
 
 const I18nProxy = createI18nMiddleware({
-  locales: ["ko", "en", "fr", "es"],
+  locales: ["ko", "en"],
   defaultLocale: "ko",
   urlMappingStrategy: "rewrite",
 });
