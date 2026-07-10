@@ -92,7 +92,7 @@ export function CustomerChatWidget() {
 
   useEffect(() => {
     const existing = window.localStorage.getItem(threadStorageKey);
-    const nextThreadId = existing ?? crypto.randomUUID();
+    const nextThreadId = existing ?? createThreadId();
     window.localStorage.setItem(threadStorageKey, nextThreadId);
     setThreadId(nextThreadId);
   }, []);
@@ -434,6 +434,27 @@ function ReservationCard({
       </article>
     </div>
   );
+}
+
+function createThreadId(): string {
+  if (typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  // Insecure contexts (LAN IP, plain http) lack crypto.randomUUID but still
+  // expose getRandomValues; build an RFC 4122 v4 UUID from raw bytes.
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const hex = Array.from(bytes, (byte, index) => {
+    let value = byte;
+    if (index === 6) {
+      value = (byte & 0x0f) | 0x40; // version 4
+    } else if (index === 8) {
+      value = (byte & 0x3f) | 0x80; // variant 10xx
+    }
+    return value.toString(16).padStart(2, "0");
+  }).join("");
+
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 function formatChatTime(timestampMs: number, timezone: string) {
