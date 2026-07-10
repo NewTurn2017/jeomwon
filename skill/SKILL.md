@@ -9,13 +9,15 @@ Use this skill to turn one operational reservation domain into a generated Jeomw
 
 ## Fast Path
 
-1. Interview for a single domain pack JSON.
-2. Scaffold from one of two starts:
-   - Repo clone: run `bun skill/scripts/scaffold.mjs <target-dir> <project-name>` from the kit repo; it uses local `template/`.
-   - Skill-only install: run the installed `scripts/scaffold.mjs`; when local `template/` is absent it downloads the GitHub tarball (`JEOMWON_TEMPLATE_REF`, default `main`; `JEOMWON_TEMPLATE_ARCHIVE` for offline tarballs).
-3. Save the domain pack JSON and run `bun skill/scripts/inject.mjs <target-dir> <domain-pack.json>`.
-4. Tell the user to run `bun setup` inside the generated project for Convex, Google OAuth, Resend, OpenAI, and optional Polar.
-5. Run `bun skill/scripts/verify.mjs <target-dir>` when local dependencies are cached or install is allowed. Run with `JEOMWON_QA_BASE_URL=http://localhost:3001` only after Convex/web are running.
+1. Interview for a single domain pack JSON and save it to a file.
+2. Bootstrap the deterministic pipeline (scaffold → inject → offline verify) with one command:
+   - Repo clone: `bun skill/scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>` from the kit repo; it uses local `template/`.
+   - Skill-only install: `bun scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>` from the installed skill; when local `template/` is absent scaffold downloads the GitHub tarball (`JEOMWON_TEMPLATE_REF`, default `main`; `JEOMWON_TEMPLATE_ARCHIVE` for offline tarballs).
+   Bootstrap is offline-only: it strips an ambient `JEOMWON_QA_BASE_URL` from its verify step so it never runs live QA, and it never runs `bun setup`. On success it prints the generated path and the next steps below; on the first stage failure it stops and prints that stage's exact rerun command.
+3. Tell the user to run `bun setup` inside the generated project for Convex, Google OAuth, Resend, OpenAI, and optional Polar. This is a separate interactive step — bootstrap does not run it.
+4. Tell the user to run `bun run qa` (live 9-gate) after Convex/web are running. This is also separate from bootstrap.
+
+Use the individual `scaffold.mjs`, `inject.mjs`, and `verify.mjs` commands (Script Contract below) for retries, partial reruns, and debugging after a bootstrap failure.
 
 ## Interview Order
 
@@ -36,9 +38,11 @@ For a follow-up request to extend code in a generated project or harden a templa
 
 ## Script Contract
 
+- `bootstrap.mjs <target-dir> <project-name> <domain-pack.json>` is the standard one-command deterministic path — a thin sequencer that runs `scaffold.mjs`, then `inject.mjs`, then `verify.mjs`, resolving them as its own siblings so it works from a repo clone or an installed skill. The first argument is the target, the last is the pack, and the words between are the project name. It is offline-only: it deletes an ambient `JEOMWON_QA_BASE_URL` from the verify step and never runs live QA, and it never runs `bun setup`. On the first stage failure it stops, names the stage, and prints one `Recovery: bun <script> ...` line for that stage; it never deletes a target, so a non-empty or partial target must be inspected and removed manually before rerunning. On success it prints the generated path and the `bun setup` → `bun run qa` next steps as guidance only (it does not run them).
 - `scaffold.mjs` copies `template/` into a target directory, excludes dependency/build/env artifacts, replaces `@jeomwon/` with the project npm scope, and prints the next commands.
 - `inject.mjs` validates the domain pack JSON, writes `packages/backend/domain.config.ts`, and regenerates the resource seed mutation.
 - `verify.mjs` runs offline install, typecheck, lint, build, and optionally QA when `JEOMWON_QA_BASE_URL` points at a running generated web app.
+- The individual `scaffold.mjs`, `inject.mjs`, and `verify.mjs` commands stay the retry, partial-execution, and debugging entrypoints — run them directly to rerun a single stage after a bootstrap failure.
 
 ## Guardrails
 

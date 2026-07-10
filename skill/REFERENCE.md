@@ -90,6 +90,18 @@ type DomainPack = {
 };
 ```
 
+## Bootstrap Contract
+
+`scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>` is the standard one-command deterministic path. It is a thin sequencer with no domain logic of its own: it resolves `scaffold.mjs`, `inject.mjs`, and `verify.mjs` as its own siblings (so it runs identically from a repo clone or a skill-only install) and invokes them in order with the current runtime. The repo form is `bun skill/scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>`; the installed-skill form is `bun scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>`.
+
+- Arguments: the first is the target directory, the last is the domain-pack JSON, and everything in between is the scaffold project name (one quoted argument or several bare words). Target and pack are resolved against the invocation directory.
+- Stages: `scaffold` → `inject` → `verify`. There is no separate install step; `verify.mjs` owns the offline install.
+- Offline-only: bootstrap deletes an ambient `JEOMWON_QA_BASE_URL` from the verify step and never passes `--qa`, so its verify always reports `SKIP qa`. It never runs `bun setup` and never runs live QA.
+- Failure: it stops at the first failing stage, names the stage and status, and prints exactly one `Recovery: bun <script> ...` line (using the public `bun` token) for that stage. It never deletes a target — after a scaffold failure a non-empty or partial target must be inspected and removed manually before the printed command is rerun.
+- Success: it prints the resolved generated-project path and the next steps `cd <target>`, `bun setup`, then `bun run qa` as guidance only (it does not run them).
+
+For retries, partial reruns, and debugging, run the individual `scaffold.mjs`, `inject.mjs`, and `verify.mjs` commands directly (see the Injection Contract and Verification Gates below).
+
 ## Injection Contract
 
 `scripts/inject.mjs <target-dir> <domain-pack.json>` validates and writes only generated domain artifacts:
@@ -116,12 +128,18 @@ Validation gates:
 Run these gates in order:
 
 1. Template regression: in `template/`, run `bun install --frozen-lockfile --offline`, `bun run typecheck`, `bun run lint`, and `bun run build`.
-2. Scaffold: `bun skill/scripts/scaffold.mjs samples/pension-stay "Pension Stay"`.
-3. Inject: `bun skill/scripts/inject.mjs samples/pension-stay <pension-domain-pack.json>`.
-4. Generated verification: `bun skill/scripts/verify.mjs samples/pension-stay`.
-5. Convex/web QA (one command): after `bun setup` provisions the dev Convex deployment, run `bun run qa` in the generated project (or in `template/`). `scripts/qa-local.ts` deploys the Convex functions, sets the QA env, boots the web app in mock runtime, runs the 9-gate suite, and tears the server and env back down. It refuses any non-`dev:` deployment and forces email capture, so no real mail is sent.
+2. Sample bootstrap (standard journey): into a fresh, empty target directory, run `bun skill/scripts/bootstrap.mjs <fresh-target> "Pension Stay" <pension-domain-pack.json>`. This runs scaffold → inject → offline verify in one command and ends with `VERIFY PASS`. Bootstrap's verify owns the offline install and never runs live QA — it strips an ambient `JEOMWON_QA_BASE_URL` and reports `SKIP qa`. Bootstrap refuses a non-empty target, so do not point it at the committed `samples/pension-stay`; use a throwaway directory.
+3. Convex/web QA (one command): after `bun setup` provisions the dev Convex deployment, run `bun run qa` in the generated project (or in `template/`). `scripts/qa-local.ts` deploys the Convex functions, sets the QA env, boots the web app in mock runtime, runs the 9-gate suite, and tears the server and env back down. It refuses any non-`dev:` deployment and forces email capture, so no real mail is sent.
 
-`verify.mjs` (step 4) is the offline gate and never fetches provider secrets. It uses Bun offline install, builds the email package normally, builds the Next app/web surfaces with `next build --webpack` for sandbox compatibility, and skips QA unless a running web surface is explicitly supplied through `JEOMWON_QA_BASE_URL`. The live 9-gate QA in step 5 is the one-command path; `verify.mjs` covers the sandboxed offline path.
+`verify.mjs` (bootstrap's third stage) is the offline gate and never fetches provider secrets. It uses Bun offline install, builds the email package normally, builds the Next app/web surfaces with `next build --webpack` for sandbox compatibility, and skips QA unless a running web surface is explicitly supplied through `JEOMWON_QA_BASE_URL`. The live 9-gate QA in gate 3 is the one-command path; `verify.mjs` covers the sandboxed offline path.
+
+### Recovery / partial execution
+
+Bootstrap composes three lower-level commands; run them directly to rerun a single stage after a failure or to execute the pipeline partially:
+
+- Scaffold: `bun skill/scripts/scaffold.mjs <target-dir> "Pension Stay"`.
+- Inject: `bun skill/scripts/inject.mjs <target-dir> <pension-domain-pack.json>`.
+- Generated verification: `bun skill/scripts/verify.mjs <target-dir>`.
 
 ## Session Rules
 

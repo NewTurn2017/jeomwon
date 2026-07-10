@@ -44,6 +44,14 @@ M0(기반 안정화: 커밋 정리 + issue C 결단) 착수 계획을 세워줘.
 
 ---
 
+## M4.2 — 부트스트랩 원커맨드 (현행 검증 기준)
+
+- 생성물 착수의 결정론 구간은 `bun skill/scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>` 한 줄로 묶여 있다(scaffold → inject → 오프라인 verify). 표준 검증은 **빈 임시 타깃에 Pension Stay 팩으로 bootstrap 하여 `VERIFY PASS`를 확인**하는 것이다(예: `mktemp -d` 아래 타깃 + `skill/EXAMPLES.md`의 Pension Stay 팩). bootstrap은 오프라인 전용이라 라이브 QA·`bun setup`을 실행하지 않고, 커밋된 비어있지 않은 `samples/pension-stay`는 타깃으로 거부한다.
+- template 라이브 회귀(`cd template && bun run qa` 9게이트 + `bun run typecheck` + `bun run lint`)는 **오케스트레이터 소유 게이트**다 — 이 문서를 붙여넣는 구현 세션이 임의로 돌리지 말고 오케스트레이터의 그린 리시트로 확인한다.
+- 단일 `scaffold.mjs`·`inject.mjs`·`verify.mjs` 커맨드는 재실행·부분 실행·디버깅용으로 남아 있다. 정확한 인자와 계약은 [skill/REFERENCE.md](./skill/REFERENCE.md)의 Bootstrap Contract / Verification Gates 참고.
+
+---
+
 ## 참고 — 쇼케이스(별도 repo)
 - `~/dev/side/jeomwon-showcase/06-webinar-live/` — 이번에 만든 웨비나 데모(팩 + PROMPT + 생성된 app/).
 - 데모의 Convex dev 배포: `hardy-bulldog-667`(프로젝트 `ai-webinar`). RESEND 실 키 설정됨, AGENT_RUNTIME=openai(그래서 실 챗은 issue C로 죽음, QA는 mock으로 8/8 — gate 9 이전 생성물).

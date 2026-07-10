@@ -67,7 +67,7 @@
 - **M3 — 라이브러리 primitive ✅ complete**: availability engine · policy engine · reservation lifecycle(hold/concurrency 포함)을 `template/packages/backend/convex/engine/README.md`에 문서화 완료. widget kit 문서화는 존재하지 않는 경계를 만들지 않도록 M4로 이월.
 - **M4 — DX & 갤러리** (M4.1/M4.2/M4.3 3분할):
   - **M4.1 — UI 표면 사실 문서화 ✅**: `apps/web`·`apps/app` 경계 README 신설(고객/관리자 UI 표면·소비 계약)과 문서-코드 불일치 정정. M3가 이월한 "widget kit 문서화"는 존재하지 않는 렌더 경계를 만드는 대신, adminWidget이 데이터 경로만이라는 사실을 기록(대시보드 렌더 미반영, 2.3 참고).
-  - **M4.2 — 원커맨드 플로우**: scaffold → inject → setup → `bun run qa` 원커맨드 경험 다듬기.
+  - **M4.2 — 부트스트랩 원커맨드 ✅**: 결정론 구간(scaffold → inject → 오프라인 verify)을 `skill/scripts/bootstrap.mjs` 한 커맨드로 묶었다(얇은 시퀀서, 새 상태 파일·레지스트리·훅 없음). `bun setup`(대화형 시크릿)과 `bun run qa`(라이브)는 묶음 밖의 안내 단계로 분리 — bootstrap은 오프라인 전용이라 ambient `JEOMWON_QA_BASE_URL`을 verify 단계에서 제거하고 setup·라이브 QA를 실행하지 않는다. 개별 scaffold/inject/verify는 재실행·부분 실행용으로 존치.
   - **M4.3 — 기능 모듈 갤러리·예제**: 확장 패턴 갤러리와 예제 도메인 팩 확충. 테스트는 각 단계 게이트로 흡수.
 
 ---

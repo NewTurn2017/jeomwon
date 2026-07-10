@@ -17,9 +17,9 @@ git clone https://github.com/NewTurn2017/jeomwon.git && cd jeomwon
 ln -sfn "$(pwd)/skill" ~/.claude/skills/jeomwon
 ```
 
-이후 Claude Code 세션에서 도메인을 설명하세요 (예: "PC방 좌석 예약 시스템 만들어줘"). 스킬이 인터뷰하고, `template/`에서 프로젝트를 스캐폴드하고, 도메인 팩을 주입한 뒤 검증 게이트를 실행합니다.
+이후 Claude Code 세션에서 도메인을 설명하세요 (예: "PC방 좌석 예약 시스템 만들어줘"). 스킬이 도메인 팩 하나로 인터뷰한 뒤, 단일 **bootstrap** 커맨드로 `template/`에서 프로젝트를 스캐폴드하고, 도메인 팩을 주입하고, 오프라인 검증 게이트를 실행합니다. bootstrap은 오프라인 전용이라 라이브 QA도 `bun setup`도 실행하지 않습니다. 끝나면 생성물 경로와, 사용자가 직접 실행할 다음 단계(`bun setup` 대화형 자격증명 → `bun run qa` 라이브 9게이트)를 출력합니다.
 
-시작 경로는 두 가지입니다. 레포 전체를 클론한 경우 `scaffold.mjs`는 로컬 `template/` 디렉터리를 그대로 사용합니다. `skill/`만 설치한 경우 로컬 `template/`이 없으면 `JEOMWON_TEMPLATE_REF`(기본 `main`)의 GitHub tarball을 새로 내려받습니다. 오프라인 또는 사설 네트워크 검증에는 `JEOMWON_TEMPLATE_ARCHIVE=/path/to/jeomwon.tar.gz`를 지정하세요.
+시작 경로는 두 가지입니다. 레포 전체를 클론한 경우 `bun skill/scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>`가 로컬 `template/` 디렉터리를 그대로 사용합니다. `skill/`만 설치한 경우 `bun scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>`가 로컬 `template/`이 없으면 `JEOMWON_TEMPLATE_REF`(기본 `main`)의 GitHub tarball을 새로 내려받습니다. 오프라인 또는 사설 네트워크 검증에는 `JEOMWON_TEMPLATE_ARCHIVE=/path/to/jeomwon.tar.gz`를 지정하세요. 하위 커맨드 `scaffold.mjs`, `inject.mjs`, `verify.mjs`는 재실행·부분 실행용으로 그대로 남아 있습니다.
 
 ### Claude Code 없이
 
@@ -37,7 +37,7 @@ bun dev          # web + app + backend 병렬 실행
 | 경로 | 설명 |
 |---|---|
 | `template/` | 프로젝트 원본, jeomwon으로 풀 리브랜드 완료(get-convex/v1에서 파생, 핀은 `docs/upstream-report.md`에 기록): `domain.config.ts` 주도 에이전트(triage + 4), 카카오톡 스타일 챗 위젯, 운영자 대시보드, React Email 4종, `bun setup` 위저드 |
-| `skill/` | Claude Code 스킬: `SKILL.md` fast path, `REFERENCE.md` 방법론, `EXAMPLES.md` 도메인 팩(미용실, PC방, 도서관, 펜션, generic), `scripts/{scaffold,inject,verify}.mjs` |
+| `skill/` | Claude Code 스킬: `SKILL.md` fast path, `REFERENCE.md` 방법론, `EXAMPLES.md` 도메인 팩(미용실, PC방, 도서관, 펜션, generic), `scripts/{bootstrap,scaffold,inject,verify}.mjs` |
 | `samples/pension-stay/` | 셀프 증명: 킷으로 실제 생성한 펜션(일 단위 숙박) 프로젝트. 주기적으로 재생성하므로 최신 template보다 뒤처질 수 있음 |
 | `docs/plan.md` | 살아있는 계획서 — 아키텍처 결정, 페이즈 로그, 백로그 |
 | `upstream/` | get-convex/v1 읽기 전용 참조 클론 (gitignore 대상, 핀은 `docs/upstream-report.md`에 기록) |
