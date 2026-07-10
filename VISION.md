@@ -27,17 +27,18 @@
 ### 2.2 이미 되는 것 (골격 기능)
 - 챗 기반 예약 수명주기: 가용성 → 홀드 → 확정 → 변경 → 취소 → 에스컬레이션.
 - 가드레일: relevance/privacy/confirmation, 공개-내부 컨텍스트 분리.
-- 관리자 위젯: `calendar` / `seatGrid`.
+- 관리자 위젯 필드: `calendar` / `seatGrid` (팩·데이터 경로만 — 대시보드 렌더 미반영, 2.3·`apps/app/README.md` 참고).
 - 라이프사이클 메일: capture(키 없음) / sent(Resend).
 - 인증: Google OAuth + 익명 dev 로그인.
 - 선택 결제: Polar (features.polar).
-- 8게이트 QA + 오프라인 verify 게이트.
+- 9게이트 QA + 오프라인 verify 게이트.
 - 리소스 4종(person/seat/room/unit) × slot 3종(minutes:30/hour/day) × 위젯 2종.
 
 ### 2.3 알려진 한계·버그 (이번 세션 발견)
 - **[C · 해결 (M0.2)] 실 LLM 챗** — zod를 전역 v4로 올려(`@openai/agents@0.12` peer 충족) import 크래시 제거하고, `"openai"` 런타임에 OpenAI Agents SDK 실 추론을 배선. LLM이 tool(find/hold/confirm/cancel/reschedule/lookup)로 Convex 상태를 실제 구동. 관측: 실 키 3턴 예약(eligible→held→confirmed) 성공, fallback 없음. 결정론은 기본·QA·폴백으로 유지, 가드레일(privacy/relevance/confirmation)은 두 런타임 공통 결정론 선차단(방어심층).
 - **[QA · 해결 (M0.3)] 하니스 business-hours-aware** — cancel-window 오프셋을 엔진의 순수 헬퍼(`isSlotAllowed`/`alignToSlot`/`isInsideCancelWindow`)로 계산해 **실제 열린 슬롯**을 창의 올바른 쪽에 앵커(floor/ceil 반올림)한다. 좁은 시간대/휴무일 팩처럼 창 안쪽 슬롯이 물리적으로 불가능한 실행 시각엔 escalation 검사를 **결정론적 SKIP**(runner에 SKIP 상태 추가). 검증: 순수 시뮬레이션 672 실행시각 × 웨비나/데모 팩 — 웨비나 0 misclassify·0 skip, 데모 feasible 590건 0 misclassify·불가 82건 skip. 라이브 `bun run qa` 8/8.
 - **[스킬 범위] 스킬이 "설정 생성기"에 머묾** — SKILL.md Output Contract: *"Do not generate domain-specific code outside that pack; inject.mjs is the only path."* → **전문 기능을 코드로 만드는 경로가 스킬에 없다.** (북극성과의 가장 큰 갭)
+- **[UI · M4.1 기록] adminWidget 렌더 미반영** — `adminWidget: "calendar" | "seatGrid"`는 팩 계약·데이터 경로(config → `inject.mjs` 검증 → `dashboardSnapshot`/`publicDomainSnapshot`)로만 흐르고, `apps/app` 대시보드는 위젯 값과 무관하게 단일 `AdminDashboard` 고정 레이아웃을 렌더한다. `CalendarWidget`/`SeatGridWidget`·위젯 분기·locale 위젯 문자열 소비가 모두 없다. 위젯 실구현은 UI 재설계(카톡형 위젯 등)와 함께 별도 결정. 현행 사실 문서: FEATURES.md 6절·`apps/app/README.md`.
 
 ### 2.4 이번 세션에 이미 고친 것 (커밋 대기, `template/`)
 - `CONVEX_SITE_URL` 빌트인 setup 크래시 → `ensureConvexEnv` 가드.
@@ -64,7 +65,10 @@
 - **M1 — 코어 모듈화 ✅**: 예약 수명주기를 `engine/availability`·`policy`·`lifecycle` 경계로 정리하고, registry 대신 `features.waitlist` notify-only 파일럿으로 팩 토글 + 단일 훅 확장 seam을 먼저 실증. feature registry/조합 시스템은 확장 패턴 3개+ 반복 시로 유보.
 - **M2 — 코드확장 규약 + blind 실증 프로토콜**: 단일 `jeomwon` 스킬을 유지하고, `REFERENCE.md` Code Extension Contract로 후속 코드 확장 절차와 blind generated-app proof 입력·판정 규칙을 고정한다. 2026-07-09 blind proof로 실증 완료 — 살롱 팩 생성물에서 규약 텍스트만으로 노쇼 마킹을 완주(오프라인 게이트 그린, 라이브 QA-10 off=SKIP/on=PASS, 기존 게이트 무회귀).
 - **M3 — 라이브러리 primitive ✅ complete**: availability engine · policy engine · reservation lifecycle(hold/concurrency 포함)을 `template/packages/backend/convex/engine/README.md`에 문서화 완료. widget kit 문서화는 존재하지 않는 경계를 만들지 않도록 M4로 이월.
-- **M4 — DX & 갤러리**: widget kit 문서화 · 기능 모듈 갤러리 · 예제 · 테스트 · 원커맨드 플로우.
+- **M4 — DX & 갤러리** (M4.1/M4.2/M4.3 3분할):
+  - **M4.1 — UI 표면 사실 문서화 ✅**: `apps/web`·`apps/app` 경계 README 신설(고객/관리자 UI 표면·소비 계약)과 문서-코드 불일치 정정. M3가 이월한 "widget kit 문서화"는 존재하지 않는 렌더 경계를 만드는 대신, adminWidget이 데이터 경로만이라는 사실을 기록(대시보드 렌더 미반영, 2.3 참고).
+  - **M4.2 — 원커맨드 플로우**: scaffold → inject → setup → `bun run qa` 원커맨드 경험 다듬기.
+  - **M4.3 — 기능 모듈 갤러리·예제**: 확장 패턴 갤러리와 예제 도메인 팩 확충. 테스트는 각 단계 게이트로 흡수.
 
 ---
 

@@ -51,6 +51,7 @@
 - agentic-system-builder의 인터뷰 방법론 확장: Actor/Resource/Reservation/Availability/Policy/Tool/Agent/Handoff/Guardrail/PublicContext/Widget/Event.
 - **핵심 설계: generic reservation core + 도메인 config.** Convex 스키마는 범용 코어(resources, reservations, threads, events, policies)로 고정하고, 인터뷰 산출물은 `domain.config.ts`(리소스 타입, 시술/좌석/객실 정의, 소요시간, 영업시간, 시간대, 취소 정책, 라벨/카피, 위젯 타입, 메일 토글, Polar 토글) + 시드 데이터. 코드젠은 위젯 선택과 카피 수준으로 최소화 — 도메인 교체가 안전해짐.
 - 관리자 위젯 프리미티브 2종: **캘린더 뷰**(시간 슬롯형: 미용실·펜션·진료) / **좌석 그리드 뷰**(공간형: PC방·도서관). 도메인 config가 선택.
+  - > 현재 상태(M4.1, 2026-07-10): `adminWidget`는 팩 계약·데이터 경로(config → `inject.mjs` 검증 → `dashboardSnapshot`/`publicDomainSnapshot`)로만 존재하고, 대시보드는 위젯 값과 무관하게 단일 `AdminDashboard` 고정 레이아웃을 렌더한다. 캘린더/좌석 그리드 뷰 실구현은 UI 재설계와 함께 별도 결정. 현행 사실은 FEATURES.md 6절·`apps/app/README.md` 참고.
 - 스킬 구성: `SKILL.md`(오케스트레이션 fast path) + `REFERENCE.md`(방법론·주입 계약·QA 레시피) + `EXAMPLES.md`(도메인 팩) + `scripts/`(scaffold.mjs: 템플릿 복사·이름 치환 / inject.mjs: 도메인 팩 주입 / verify.mjs: 게이트 러너).
 
 ### 2.3 셋업 계층 (생성된 프로젝트의 `bun setup`)

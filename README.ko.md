@@ -36,15 +36,15 @@ bun dev          # web + app + backend 병렬 실행
 
 | 경로 | 설명 |
 |---|---|
-| `template/` | 프로젝트 원본, jeomwon으로 풀 리브랜드 완료(get-convex/v1에서 파생, 핀은 `docs/upstream-report.md`에 기록): `domain.config.ts` 주도 에이전트(triage + 4), 카카오톡 스타일 챗 위젯, 운영자 대시보드(캘린더/좌석 그리드 위젯), React Email 4종, `bun setup` 위저드 |
-| `skill/` | Claude Code 스킬: `SKILL.md` fast path, `REFERENCE.md` 방법론, `EXAMPLES.md` 도메인 팩(미용실, PC방, 도서관, 펜션, 진료, generic), `scripts/{scaffold,inject,verify}.mjs` |
+| `template/` | 프로젝트 원본, jeomwon으로 풀 리브랜드 완료(get-convex/v1에서 파생, 핀은 `docs/upstream-report.md`에 기록): `domain.config.ts` 주도 에이전트(triage + 4), 카카오톡 스타일 챗 위젯, 운영자 대시보드, React Email 4종, `bun setup` 위저드 |
+| `skill/` | Claude Code 스킬: `SKILL.md` fast path, `REFERENCE.md` 방법론, `EXAMPLES.md` 도메인 팩(미용실, PC방, 도서관, 펜션, generic), `scripts/{scaffold,inject,verify}.mjs` |
 | `samples/pension-stay/` | 셀프 증명: 킷으로 실제 생성한 펜션(일 단위 숙박) 프로젝트. 주기적으로 재생성하므로 최신 template보다 뒤처질 수 있음 |
 | `docs/plan.md` | 살아있는 계획서 — 아키텍처 결정, 페이즈 로그, 백로그 |
 | `upstream/` | get-convex/v1 읽기 전용 참조 클론 (gitignore 대상, 핀은 `docs/upstream-report.md`에 기록) |
 
 ## QA 게이트
 
-각 트리에 8게이트 QA 스위트가 들어 있습니다(해피 패스, 취소 기한 에스컬레이션, 쓰기 가드, 관련성 가드, 스키마 422, 프라이버시 grep, 홀드 만료, 메일 캡처). web dev 서버를 먼저 띄운 뒤:
+각 트리에 9게이트 QA 스위트가 들어 있습니다(해피 패스, 취소 기한 에스컬레이션, 쓰기 가드, 관련성 가드, 스키마 422, 프라이버시 grep, 홀드 만료, 메일 캡처, 대기자 접수·알림). web dev 서버를 먼저 띄운 뒤:
 
 ```bash
 cd template   # 또는 samples/pension-stay
@@ -67,4 +67,4 @@ QA는 3021/3022 포트를 사용하고, Next dev 접속은 반드시 `localhost`
 
 ## 상태
 
-로드맵 Phase 0~7 완료 + UI 전면 재설계 완료(스타터 브랜딩 전면 제거, 재설계 후 template QA 8/8과 양 앱 브라우저 실증 확인). 스킬 단독 설치는 scaffold의 원격 template 폴백으로 지원되며, 실 GitHub 다운로드는 레포 공개 시점부터 동작합니다. 잔여 백로그: 레포 공개 전환, 전 과정 리허설, `samples/pension-stay` 재생성. 라이선스: `template/LICENSE.md`는 upstream 라이선스를 따르며, 킷 루트 라이선스는 아직 미정입니다.
+로드맵 Phase 0~7 완료 + UI 전면 재설계 완료(스타터 브랜딩 전면 제거, 재설계 후 template QA 9/9와 양 앱 브라우저 실증 확인). 스킬 단독 설치는 scaffold의 원격 template 폴백으로 지원되며, 실 GitHub 다운로드는 레포 공개 시점부터 동작합니다. 잔여 백로그: 레포 공개 전환, 전 과정 리허설, `samples/pension-stay` 재생성. 라이선스: `template/LICENSE.md`는 upstream 라이선스를 따르며, 킷 루트 라이선스는 아직 미정입니다.

@@ -119,9 +119,9 @@ Run these gates in order:
 2. Scaffold: `bun skill/scripts/scaffold.mjs samples/pension-stay "Pension Stay"`.
 3. Inject: `bun skill/scripts/inject.mjs samples/pension-stay <pension-domain-pack.json>`.
 4. Generated verification: `bun skill/scripts/verify.mjs samples/pension-stay`.
-5. Convex/web QA: run `bun setup`, start Convex and web, then rerun verify with `JEOMWON_QA_BASE_URL=http://localhost:3001` so `bun run qa` executes.
+5. Convex/web QA (one command): after `bun setup` provisions the dev Convex deployment, run `bun run qa` in the generated project (or in `template/`). `scripts/qa-local.ts` deploys the Convex functions, sets the QA env, boots the web app in mock runtime, runs the 9-gate suite, and tears the server and env back down. It refuses any non-`dev:` deployment and forces email capture, so no real mail is sent.
 
-`verify.mjs` never fetches provider secrets. It uses Bun offline install, builds the email package normally, builds the Next app/web surfaces with `next build --webpack` for sandbox compatibility, and skips QA unless a running web surface is explicitly supplied.
+`verify.mjs` (step 4) is the offline gate and never fetches provider secrets. It uses Bun offline install, builds the email package normally, builds the Next app/web surfaces with `next build --webpack` for sandbox compatibility, and skips QA unless a running web surface is explicitly supplied through `JEOMWON_QA_BASE_URL`. The live 9-gate QA in step 5 is the one-command path; `verify.mjs` covers the sandboxed offline path.
 
 ## Session Rules
 

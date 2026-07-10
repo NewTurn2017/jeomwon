@@ -31,6 +31,12 @@ M3가 이월한 "widget kit 문서화"는 조사(`task-20260710021401-27bnbz`, 2
 | 2 | `README.md`(47행), `template/scripts/setup/index.ts`(1261-1266행 완료 메시지) | "8게이트" → 9게이트 |
 | 3 | `README.md`(40행) | EXAMPLES에 없는 clinic 예제 언급 제거(실제 5종: Salon/PC Bang/Library And Study Room/Pension Stay/Generic Appointment) |
 | 4 | `skill/REFERENCE.md`(114-124행) | QA 수동 기동 절차를 현행 `bun qa` 원커맨드(qa-local.ts가 Convex 준비·web 기동·게이트·정리 자동화)와 동기화 |
+| 5 | `README.ko.md` | README.md의 한국어 1:1 미러 — 동일 불일치 3건(위젯 렌더 서술·8게이트·clinic) 동일 정정 (플랜 리뷰에서 추가 확정, 2026-07-10) |
+| 6 | `VISION.md` 2.2(30·34행) | 내부 일관성: "관리자 위젯 2종" working 함의 최소 정정, "8게이트"→9게이트(86행과 일치) |
+| 7 | `START-HERE.md`(42행) | "8게이트" → 9게이트 (사실 대조 패스 발견, 2026-07-10 추가). 49행 "8/8"은 웨비나 데모 생성물의 당시 관측치(해당 앱 qa.ts는 gate 9 이전 8게이트 — 실물 대조로 확인)라 8/8 유지 + "gate 9 이전 생성물" 한정어만 추가 |
+| 8 | `template/packages/backend/convex/email/reservationActions.ts`(51행) | 주석 "8-gate email check" → 9-gate (주석만, 동작 무변경) |
+
+수용 결정(무변경): `docs/plan.md` 41행 "진료" 열거는 비전 진술(킷은 도메인 무관)로 수용, 53행은 개념 예시+인접 정정 주석으로 보정됨. `VISION.md` 39행·M1 스펙의 "8게이트"는 역사 관측치.
 
 `setup/index.ts` 수정은 문자열 리터럴(카피)만 — 동작 무변경, typecheck/lint/QA로 회귀 확인.
 

@@ -1260,7 +1260,7 @@ function printCompletion(ctx: RuntimeContext, deployment: ConvexDeployment) {
   console.log("");
   console.log(`  ${style.bold("검증")} ${style.gray("— 원할 때")}`);
   console.log(
-    `  ${glyph.arrow} ${style.cyan("bun run qa")}    ${style.gray("8게이트 QA — dev 배포 자동 준비 후 한 번에 실행")}`,
+    `  ${glyph.arrow} ${style.cyan("bun run qa")}    ${style.gray("9게이트 QA — dev 배포 자동 준비 후 한 번에 실행")}`,
   );
   console.log(
     `                ${style.gray("mock+capture 로 격리 실행하고, 끝나면 원래대로 되돌립니다.")}`,
