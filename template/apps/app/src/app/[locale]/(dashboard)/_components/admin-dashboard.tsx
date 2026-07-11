@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useScopedI18n } from "@/locales/client";
+import { AdminWidgetBoard } from "./admin-widget-board";
 
 type ReservationNumberValue = string | number | null | undefined;
 type ReservationWithDisplayNumber = AdminReservation & {
@@ -70,6 +71,7 @@ export function AdminDashboard() {
     <main className="w-full bg-muted/40 px-4 py-6 sm:px-6 lg:py-8">
       <div className="mx-auto grid w-full max-w-screen-xl gap-6">
         <EscalationQueue snapshot={snapshot} />
+        <AdminWidgetBoard snapshot={snapshot} />
         <ReservationsPanel snapshot={snapshot} />
         <AgentTimeline
           events={snapshot.events}
@@ -442,7 +444,7 @@ function AgentTimeline({
   );
 }
 
-function StatusPill({ status }: { status: ReservationStatus }) {
+export function StatusPill({ status }: { status: ReservationStatus }) {
   const t = useScopedI18n("dashboard");
 
   return (

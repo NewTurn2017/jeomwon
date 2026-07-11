@@ -97,7 +97,7 @@ tooling            공유 TypeScript 설정
 
 ## 6. 운영자 관리자 (`apps/app`)
 
-- **위젯 필드(데이터 경로만)** — `domain.config.ts` `adminWidget: "calendar" | "seatGrid"`. 값은 팩 계약·데이터 경로(config → `inject.mjs` 검증 → `admin.ts` `dashboardSnapshot`·`engine/lifecycle.ts` `publicDomainSnapshot`)로만 흐르고 **대시보드 렌더에는 미반영**이다. `_components/admin-dashboard.tsx`는 이 값을 읽지 않고 단일 고정 레이아웃을 렌더하며 `CalendarWidget`/`SeatGridWidget`이나 위젯 분기는 없다. locale의 `calendarTitle`/`seatGridTitle` 등(`apps/app/src/locales/*.ts`)도 미소비. 위젯 실구현은 UI 재설계와 함께 별도 결정(`apps/app/README.md` 참고).
+- **위젯 렌더 분기** — `domain.config.ts` `adminWidget: "calendar" | "seatGrid"`. 값은 팩 계약·데이터 경로(config → `inject.mjs` 검증 → `admin.ts` `dashboardSnapshot`·`engine/lifecycle.ts` `publicDomainSnapshot`)로 흐르고, `_components/admin-widget-board.tsx`의 `AdminWidgetBoard`가 스냅샷 값으로 분기 렌더한다 — `calendar`는 7일 요일별 예약 목록, `seatGrid`는 리소스별 현재 상태(이용 중/다음 예약/이용 가능) 그리드. 슬롯 점유 상태(held/confirmed/rescheduled/escalated)만 표시하고 시각 기준은 스냅샷 `generatedAtMs`(로컬 시계 미사용). locale `calendarTitle`/`seatGridTitle` 등(`apps/app/src/locales/*.ts`) 소비(`apps/app/README.md` 참고).
 - **대시보드 스냅샷** — `admin.ts` `dashboardSnapshot` 쿼리(인증 게이트). 리소스·예약(시간순)·에스컬레이션·최근 이벤트 80건 + 영업시간/정책.
 - **에스컬레이션 해소** — `resolveEscalation` 뮤테이션. `approveCancel`(→`cancelled`) / `keepReservation`(→`confirmed`), 감사 이벤트·고객 메일 동반.
 - **인증 게이트** — `ensureAdmin`이 `getAuthUserId` 없으면 `admin_auth_required`.

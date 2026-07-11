@@ -38,7 +38,7 @@
 - **[C · 해결 (M0.2)] 실 LLM 챗** — zod를 전역 v4로 올려(`@openai/agents@0.12` peer 충족) import 크래시 제거하고, `"openai"` 런타임에 OpenAI Agents SDK 실 추론을 배선. LLM이 tool(find/hold/confirm/cancel/reschedule/lookup)로 Convex 상태를 실제 구동. 관측: 실 키 3턴 예약(eligible→held→confirmed) 성공, fallback 없음. 결정론은 기본·QA·폴백으로 유지, 가드레일(privacy/relevance/confirmation)은 두 런타임 공통 결정론 선차단(방어심층).
 - **[QA · 해결 (M0.3)] 하니스 business-hours-aware** — cancel-window 오프셋을 엔진의 순수 헬퍼(`isSlotAllowed`/`alignToSlot`/`isInsideCancelWindow`)로 계산해 **실제 열린 슬롯**을 창의 올바른 쪽에 앵커(floor/ceil 반올림)한다. 좁은 시간대/휴무일 팩처럼 창 안쪽 슬롯이 물리적으로 불가능한 실행 시각엔 escalation 검사를 **결정론적 SKIP**(runner에 SKIP 상태 추가). 검증: 순수 시뮬레이션 672 실행시각 × 웨비나/데모 팩 — 웨비나 0 misclassify·0 skip, 데모 feasible 590건 0 misclassify·불가 82건 skip. 라이브 `bun run qa` 8/8.
 - **[스킬 범위] 스킬이 "설정 생성기"에 머묾** — SKILL.md Output Contract: *"Do not generate domain-specific code outside that pack; inject.mjs is the only path."* → **전문 기능을 코드로 만드는 경로가 스킬에 없다.** (북극성과의 가장 큰 갭)
-- **[UI · M4.1 기록] adminWidget 렌더 미반영** — `adminWidget: "calendar" | "seatGrid"`는 팩 계약·데이터 경로(config → `inject.mjs` 검증 → `dashboardSnapshot`/`publicDomainSnapshot`)로만 흐르고, `apps/app` 대시보드는 위젯 값과 무관하게 단일 `AdminDashboard` 고정 레이아웃을 렌더한다. `CalendarWidget`/`SeatGridWidget`·위젯 분기·locale 위젯 문자열 소비가 모두 없다. 위젯 실구현은 UI 재설계(카톡형 위젯 등)와 함께 별도 결정. 현행 사실 문서: FEATURES.md 6절·`apps/app/README.md`.
+- **[UI · 해결 (백로그, 2026-07-12)] adminWidget 렌더 실구현** — `apps/app` 대시보드에 `AdminWidgetBoard` 분기 렌더를 배선했다: `calendar`(7일 요일별 예약 목록) / `seatGrid`(리소스별 이용 중·다음 예약·이용 가능 그리드). 슬롯 점유 상태만 표시, 시각 기준은 스냅샷 `generatedAtMs`. 라이브 관측: 익명 dev 로그인으로 두 위젯 모두 실 Convex 스냅샷 렌더 확인(설정 전환 → 재배포 → 반응형 갱신). 현행 사실 문서: FEATURES.md 6절·`apps/app/README.md`.
 
 ### 2.4 이번 세션에 이미 고친 것 (커밋 대기, `template/`)
 - `CONVEX_SITE_URL` 빌트인 setup 크래시 → `ensureConvexEnv` 가드.
