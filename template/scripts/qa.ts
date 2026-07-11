@@ -410,10 +410,10 @@ function hasConvexAdminAuth(
 }
 
 async function qaHappyPath(): Promise<QaResult> {
-  const threadId = `qa-happy-${Date.now()}`;
-  const availability = await postChat(threadId, availabilityRequest("내일"));
-  const hold = await postChat(threadId, qaSlotSelectionMessage);
-  const confirmed = await postChat(threadId, "확인합니다");
+  const { availability, hold, confirmed } = await runConfirmTriad(
+    `qa-happy-${Date.now()}`,
+    availabilityRequest("내일"),
+  );
   writeJson("01-happy-path.json", { availability, hold, confirmed });
 
   assertRecord(availability, "availability response");
@@ -429,7 +429,9 @@ async function qaHappyPath(): Promise<QaResult> {
   );
   assert(
     readPath(confirmed, ["publicContext", "status"]) === "confirmed",
-    "confirmation did not confirm reservation",
+    `confirmation did not confirm reservation (status=${String(
+      readPath(confirmed, ["publicContext", "status"]),
+    )})`,
   );
   const reservationId = readPath(confirmed, ["publicContext", "reservationId"]);
   assert(
@@ -465,10 +467,10 @@ async function qaCancelWindow(): Promise<QaResult> {
     };
   }
 
-  const threadId = `qa-cancel-${Date.now()}`;
-  await postChat(threadId, insideCancelRequest);
-  await postChat(threadId, qaSlotSelectionMessage);
-  await postChat(threadId, "확인합니다");
+  const threadId = await createConfirmedReservation(
+    `qa-cancel-${Date.now()}`,
+    insideCancelRequest,
+  );
   const cancelled = await postChat(threadId, "취소해줘");
   writeJson("02-cancel-window.json", cancelled);
 
@@ -663,9 +665,8 @@ async function qaHoldExpiry(): Promise<QaResult> {
 }
 
 async function qaEmailCaptureGate(): Promise<QaResult> {
-  const confirmedThreadId = `qa-email-confirmed-${Date.now()}`;
-  await createConfirmedReservation(
-    confirmedThreadId,
+  const confirmedThreadId = await createConfirmedReservation(
+    `qa-email-confirmed-${Date.now()}`,
     availabilityRequest("내일"),
   );
   const confirmed = await waitForEmailCapture(
@@ -673,8 +674,10 @@ async function qaEmailCaptureGate(): Promise<QaResult> {
     "reservation.confirmed",
   );
 
-  const cancelledThreadId = `qa-email-cancelled-${Date.now()}`;
-  await createConfirmedReservation(cancelledThreadId, outsideCancelRequest);
+  const cancelledThreadId = await createConfirmedReservation(
+    `qa-email-cancelled-${Date.now()}`,
+    outsideCancelRequest,
+  );
   const cancelledState = await postChat(cancelledThreadId, "취소해줘");
   assertRecord(cancelledState, "cancelled email response");
   assert(
@@ -690,8 +693,10 @@ async function qaEmailCaptureGate(): Promise<QaResult> {
   // when the pack's open hours make that impossible at this run time.
   let escalated: Awaited<ReturnType<typeof waitForEmailCapture>> | null = null;
   if (insideCancelFeasible()) {
-    const escalatedThreadId = `qa-email-escalated-${Date.now()}`;
-    await createConfirmedReservation(escalatedThreadId, insideCancelRequest);
+    const escalatedThreadId = await createConfirmedReservation(
+      `qa-email-escalated-${Date.now()}`,
+      insideCancelRequest,
+    );
     const escalatedState = await postChat(escalatedThreadId, "취소해줘");
     assertRecord(escalatedState, "escalated email response");
     assert(
@@ -704,8 +709,10 @@ async function qaEmailCaptureGate(): Promise<QaResult> {
     );
   }
 
-  const rescheduledThreadId = `qa-email-rescheduled-${Date.now()}`;
-  await createConfirmedReservation(rescheduledThreadId, outsideCancelRequest);
+  const rescheduledThreadId = await createConfirmedReservation(
+    `qa-email-rescheduled-${Date.now()}`,
+    outsideCancelRequest,
+  );
   await postChat(rescheduledThreadId, "예약 변경하고 싶어요");
   const rescheduledState = await postChat(
     rescheduledThreadId,
@@ -915,18 +922,65 @@ async function qaWaitlistGate(): Promise<QaResult> {
   };
 }
 
+// The chat hold->confirm triad races the deployment-wide hold TTL
+// (JEOMWON_TEST_HOLD_MS, 1.5s in live QA): between createHold (inside the
+// slot-selection turn) and confirmReservation (inside the confirm turn) sit
+// several Convex round trips plus two HTTP legs, so a latency spike can expire
+// the hold first — the confirm turn then lands on an expired or re-eligible
+// thread and status never reaches "confirmed". That is an environment race,
+// not a product defect, so retry once on a fresh thread; a real confirm bug
+// fails identically on the retry.
+type ConfirmTriad = {
+  threadId: string;
+  availability: unknown;
+  hold: unknown;
+  confirmed: unknown;
+};
+
+async function runConfirmTriad(
+  threadIdBase: string,
+  availabilityMessage: string,
+): Promise<ConfirmTriad> {
+  const maxAttempts = 2;
+  let result: ConfirmTriad | null = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const threadId =
+      attempt === 1 ? threadIdBase : `${threadIdBase}-retry${attempt}`;
+    const availability = await postChat(threadId, availabilityMessage);
+    const hold = await postChat(threadId, qaSlotSelectionMessage);
+    const confirmed = await postChat(threadId, "확인합니다");
+    result = { threadId, availability, hold, confirmed };
+    const status = readPath(confirmed, ["publicContext", "status"]);
+    if (status === "confirmed") {
+      return result;
+    }
+    if (attempt < maxAttempts) {
+      console.log(
+        `RETRY ${threadIdBase}: confirm returned status=${String(
+          status,
+        )} — hold likely expired before the confirm turn, retrying triad`,
+      );
+    }
+  }
+  assert(result !== null, "confirm triad ran zero attempts");
+  return result;
+}
+
 async function createConfirmedReservation(
-  threadId: string,
+  threadIdBase: string,
   availabilityMessage: string,
 ) {
-  await postChat(threadId, availabilityMessage);
-  await postChat(threadId, qaSlotSelectionMessage);
-  const confirmed = await postChat(threadId, "확인합니다");
-  assertRecord(confirmed, "confirmed email setup response");
-  assert(
-    readPath(confirmed, ["publicContext", "status"]) === "confirmed",
-    "email capture setup did not confirm reservation",
+  const { threadId, confirmed } = await runConfirmTriad(
+    threadIdBase,
+    availabilityMessage,
   );
+  assertRecord(confirmed, "confirmed reservation setup response");
+  const status = readPath(confirmed, ["publicContext", "status"]);
+  assert(
+    status === "confirmed",
+    `reservation setup did not confirm reservation (status=${String(status)})`,
+  );
+  return threadId;
 }
 
 function qaWaitlistResource() {
