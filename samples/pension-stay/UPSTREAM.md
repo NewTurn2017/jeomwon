@@ -1,9 +1,9 @@
 # Upstream Provenance
 
-- Source: `/Users/genie/dev/side/jeomwon/upstream/v1`
+- Source: `<repo-root>/upstream/v1` (local reference clone, not tracked in git)
 - Pinned commit: `924e4211fd671aa39d0267a883f82190c0f46a08`
 - Vendored on: 2026-07-02
-- Copy target: `/Users/genie/dev/side/jeomwon/template`
+- Copy target: `<repo-root>/template`
 
 ## Vendoring Policy
 
