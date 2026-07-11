@@ -8,7 +8,7 @@
 
 ## 이번 감사에서 정리한 것
 
-- [x] `samples/pension-stay/UPSTREAM.md` — 로컬 절대경로(`/Users/genie/...`, macOS username 노출) → `<repo-root>` 상대 표기로 치환.
+- [x] `samples/pension-stay/UPSTREAM.md` — 로컬 절대경로(macOS 홈 디렉터리 경로라 username 노출) → `<repo-root>` 상대 표기로 치환.
 - [x] `.gitignore` — 실재하지 않는 `template/UPSTREAM.md`를 가리키던 죽은 참조 주석 수정.
 
 ## 공개 전 사용자 결정 필요
