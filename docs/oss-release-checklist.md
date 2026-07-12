@@ -15,7 +15,7 @@
 
 - [x] **라이선스 선택 + 루트 `LICENSE` 추가** — 2026-07-13 MIT 확정(`Copyright (c) 2026 NewTurn2017`). 루트 `LICENSE` 추가, 추적 package.json 16개 정리(ISC 2곳 → MIT, 무필드 14곳에 MIT 추가).
 - [x] **`docs/upstream-report.md` 하단 내부 로그 잔재 정리** — 2026-07-13 가드레일 일시 해제 후 최소 정리: 꼬리 하니스 로그 5줄(hook/tokens) 제거 + 헤더의 Codex 잡ID 제거. 본문 관측 내용은 불변.
-- [ ] **레포 메타** — GitHub description·토픽 설정됨(2026-07-13). public 전환 자체만 남음 — 사용자 확인 필요.
+- [x] **레포 메타 + public 전환** — 2026-07-13 description·토픽 7종 설정 후 사용자 승인으로 PUBLIC 전환 완료(`gh repo view` visibility=PUBLIC 확인). Convex 프로젝트 `m2-salon-noshow-proof`도 사용자가 대시보드에서 삭제 완료.
 
 ## 권고 (차단 아님)
 
