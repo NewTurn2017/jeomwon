@@ -1,5 +1,6 @@
 {
   "name": "jeomwon-app",
+  "license": "MIT",
   "private": true,
   "workspaces": [
     "packages/*",
