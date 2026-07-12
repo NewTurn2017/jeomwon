@@ -13,17 +13,17 @@
 
 ## 공개 전 사용자 결정 필요
 
-- [ ] **라이선스 선택 + 루트 `LICENSE` 추가** — 파생원(get-convex/v1)이 MIT이므로 MIT 권장. 저작권자 표기(예: `Copyright (c) 2026 NewTurn2017`)는 사용자 확정 필요. 선택 후 `template/packages/backend/package.json`·`samples/.../backend/package.json`의 upstream 잔재 `"license": "ISC"`도 일치시킬 것.
-- [ ] **`docs/upstream-report.md` 하단 내부 로그 잔재 정리** — Codex 잡ID·토큰 사용량·hook 로그 등. 이 파일은 **수정 금지 가드레일** 대상이라 이번 감사에서 손대지 않음. 공개 전 가드레일을 일시 해제해 정리하거나, 공개 트리에서 제외할지 결정.
-- [ ] **레포 메타** — GitHub description 비어 있음, 토픽 미설정. public 전환 시 함께.
+- [x] **라이선스 선택 + 루트 `LICENSE` 추가** — 2026-07-13 MIT 확정(`Copyright (c) 2026 NewTurn2017`). 루트 `LICENSE` 추가, 추적 package.json 16개 정리(ISC 2곳 → MIT, 무필드 14곳에 MIT 추가).
+- [x] **`docs/upstream-report.md` 하단 내부 로그 잔재 정리** — 2026-07-13 가드레일 일시 해제 후 최소 정리: 꼬리 하니스 로그 5줄(hook/tokens) 제거 + 헤더의 Codex 잡ID 제거. 본문 관측 내용은 불변.
+- [ ] **레포 메타** — GitHub description·토픽 설정됨(2026-07-13). public 전환 자체만 남음 — 사용자 확인 필요.
 
 ## 권고 (차단 아님)
 
 - [ ] `docs/superpowers/specs/2026-07-09-m3-primitives-design.md`에 Convex dev 배포명(`dev:adamant-mole-272`)이 남음 — 키가 아닌 이름뿐이라 저위험. 역사 관측 문서라 본문 정정 대신 **공개 전 배포 재생성**(또는 감수) 권장. 같은 배포명이 dev 운영 중이므로 재생성 시 setup 재실행 필요.
 - [ ] `START-HERE.md`(세션 인계 톤)·`VISION.md`·`FEATURES.md`(내부 로드맵)가 루트에 노출 — 내용상 무해하나 공개 첫인상 관점에서 `docs/` 이동 또는 톤 정리 검토.
-- [ ] README의 Next.js 버전 문구와 코드 실버전 일치 여부 확인.
-- [ ] package.json 13개에 license 필드 없음 — 루트 LICENSE 확정 후 일괄 정리하면 충분.
-- [ ] dev 배포(adamant-mole-272)의 JWT 키가 로컬 세션 로그에 노출된 적 있음(2026-07-12, `convex env list` 출력) — dev 전용이지만 공개 전 `npx convex auth` 키 재생성 권장.
+- [x] README의 Next.js 버전 문구와 코드 실버전 일치 여부 확인 — 2026-07-13 확인: README "Next.js 16" = 실버전 `^16.2.10`, 일치.
+- [x] package.json license 필드 — 2026-07-13 루트 LICENSE와 함께 16개 전부 MIT로 정리.
+- [x] dev 배포(adamant-mole-272)의 JWT 키 로컬 세션 로그 노출 건 — 2026-07-13 RS256 키쌍 재생성 후 `JWT_PRIVATE_KEY`/`JWKS` 교체(값 비출력), 라이브 QA 9게이트 통과로 검증.
 
 ## 안전 확인된 것 (조치 불필요)
 

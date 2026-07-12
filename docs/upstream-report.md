@@ -1,6 +1,6 @@
 # get-convex/v1 upstream 조사 보고 (Phase 0)
 
-> 조사: Codex read-only (job task-20260702042106-948geg) · 핀 커밋: 924e4211fd671aa39d0267a883f82190c0f46a08 (2025-12-01) · 대상: upstream/v1 로컬 클론
+> 조사: Codex read-only · 핀 커밋: 924e4211fd671aa39d0267a883f82190c0f46a08 (2025-12-01) · 대상: upstream/v1 로컬 클론
 
 **1. 모노레포 지형**
 - 패키지 매니저는 `bun@1.1.26` 고정입니다. `package.json:37`; `pnpm-workspace.yaml`, `.nvmrc`, `.node-version`, `engines`는 없음.
@@ -96,8 +96,3 @@
 - `packages/backend`가 `zod`/`@t3-oss/env-core`를 직접 package dependency로 선언하지 않는데 Convex files가 import합니다.
 - Phase 1 빌드 게이트 전에 `apps/web`의 undeclared `@v1/backend` dependency와 app `.env.example` 누락을 먼저 정리해야 합니다.
 - 조사 중 파일 수정은 하지 않았고, `upstream/v1` 상태는 `main...origin/main` clean입니다.
-AGENTDESK-P0 COMPLETE
-hook: Stop
-hook: Stop Completed
-tokens used
-322,226
