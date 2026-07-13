@@ -168,6 +168,20 @@ h3 {
   width: 34px;
   height: 34px;
   flex: 0 0 auto;
+  color: var(--surface);
+}
+
+.footer-brand-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.footer-brand-copy small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 520;
+  letter-spacing: -0.01em;
 }
 
 .nav-links {
