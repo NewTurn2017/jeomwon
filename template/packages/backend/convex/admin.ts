@@ -163,13 +163,80 @@ export const resolveEscalation = mutation({
   },
 });
 
+// The operator allowlist lives in the Convex deployment env, not in the pack:
+// who staffs the desk is a deployment fact, not a domain fact.
+//
+// Read INSIDE the guard, unlike auth.ts, which reads AUTH_DEV_ANONYMOUS once at
+// module scope. auth.ts can: its value only shapes the provider list at import
+// time, so re-reading it would change nothing. An authorization decision must
+// not be frozen into a module that a warm isolate can keep alive — reading per
+// call means `npx convex env set JEOMWON_ADMIN_EMAILS ...` binds on the next
+// call instead of racing the module cache. The `process.env.X` idiom is the same.
+function adminEmailAllowlist() {
+  const raw = process.env.JEOMWON_ADMIN_EMAILS ?? "";
+
+  return raw
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.length > 0);
+}
+
+/**
+ * Operator guard. Conditionally fail-closed.
+ *
+ * - Allowlist set: the signed-in user's email must be on it. An account with no
+ *   email (the dev anonymous provider) can never match, which is intended.
+ * - Allowlist empty, `customerAccounts` false: accept any signed-in user. Only
+ *   operators can sign in to such a deployment, so presence is still proof of
+ *   role. This is the pre-allowlist behavior, kept exactly so existing generated
+ *   apps do not lock their operators out on upgrade.
+ * - Allowlist empty, `customerAccounts` true: deny. Customers can sign in to this
+ *   deployment, so "any signed-in user is an operator" would hand every customer
+ *   the dashboard. There is no safe default here, so refuse to guess.
+ */
 async function ensureAdmin(ctx: QueryCtx | MutationCtx) {
   const userId = await getAuthUserId(ctx);
   if (!userId) {
     throw new Error("admin_auth_required");
   }
 
+  const allowlist = adminEmailAllowlist();
+  if (allowlist.length === 0) {
+    if (domainConfig.features.customerAccounts) {
+      throw new Error("admin_not_configured");
+    }
+
+    return userId;
+  }
+
+  const user = await ctx.db.get(userId);
+  const email = user?.email?.trim().toLowerCase();
+  if (!email || !allowlist.includes(email)) {
+    throw new Error("admin_forbidden");
+  }
+
   return userId;
+}
+
+/**
+ * Customer guard. Asserts a signed-in user and nothing more — it does not consult
+ * the operator allowlist. Customer-scoped reads scope themselves by the returned
+ * `userId`; that ownership check is the authorization, and it is the caller's job.
+ * Never authorize a customer by `threadId`: a thread id is a routing key that
+ * anyone can hold, not proof of who is asking.
+ */
+export async function ensureCustomer(ctx: QueryCtx | MutationCtx) {
+  const userId = await getAuthUserId(ctx);
+  if (!userId) {
+    throw new Error("auth_required");
+  }
+
+  const user = await ctx.db.get(userId);
+  if (!user) {
+    throw new Error("auth_required");
+  }
+
+  return { userId, user };
 }
 
 function toAdminReservation(reservation: Doc<"reservations">) {

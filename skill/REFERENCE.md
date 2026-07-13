@@ -65,6 +65,8 @@ type DomainPack = {
     email: boolean;
     polar: boolean;
     waitlist?: boolean;
+    customerAccounts?: boolean;
+    operatorCalendarCrud?: boolean;
   };
   copy: {
     chatTitle: string;
@@ -89,6 +91,19 @@ type DomainPack = {
   };
 };
 ```
+
+### Kit-core feature flags
+
+`features.*` is a closed set owned by the kit: every flag's code ships in
+`template/`. Each flag below is optional in the pack for backward compatibility,
+must be boolean when present, and defaults to `false`.
+
+- `waitlist` — notify-only waitlist on freed slots (`convex/engine/waitlist.ts`).
+- `customerAccounts` — customer login surfaces. When it is `true` the admin
+  allowlist must be configured; an empty `JEOMWON_ADMIN_EMAILS` then denies admin
+  access instead of granting it.
+- `operatorCalendarCrud` — operator create/edit/cancel from the admin calendar.
+  Requires `adminWidget: "calendar"`; `seatGrid` has no operator CRUD surface.
 
 ## Bootstrap Contract
 
@@ -119,8 +134,14 @@ Validation gates:
 - `durationMinutes` is positive when present; day services normally omit it.
 - `confirmationRequired` must be `true`.
 - `notificationEmail` must be an email-like string.
-- `features.waitlist` is optional for backward compatibility and defaults to
-  `false`; when present it must be boolean.
+- `features.waitlist`, `features.customerAccounts`, and
+  `features.operatorCalendarCrud` are optional for backward compatibility and
+  default to `false`; when present each must be boolean. The default is
+  materialized into the written config because the emitted `DomainConfig` type
+  declares them non-optional.
+- `features.operatorCalendarCrud: true` requires `adminWidget: "calendar"`. A
+  `seatGrid` pack that asks for it fails with
+  `operatorCalendarCrud requires adminWidget: "calendar"`.
 - Every copy field is a non-empty string.
 
 ## Verification Gates
@@ -203,6 +224,30 @@ pack regeneration. `domain.config.ts` and `domain-pack.json` are not extension
 toggle surfaces because `inject.mjs` overwrites generated domain config and the
 pack validator enforces exact-key inputs.
 
+### Extension toggles vs kit-core feature flags
+
+The rule above governs **extension** toggles — code that lives in the generated
+app, like the M2 no-show case study, which is switched by
+`extension.config.ts`. It does not govern **kit-core** feature flags, whose code
+ships in `template/` and therefore exists in every generated project before any
+extension is written. A kit-core capability has nowhere else to be switched on
+per project, so its flag belongs in pack `features.*`. `features.waitlist` is the
+precedent; `features.customerAccounts` and `features.operatorCalendarCrud` follow
+it.
+
+The distinction is where the code lives, not who wants a toggle:
+
+- Code in the generated app → `extension.config.ts`, default off. Never touch the
+  pack schema.
+- Code in `template/` → a kit-core `features.*` flag, and adding one is a kit
+  change: `inject.mjs` validation, the emitted `DomainConfig` type, and
+  `template/packages/backend/domain.config.ts` move together, optional in the pack
+  and defaulting to `false` so existing packs keep injecting unchanged.
+
+An extension may not promote itself into `features.*` by moving its own code into
+`template/`; template seam hardening still requires proof that the seam belongs in
+the kit.
+
 ### Named Hook Rules
 
 Prefer existing hooks. If a new hook is unavoidable, name it
@@ -240,7 +285,10 @@ reason, following the cancel-window precedent.
 - Do not create `extend.mjs`, registries, boilerplate generator paths, or a
   plugin framework for a single extension.
 - Do not add extension toggles to `domain.config.ts`, `domain-pack.json`, or
-  arbitrary pack `features.*` keys.
+  arbitrary pack `features.*` keys. Extension toggles live in
+  `extension.config.ts`. Kit-core flags whose code ships in `template/` — the
+  `features.waitlist` precedent — are not extension toggles and are added through
+  the kit's own schema change.
 
 ### Reference implementation: M1 waitlist
 

@@ -3,10 +3,12 @@
   "globalDependencies": ["**/.env"],
   "globalPassThroughEnv": [
     "JEOMWON_QA_BASE_URL",
+    "JEOMWON_QA_PORT",
     "JEOMWON_SETUP_STUBS",
     "JEOMWON_SETUP_STUB_FILE",
     "JEOMWON_TEST_HOLD_MS",
-    "AGENT_RUNTIME"
+    "AGENT_RUNTIME",
+    "NO_COLOR"
   ],
   "ui": "stream",
   "tasks": {
