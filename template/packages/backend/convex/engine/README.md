@@ -249,6 +249,102 @@ Extension-agent consumption method:
 - Keep dedupe at the feature boundary and keep generated-app feature toggles
   off by default.
 
+## Operator calendar CRUD
+
+Source: `./adminBooking.ts`. Mutation boundary: `../admin.ts`. Toggle:
+`domainConfig.features.operatorCalendarCrud`.
+
+Lets an operator create, edit, and cancel rows directly on the admin calendar. It
+adds no table and no engine rule: an operator session is a `reservations` row with
+`origin: "operator"`, `displayName` carrying the session title, and status
+`confirmed` from the moment it is inserted. Every write composes the availability,
+lifecycle, policy, and waitlist primitives above.
+
+Export symbols:
+
+- `assertOperatorCalendarCrudEnabled()`: throws `operator_calendar_crud_disabled`
+  when the feature is off. Called first in every mutation, so a pack with the flag
+  off behaves exactly as it did before this file existed.
+- `isOperatorSession(reservation)`: `reservation.origin === "operator"`. The only
+  ownership signal.
+- `createOperatorSession(ctx, input)`, `updateOperatorSession(ctx, reservation,
+  input)`, `cancelOperatorSession(ctx, reservation)`: return the written row.
+- `resolveSlot(ctx, input, excludeReservationId)`: validates service, resource,
+  resource kind, wall clock, business hours, blackouts, and collisions, and
+  returns `{ service, resource, startMs, endMs }`.
+- `wallClockToMs(dateKey, startTime)`: store-timezone `YYYY-MM-DD` + `HH:MM` to an
+  instant. The inverse of `calendarParts`, which it reuses.
+
+Invariants:
+
+- **Ownership is `origin`, never `threadId`.** `origin` is server-set inside the
+  mutation that inserts the row and is never read from client args. `threadId` is
+  a client-supplied string on public, unauthenticated chat mutations — anyone can
+  mint one with any prefix — so it is a routing key only. An operator row's
+  `threadId` (`operator:<reservationNumber>`) exists to group its audit events and
+  must never gate an authorization decision.
+- Rows without `origin` (every row written before the column, and every chat row)
+  read as customer rows. The operator-session path is opt-in, not a default.
+- Time is converted **server-side** against `domainConfig.storeTimezone`. The UI
+  sends a date key and a wall clock, never a timestamp off the operator's browser.
+  A wall time a DST jump skipped has no instant and is rejected with
+  `invalid_slot_time`.
+- Reservation numbers come from `agentTools:generateUniqueReservationNumber`, so
+  an operator session carries the same domain-derived prefix as a customer
+  booking. Features do not mint their own prefixes.
+- `resolveSlot` rejects a resource whose `kind` does not match the service's
+  `resourceKind`; otherwise the board would show a booking that every later
+  availability search disagrees with.
+- `updateOperatorSession` refuses any row that is not `confirmed` or
+  `rescheduled` (`session_not_editable`), so a cancelled row cannot be resurrected
+  into a window it already freed. `cancelOperatorSession` refuses an already
+  cancelled row (`session_already_cancelled`), so a second delete cannot re-audit
+  or re-run the waitlist hook.
+- "Delete" is a `cancelled` status transition, never a row deletion: audit history
+  survives and `onSlotFreed` fires for the freed window.
+- Operator sessions are silent. There is no customer on the other end, so no mail
+  is scheduled and no `publicMessage` copy is invented.
+- No copy is hardcoded. Customer-facing strings come from `domainConfig.copy`;
+  audit summaries are operator-facing and domain-neutral; operator chat events
+  carry the row's own configured labels.
+
+Admin edits of a **customer** row:
+
+- `admin:updateSession` carries a `title` and is therefore restricted to operator
+  sessions. `admin:rescheduleCustomerReservation` has a deliberately different
+  shape with **no `title` field**: on a customer row `displayName` is the
+  customer's name, and patching a session title over it would destroy their PII.
+- A change to a customer row rides the existing chat notification path rather than
+  reimplementing it: `admin:rescheduleCustomerReservation` delegates to
+  `agentTools:rescheduleReservation` and `admin:deleteSession` delegates to
+  `agentTools:cancelReservation`, which already write the chat event, schedule the
+  reservation mail, and resync `chatThreads.publicContext`. The admin mutation
+  appends one extra audit entry recording that the operator, not the customer,
+  pulled the lever.
+- `policies.cancelWindowHours` stays owned by those mutations. An operator cancel
+  inside the window escalates (`escalated: true`) instead of cancelling, and the
+  operator finishes through `admin:resolveEscalation`. A reschedule inside the
+  window is rejected with `reschedule_window_closed`. The board does not get to
+  bypass the invariant.
+
+Consuming points:
+
+- `admin:createSession`, `admin:updateSession`,
+  `admin:rescheduleCustomerReservation`, `admin:deleteSession` — all behind
+  `ensureAdmin` and the feature flag.
+- `admin:dashboardSnapshot` exposes `reservation.origin` and `domain.features` so
+  the board can decide which affordances to show without inspecting `threadId`.
+- `../../src/convex-refs.ts` exposes typed references to the four mutations.
+
+Extension-agent consumption method:
+
+- Reuse `resolveSlot` for any new operator-side write instead of re-deriving
+  business-hour or collision checks.
+- Do not add a customer-facing mutation here. The customer calendar is read-only;
+  customers create, cancel, and reschedule through the chat agent path.
+- `seatGrid` packs do not get operator CRUD; the injector rejects
+  `operatorCalendarCrud: true` unless `adminWidget` is `calendar`.
+
 ## Extension agents
 
 Before changing reservation behavior:

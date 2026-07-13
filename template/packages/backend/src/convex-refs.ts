@@ -1,12 +1,19 @@
 import { makeFunctionReference } from "convex/server";
 import type {
+  AdminCancelResult,
+  AdminCustomerRescheduleArgs,
   AdminDashboardSnapshot,
   AdminReservation,
   AdminReservationAction,
+  AdminReservationRef,
+  AdminReservationResult,
+  AdminSessionCreateArgs,
+  AdminSessionUpdateArgs,
   AvailabilitySearchArgs,
   CancelArgs,
   ChatRequest,
   ConfirmArgs,
+  CustomerSnapshot,
   DomainPublicSnapshot,
   GuardrailStatus,
   HoldArgs,
@@ -31,6 +38,39 @@ export const jeomwonConvex = {
       { reservationId: string; action: AdminReservationAction },
       { reservation: AdminReservation; action: AdminReservationAction }
     >("admin:resolveEscalation"),
+    // Operator calendar CRUD. Available only when
+    // `features.operatorCalendarCrud` is on; the mutations throw otherwise.
+    createSession: makeFunctionReference<
+      "mutation",
+      AdminSessionCreateArgs,
+      AdminReservationResult
+    >("admin:createSession"),
+    updateSession: makeFunctionReference<
+      "mutation",
+      AdminSessionUpdateArgs,
+      AdminReservationResult
+    >("admin:updateSession"),
+    // Note the missing `title`: editing a customer's row must not touch their
+    // `displayName`.
+    rescheduleCustomerReservation: makeFunctionReference<
+      "mutation",
+      AdminCustomerRescheduleArgs,
+      AdminReservationResult
+    >("admin:rescheduleCustomerReservation"),
+    deleteSession: makeFunctionReference<
+      "mutation",
+      AdminReservationRef,
+      AdminCancelResult
+    >("admin:deleteSession"),
+    // A CUSTOMER-facing query that happens to live in admin.ts, next to the
+    // `ensureCustomer` guard it depends on. It takes no arguments: the thread is
+    // derived from the caller's token, so there is nothing to forge. Requires
+    // `features.customerAccounts`.
+    customerSnapshot: makeFunctionReference<
+      "query",
+      Record<string, never>,
+      CustomerSnapshot
+    >("admin:customerSnapshot"),
   },
   chat: {
     domainPublicConfig: makeFunctionReference<
@@ -38,9 +78,14 @@ export const jeomwonConvex = {
       Record<string, never>,
       DomainPublicSnapshot
     >("chat:domainPublicConfig"),
+    // `threadId` is optional because with `features.customerAccounts` on the
+    // server derives it from the authenticated user and only *checks* the
+    // argument. Callers on that path should omit it entirely — and MUST call
+    // `ConvexHttpClient#setAuth(token)`, or Convex sees no identity and this
+    // throws `auth_required`.
     publicState: makeFunctionReference<
       "query",
-      { threadId: string },
+      { threadId?: string },
       PublicThreadState
     >("chat:publicState"),
   },
