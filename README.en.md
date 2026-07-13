@@ -48,14 +48,19 @@ bun dev          # web + app + backend, in parallel
 
 ## QA gates
 
-Each tree ships a 9-gate QA suite (happy path, cancel-window escalation, write guards, relevance guard, schema 422, privacy grep, hold expiry, email capture, waitlist join/notify). With a web dev server running:
+Each tree ships a 9-gate QA suite (happy path, cancel-window escalation, write guards, relevance guard, schema 422, privacy grep, hold expiry, email capture, waitlist join/notify). `bun run qa` handles everything itself — Convex prep, web server startup, the nine gates, and teardown. You do not need a dev server running first.
 
 ```bash
-cd template   # or samples/pension-stay
-JEOMWON_TEST_HOLD_MS=1500 JEOMWON_QA_BASE_URL=http://localhost:3021 bun run qa
+cd template
+bun run qa
 ```
 
-Ports 3021/3022 are used for QA; Next dev must be reached via `localhost` (not `127.0.0.1`).
+- The web server starts on port `3999` by default (override with `JEOMWON_QA_PORT`). Do **not** run QA for two projects at once — teardown kills whatever process holds that port.
+- The hold-expiry gate's wait is controlled by `JEOMWON_TEST_HOLD_MS` (default `1500`).
+- Safety guard: QA refuses to run against a non-`dev:` deployment, because it resets that domain's reservation and chat data.
+- The waitlist gate (9) deterministically SKIPs when `features.waitlist` is off.
+
+To run only the gates against a server you already have up, use `bun run qa:run` and set `JEOMWON_QA_BASE_URL` yourself. Next dev must be reached via `localhost` (not `127.0.0.1`).
 
 ## Configuration
 

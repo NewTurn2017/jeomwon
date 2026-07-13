@@ -46,14 +46,19 @@ bun dev          # web + app + backend 병렬 실행
 
 ## QA 게이트
 
-각 트리에 9게이트 QA 스위트가 들어 있습니다(해피 패스, 취소 기한 에스컬레이션, 쓰기 가드, 관련성 가드, 스키마 422, 프라이버시 grep, 홀드 만료, 메일 캡처, 대기자 접수·알림). web dev 서버를 먼저 띄운 뒤:
+각 트리에 9게이트 QA 스위트가 들어 있습니다(해피 패스, 취소 기한 에스컬레이션, 쓰기 가드, 관련성 가드, 스키마 422, 프라이버시 grep, 홀드 만료, 메일 캡처, 대기자 접수·알림). `bun run qa`가 Convex 준비, 웹 서버 기동, 9게이트 실행, 정리까지 스스로 처리합니다 — 서버를 미리 띄울 필요가 없습니다.
 
 ```bash
-cd template   # 또는 samples/pension-stay
-JEOMWON_TEST_HOLD_MS=1500 JEOMWON_QA_BASE_URL=http://localhost:3021 bun run qa
+cd template
+bun run qa
 ```
 
-QA는 3021/3022 포트를 사용하고, Next dev 접속은 반드시 `localhost`로 해야 합니다(`127.0.0.1` 불가).
+- 웹 서버는 기본 포트 `3999`로 뜹니다(`JEOMWON_QA_PORT`로 변경). 여러 프로젝트의 QA를 **동시에 돌리지 마세요** — 정리 단계에서 해당 포트를 점유한 프로세스를 종료합니다.
+- 홀드 만료 게이트의 대기 시간은 `JEOMWON_TEST_HOLD_MS`(기본 `1500`)로 조절합니다.
+- 안전장치: `dev:` 배포가 아니면 실행을 거부합니다. QA가 해당 도메인의 예약·챗 데이터를 초기화하기 때문입니다.
+- 대기자 게이트(9)는 `features.waitlist`가 꺼져 있으면 결정론적으로 SKIP됩니다.
+
+웹 서버를 이미 띄워둔 상태에서 게이트만 돌리려면 `bun run qa:run`을 쓰고 `JEOMWON_QA_BASE_URL`을 직접 지정하세요. Next dev 접속은 반드시 `localhost`로 해야 합니다(`127.0.0.1` 불가).
 
 ## 설정
 
