@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>점원 (jeomwon) — AI 점원이 지키는 오픈소스 예약 SaaS 킷</title>
+    <meta
+      name="description"
+      content="도메인 인터뷰 한 번이면 고객 예약 챗, 관리자 대시보드, 수명주기 메일까지 — 열어보면 바로 돌아가는 오픈소스 SaaS 킷."
+    >
+    <meta name="theme-color" content="#FBF8F3">
+    <link rel="canonical" href="https://jeomwon.codewithgenie.com">
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+    <link
+      rel="stylesheet"
+      crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css"
+    >
+    <link rel="stylesheet" href="style.css">
+
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="ko_KR">
+    <meta property="og:site_name" content="점원 (jeomwon)">
+    <meta property="og:title" content="점원 (jeomwon) — AI 점원이 지키는 오픈소스 예약 SaaS 킷">
+    <meta
+      property="og:description"
+      content="도메인 인터뷰 한 번이면 고객 예약 챗, 관리자 대시보드, 수명주기 메일까지 — 열어보면 바로 돌아가는 오픈소스 SaaS 킷."
+    >
+    <meta property="og:url" content="https://jeomwon.codewithgenie.com">
+    <meta property="og:image" content="https://jeomwon.codewithgenie.com/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="점원 오픈소스 예약 SaaS 킷 소개 이미지">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="점원 (jeomwon) — AI 점원이 지키는 오픈소스 예약 SaaS 킷">
+    <meta
+      name="twitter:description"
+      content="도메인 인터뷰 한 번이면 고객 예약 챗, 관리자 대시보드, 수명주기 메일까지 — 열어보면 바로 돌아가는 오픈소스 SaaS 킷."
+    >
+    <meta name="twitter:image" content="https://jeomwon.codewithgenie.com/assets/og.png">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">본문으로 바로가기</a>
+
+    <header class="site-header">
+      <nav class="nav-shell" aria-label="주요 메뉴">
+        <a class="brand" href="#top" aria-label="점원 홈">
+          <svg class="brand-mark" viewBox="0 0 40 40" role="img" aria-label="점원 로고">
+            <rect width="40" height="40" rx="9" fill="#136586" />
+            <text x="20" y="27" text-anchor="middle" fill="#fff" font-size="21" font-weight="800" font-family="system-ui, sans-serif">점</text>
+          </svg>
+          <span>점원</span>
+        </a>
+
+        <div class="nav-links">
+          <a href="#how">작동 방식</a>
+          <a href="#features">기능</a>
+          <a href="#quick-start">빠른 시작</a>
+        </div>
+
+        <a class="button button-dark button-compact" href="https://github.com/NewTurn2017/jeomwon">GitHub에서 시작하기</a>
+      </nav>
+    </header>
+
+    <main id="main-content">
+      <section class="hero" id="top" aria-labelledby="hero-title">
+        <div class="hero-shell">
+          <div class="hero-copy">
+            <h1 id="hero-title"><span>가게 프런트에</span>
+              <span>AI 점원을 세우세요</span></h1>
+            <p class="hero-lede">도메인 인터뷰 한 번이면 고객 예약 챗, 관리자 대시보드, 수명주기 메일까지 — 열어보면 바로 돌아가는 오픈소스 SaaS 킷.</p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="https://github.com/NewTurn2017/jeomwon">GitHub에서 시작하기</a>
+              <a class="button button-ghost" href="#quick-start">빠른 시작 보기</a>
+            </div>
+            <p class="trust-line">MIT 라이선스 · Convex + Next.js 16 + bun</p>
+          </div>
+
+          <div class="hero-visual" role="group" aria-label="점원이 고객의 커트 예약을 확정하는 채팅 데모">
+            <article class="evidence-card" data-chat-step="evidence">
+              <div>
+                <p class="evidence-title">새 예약이 확정됐어요</p>
+                <p class="evidence-meta">김민지 · 커트 · 15:00</p>
+              </div>
+              <span class="status-pill">확정</span>
+            </article>
+
+            <div class="chat-frame">
+              <div class="chat-header">
+                <div>
+                  <strong>점원</strong>
+                  <span>예약 도우미</span>
+                </div>
+                <span class="availability">상담 가능</span>
+              </div>
+
+              <div class="chat-thread">
+                <div class="message-row customer" data-chat-step="customer-one">
+                  <p class="bubble">내일 오후 3시에 커트 예약 돼요?</p>
+                </div>
+
+                <div class="message-row clerk typing-row" data-chat-step="typing" aria-hidden="true">
+                  <div class="bubble typing-indicator">
+                    <span></span><span></span><span></span>
+                  </div>
+                </div>
+
+                <div class="message-row clerk" data-chat-step="clerk-one">
+                  <p class="bubble">네, 내일 15:00 커트 가능해요. 성함 알려주시면 바로 잡아둘게요.</p>
+                </div>
+
+                <div class="message-row customer" data-chat-step="customer-two">
+                  <p class="bubble">김민지요</p>
+                </div>
+
+                <div class="message-row clerk" data-chat-step="confirmation">
+                  <article class="confirmation-card">
+                    <span class="status-pill">확정</span>
+                    <strong>커트 · 내일 15:00 · 김민지</strong>
+                    <p>취소는 하루 전까지 가능해요</p>
+                  </article>
+                </div>
+              </div>
+
+              <div class="chat-composer" aria-hidden="true">
+                <span>메시지를 입력하세요</span>
+                <span class="send-button">
+                  <svg viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="m5 10 9-5-3 10-2-4-4-1Z" />
+                  </svg>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section how-section reveal-section" id="how" aria-labelledby="how-title">
+        <div class="container">
+          <h2 id="how-title">말 한마디에서 SaaS까지, 세 단계</h2>
+          <ol class="steps">
+            <li class="step">
+              <span class="step-number">01</span>
+              <h3>도메인을 말하면</h3>
+              <p>Claude Code에서 "PC방 좌석 예약 만들어줘" 한 마디. 스킬이 도메인 팩 하나로 인터뷰합니다.</p>
+            </li>
+            <li class="step">
+              <span class="step-number">02</span>
+              <h3>bootstrap 한 번이면</h3>
+              <p>스캐폴드, 도메인 주입, 오프라인 검증까지 커맨드 하나로 끝.</p>
+              <code>bun skill/scripts/bootstrap.mjs my-shop domain-pack.json</code>
+            </li>
+            <li class="step">
+              <span class="step-number">03</span>
+              <h3>증명까지 끝</h3>
+              <p>bun setup으로 자격증명을 연결하고, 라이브 QA 9게이트가 동작을 증명합니다.</p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section features-section reveal-section" id="features" aria-label="기능">
+        <div class="container feature-rows">
+          <article class="feature-row feature-customer">
+            <div class="feature-image-wrap">
+              <img
+                src="assets/storefront.jpg"
+                alt="종이공예 스타일의 동네 가게 일러스트 — 점원과 고객이 말풍선으로 대화"
+                width="1440"
+                height="960"
+                loading="lazy"
+              >
+            </div>
+            <div class="feature-copy">
+              <h2>고객은 대화만 하면 됩니다</h2>
+              <p>카카오톡처럼 익숙한 챗 위젯으로 예약, 변경, 취소가 끝납니다. 고객 화면에는 원시 에러도 내부 enum도 보이지 않습니다.</p>
+            </div>
+          </article>
+
+          <article class="feature-row feature-owner">
+            <div class="feature-copy">
+              <h2>사장님은 승인만 하면 됩니다</h2>
+              <p>대시보드는 행동 순서대로: 에스컬레이션 큐에서 승인/유지, 그다음 예약 목록, 그다음 에이전트 타임라인. Convex 실시간이라 새로고침이 없습니다.</p>
+            </div>
+            <div class="dashboard-preview" role="group" aria-label="변경 요청을 승인하거나 유지할 수 있는 에스컬레이션 카드">
+              <div class="dashboard-topbar">
+                <strong>에스컬레이션 큐</strong>
+                <span>1건</span>
+              </div>
+              <article class="escalation-card">
+                <span class="status-pill status-neutral">에스컬레이션</span>
+                <p>취소 기한 지난 변경 요청 — 김민지 · 커트 · 내일 15:00</p>
+                <div class="escalation-actions">
+                  <button type="button" class="mini-button mini-button-primary">승인</button>
+                  <button type="button" class="mini-button">유지</button>
+                </div>
+              </article>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="stats-section reveal-section" aria-label="점원의 검증 수치">
+        <div class="container stats-grid">
+          <div class="stat">
+            <strong>9게이트</strong>
+            <p>라이브 QA가 해피패스부터 홀드 만료까지 증명</p>
+          </div>
+          <div class="stat">
+            <strong>10개</strong>
+            <p>실전 디버깅에서 살아남은 불변식, 전부 Convex mutation 안에서 강제</p>
+          </div>
+          <div class="stat">
+            <strong>8필드</strong>
+            <p>고객에게 공개되는 PublicContext는 정확히 8필드뿐</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section quick-start-section reveal-section" id="quick-start" aria-labelledby="quick-start-title">
+        <div class="narrow-container">
+          <h2 id="quick-start-title">5분이면 시작합니다</h2>
+
+          <article class="code-panel">
+            <div class="code-panel-header">
+              <h3>Claude Code와 함께</h3>
+              <button class="copy-button" type="button" data-copy-target="code-claude" aria-label="Claude Code와 함께 시작하는 명령어 복사">
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <rect x="7" y="7" width="9" height="9" rx="2" />
+                  <path d="M13 7V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h1" />
+                </svg>
+                <span>복사</span>
+              </button>
+            </div>
+            <pre><code id="code-claude">git clone https://github.com/NewTurn2017/jeomwon.git &amp;&amp; cd jeomwon
+ln -sfn "$(pwd)/skill" ~/.claude/skills/jeomwon
+# Claude Code에서: "PC방 좌석 예약 시스템 만들어줘"</code></pre>
+          </article>
+
+          <article class="code-panel">
+            <div class="code-panel-header">
+              <h3>Claude Code 없이</h3>
+              <button class="copy-button" type="button" data-copy-target="code-manual" aria-label="Claude Code 없이 시작하는 명령어 복사">
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <rect x="7" y="7" width="9" height="9" rx="2" />
+                  <path d="M13 7V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h1" />
+                </svg>
+                <span>복사</span>
+              </button>
+            </div>
+            <pre><code id="code-manual">cd template &amp;&amp; bun install
+bun setup   # Convex·OAuth·메일 자격증명 위저드
+bun dev     # web + app + backend 병렬 실행</code></pre>
+          </article>
+
+          <p class="code-caption">자세한 내용은 README와 skill/REFERENCE.md에 있습니다.</p>
+        </div>
+      </section>
+
+      <section class="final-cta reveal-section" aria-labelledby="cta-title">
+        <div class="narrow-container">
+          <h2 id="cta-title">오늘 저녁, 가게에 AI 점원을 세워보세요</h2>
+          <a class="button button-primary" href="https://github.com/NewTurn2017/jeomwon">GitHub에서 시작하기</a>
+          <p class="trust-line">MIT 라이선스 · Convex + Next.js 16 + bun</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-shell">
+        <div class="footer-brand">
+          <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+            <rect width="40" height="40" rx="9" fill="#136586" />
+            <text x="20" y="27" text-anchor="middle" fill="#fff" font-size="21" font-weight="800" font-family="system-ui, sans-serif">점</text>
+          </svg>
+          <span>점원 (jeomwon)</span>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/NewTurn2017/jeomwon">GitHub</a>
+          <span>MIT License</span>
+          <span>© 2026 NewTurn2017</span>
+          <span>Convex + Next.js 16 + bun</span>
+        </div>
+      </div>
+    </footer>
+
+    <script src="main.js" defer></script>
+  </body>
+</html>
