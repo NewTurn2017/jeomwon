@@ -3,11 +3,20 @@ import {
   createRouteMatcher,
   nextjsMiddlewareRedirect,
 } from "@convex-dev/auth/nextjs/server";
+import { domainConfig } from "@jeomwon/backend/domain.config";
 import { createI18nMiddleware } from "next-international/middleware";
+
+const domainLocale = (
+  {
+    "ko-KR": "ko",
+    "en-US": "en",
+  } as const
+)[domainConfig.locale];
 
 const I18nProxy = createI18nMiddleware({
   locales: ["ko", "en"],
-  defaultLocale: "ko",
+  defaultLocale: domainLocale,
+  resolveLocaleFromRequest: () => domainLocale,
   urlMappingStrategy: "rewrite",
 });
 
@@ -34,6 +43,10 @@ const proxy = convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
     isSignIn,
     isAuthenticated,
   });
+
+  if (request.cookies.get("Next-Locale")?.value !== domainLocale) {
+    request.cookies.delete("Next-Locale");
+  }
 
   return I18nProxy(request);
 });

@@ -70,17 +70,14 @@ export default {
     },
   },
   login: {
-    title: "Jeomwon Admin Login",
+    title: "Operator sign-in",
     description: "The operator dashboard is available only after sign-in.",
-    cardTitle: "Operator sign-in",
-    cardDescription:
-      "Use your Google account to enter the reservation operations dashboard.",
     privacy:
       "Sign-in details are used only for operator authentication and reservation management access.",
     google: "Sign in with Google",
+    alternative: "or",
     devAnonymous: "Dev-only anonymous sign-in",
-    devOnly:
-      "Shown only on dev deployments explicitly opted in with AUTH_DEV_ANONYMOUS=1.",
+    devOnly: "Visible only in this development deployment.",
     actionWorking: "Signing in",
     signInError: "Sign-in failed. Check the auth configuration and try again.",
   },

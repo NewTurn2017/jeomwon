@@ -7,19 +7,15 @@ interface LogoProps {
   title?: string;
 }
 
-export function Logo({
-  width,
-  height,
-  className,
-  title = "Jeomwon",
-}: LogoProps) {
+export function Logo({ width, height, className, title }: LogoProps) {
   return (
     <svg
+      aria-hidden={title ? undefined : true}
       aria-label={title}
       className={cn("text-primary", className)}
       fill="none"
       height={height ?? 40}
-      role="img"
+      role={title ? "img" : undefined}
       viewBox="0 0 40 40"
       width={width ?? 40}
       xmlns="http://www.w3.org/2000/svg"

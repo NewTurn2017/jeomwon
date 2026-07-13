@@ -43,35 +43,48 @@ export function GoogleSignin({
   }
 
   return (
-    <div className="flex w-full flex-col items-center gap-3">
+    <div className="flex w-full flex-col">
       <Button
         className="w-full gap-2"
         disabled={signingInWith !== null}
         onClick={() => void signInWithProvider("google")}
+        size="lg"
       >
         <GoogleIcon />
         {signingInWith === "google" ? t("actionWorking") : t("google")}
       </Button>
+      {errorMessage ? (
+        <p
+          className="mt-3 text-center text-destructive text-sm leading-5"
+          role="alert"
+        >
+          {errorMessage}
+        </p>
+      ) : null}
       {devAnonymousEnabled ? (
-        <div className="flex w-full flex-col items-center gap-2 rounded-md border border-chart-3/30 bg-chart-3/10 p-3">
+        <div className="mt-6 flex w-full flex-col items-center">
+          <div className="flex w-full items-center gap-3">
+            <span aria-hidden="true" className="h-px flex-1 bg-border" />
+            <span className="text-muted-foreground text-xs">
+              {t("alternative")}
+            </span>
+            <span aria-hidden="true" className="h-px flex-1 bg-border" />
+          </div>
           <Button
-            className="w-full"
+            className="mt-4 h-11 w-full text-muted-foreground hover:bg-muted hover:text-foreground"
             disabled={signingInWith !== null}
             type="button"
-            variant="secondary"
+            variant="ghost"
             onClick={() => void signInWithProvider("anonymous")}
           >
             {signingInWith === "anonymous"
               ? t("actionWorking")
               : t("devAnonymous")}
           </Button>
-          <p className="text-center text-chart-3 text-xs">{t("devOnly")}</p>
+          <p className="mt-2 text-center text-muted-foreground text-xs leading-5">
+            {t("devOnly")}
+          </p>
         </div>
-      ) : null}
-      {errorMessage ? (
-        <p className="text-center text-destructive text-sm" role="alert">
-          {errorMessage}
-        </p>
       ) : null}
     </div>
   );
@@ -83,7 +96,7 @@ function GoogleIcon() {
   return (
     <svg
       aria-hidden="true"
-      className="h-4 w-4"
+      className="h-5 w-5"
       viewBox="0 0 48 48"
       xmlns="http://www.w3.org/2000/svg"
     >

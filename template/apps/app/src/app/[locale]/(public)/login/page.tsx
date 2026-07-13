@@ -1,41 +1,46 @@
-import { Logo } from "@jeomwon/ui/logo";
+import { domainConfig } from "@jeomwon/backend/domain.config";
+import type { Metadata } from "next";
 import { GoogleSignin } from "@/components/google-signin";
 import { getScopedI18n } from "@/locales/server";
 
-export const metadata = {
-  title: "Jeomwon Login",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getScopedI18n("login");
+
+  return {
+    title: `${domainConfig.storeName} · ${t("title")}`,
+  };
+}
 
 export default async function Page() {
   const t = await getScopedI18n("login");
   const devAnonymousEnabled = process.env.AUTH_DEV_ANONYMOUS === "1";
 
   return (
-    <main className="flex min-h-screen w-full items-center justify-center bg-muted/40 px-4 py-10">
-      <section className="grid w-full max-w-4xl overflow-hidden rounded-lg border border-border bg-card shadow-sm md:grid-cols-[1fr_380px]">
-        <div className="flex min-h-80 flex-col justify-between border-border border-b p-8 md:border-r md:border-b-0">
-          <div>
-            <Logo width={40} height={40} />
-            <h1 className="mt-8 max-w-xl font-semibold text-3xl text-card-foreground leading-tight">
-              {t("title")}
-            </h1>
-            <p className="mt-4 max-w-md text-muted-foreground text-sm leading-6">
-              {t("description")}
-            </p>
-          </div>
-          <p className="mt-10 text-muted-foreground text-xs">{t("privacy")}</p>
+    <main className="flex min-h-[100dvh] w-full items-center justify-center bg-muted/40 px-4 py-8">
+      <section
+        aria-labelledby="login-title"
+        className="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-sm sm:p-8"
+      >
+        <p className="text-center font-semibold text-card-foreground text-sm leading-5">
+          {domainConfig.storeName}
+        </p>
+        <div className="mt-6 text-center">
+          <h1
+            className="font-semibold text-2xl text-card-foreground leading-tight"
+            id="login-title"
+          >
+            {t("title")}
+          </h1>
+          <p className="mt-2 text-muted-foreground text-sm leading-6">
+            {t("description")}
+          </p>
         </div>
-        <div className="flex flex-col justify-center gap-5 p-8">
-          <div>
-            <h2 className="font-semibold text-card-foreground text-lg">
-              {t("cardTitle")}
-            </h2>
-            <p className="mt-2 text-muted-foreground text-sm">
-              {t("cardDescription")}
-            </p>
-          </div>
+        <div className="mt-8">
           <GoogleSignin devAnonymousEnabled={devAnonymousEnabled} />
         </div>
+        <p className="mt-6 text-center text-muted-foreground text-xs leading-5">
+          {t("privacy")}
+        </p>
       </section>
     </main>
   );
