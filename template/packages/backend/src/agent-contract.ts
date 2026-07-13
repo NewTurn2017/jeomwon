@@ -156,6 +156,38 @@ export type AdminDashboardSnapshot = {
 };
 
 /**
+ * The minimal read-only shape the calendar / seat-grid board actually consumes.
+ * It is a structural SUBSET that BOTH `AdminDashboardSnapshot` and
+ * `CustomerSnapshot` satisfy, so one board renders for the operator and the
+ * customer without duplication and without ever widening the customer surface:
+ * there is simply nowhere here to put `auditHistory`, `internalContext`,
+ * escalations, or another customer's rows. Widening the board's prop to this —
+ * rather than typing `customerSnapshot` as `AdminDashboardSnapshot` — is what
+ * keeps the PublicContext/InternalContext separation a compile-time guarantee.
+ */
+export type WidgetReservation = {
+  id: string;
+  serviceLabel: string;
+  resourceKey: string;
+  resourceLabel: string;
+  startMs: number;
+  endMs: number;
+  timeWindow: string;
+  status: ReservationStatus;
+};
+
+export type WidgetSnapshot = {
+  domain: {
+    adminWidget: DomainConfig["adminWidget"];
+    locale: string;
+    storeTimezone: string;
+    resources: DomainResource[];
+  };
+  reservations: WidgetReservation[];
+  generatedAtMs: number;
+};
+
+/**
  * Customer accounts (`features.customerAccounts`).
  *
  * ── Where the authenticated identity must enter Convex ───────────────────────

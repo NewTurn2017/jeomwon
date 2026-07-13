@@ -443,6 +443,33 @@ async function ensureAdmin(ctx: QueryCtx | MutationCtx) {
 }
 
 /**
+ * Which surface should the dashboard render for the signed-in viewer?
+ *
+ * Reuses `isOperator` — the exact rule `ensureAdmin` enforces — so the UI branch
+ * can never disagree with what the backend will actually authorize. It answers,
+ * never throws: a customer is a valid viewer, not a forbidden one, so throwing
+ * here (the way `dashboardSnapshot` does) would turn the customer's own calendar
+ * into an error page. The role is decided INSIDE Convex because the operator
+ * allowlist lives in the Convex deployment env; the Next process cannot evaluate
+ * it from `getUser` alone.
+ *
+ * A signed-in caller is required (the dashboard layout already redirects anons),
+ * but an absent identity resolves to `"customer"` — the surface that leaks
+ * nothing — rather than guessing operator.
+ */
+export const viewerRole = query({
+  args: {},
+  handler: async (ctx): Promise<"operator" | "customer"> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return "customer";
+    }
+
+    return (await isOperator(ctx, userId)) ? "operator" : "customer";
+  },
+});
+
+/**
  * A customer's view of their OWN reservations (`features.customerAccounts`).
  *
  * Takes no arguments, and that is the point: there is no `threadId` to forge,

@@ -71,6 +71,14 @@ export const jeomwonConvex = {
       Record<string, never>,
       CustomerSnapshot
     >("admin:customerSnapshot"),
+    // Which surface the signed-in viewer should see. Answers, never throws;
+    // reuses the same `isOperator` rule as `ensureAdmin`, decided inside Convex
+    // because the operator allowlist lives in the deployment env.
+    viewerRole: makeFunctionReference<
+      "query",
+      Record<string, never>,
+      "operator" | "customer"
+    >("admin:viewerRole"),
   },
   chat: {
     domainPublicConfig: makeFunctionReference<
