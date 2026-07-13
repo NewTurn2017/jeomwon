@@ -14,7 +14,12 @@ import type {
   RescheduleArgs,
   WaitlistArgs,
 } from "@jeomwon/backend/src/agent-contract";
-import { normalizeConvexArgs } from "@jeomwon/backend/src/boundary";
+import {
+  BoundaryError,
+  invalidRequest,
+  normalizeConvexArgs,
+  readStringField,
+} from "@jeomwon/backend/src/boundary";
 import { jeomwonConvex } from "@jeomwon/backend/src/convex-refs";
 import { Agent, run, tool } from "@openai/agents";
 import { ConvexHttpClient } from "convex/browser";
@@ -62,8 +67,19 @@ export type AgentToolbox = {
   ): Promise<{ publicContext: PublicContext }>;
 };
 
-export function createConvexAgentToolbox(convexUrl: string): AgentToolbox {
+export function createConvexAgentToolbox(
+  convexUrl: string,
+  authToken?: string,
+): AgentToolbox {
   const client = new ConvexHttpClient(convexUrl);
+  // Anonymous by default: with no token this is byte-for-byte the old toolbox,
+  // so the public web route keeps working with zero auth. When a token IS
+  // present (the authenticated apps/app route), attach it as the bearer so
+  // getAuthUserId(ctx) resolves inside every query/mutation and Convex can
+  // derive/verify the caller's own thread instead of failing closed.
+  if (authToken) {
+    client.setAuth(authToken);
+  }
 
   return {
     async publicState(threadId) {
@@ -157,6 +173,86 @@ export function normalizeRuntimeMode(
   value: string | null | undefined,
 ): AgentRuntimeMode {
   return value === "openai" ? "openai" : "mock";
+}
+
+export type ChatHandlerResult = { status: number; body: unknown };
+
+/**
+ * The shared POST /api/chat body, owned here so the two app routes cannot drift
+ * on the security-sensitive turn path.
+ *
+ * Anonymous (web) and authenticated (app) requests take the SAME path: the only
+ * difference is `authToken`, which is threaded straight into the toolbox. For
+ * the anonymous case this is byte-for-byte the previous web-route logic — parse,
+ * validate `message`, mint a continuity threadId when none was sent, run the
+ * turn, and shape the same success / 422 / 500 envelopes.
+ *
+ * The client-supplied `thread_id` is passed through UNTRUSTED: with
+ * `features.customerAccounts` on, Convex re-derives the caller's own thread from
+ * the forwarded token and rejects a mismatch, so a forged thread cannot leak.
+ */
+export async function handleChatRequest(
+  request: { json(): Promise<unknown> },
+  options: {
+    convexUrl: string;
+    runtimeMode: AgentRuntimeMode;
+    authToken?: string;
+  },
+): Promise<ChatHandlerResult> {
+  let payload: ReturnType<typeof normalizeConvexArgs>;
+  try {
+    payload = normalizeConvexArgs(await request.json());
+  } catch (error) {
+    const details =
+      error instanceof BoundaryError
+        ? error.details
+        : ["Request body must be valid JSON."];
+    return { status: 422, body: invalidRequest(details) };
+  }
+
+  const message = readStringField(payload, "message");
+  const requestedThreadId =
+    readStringField(payload, "thread_id") ??
+    readStringField(payload, "threadId");
+
+  if (!message) {
+    return { status: 422, body: invalidRequest(["message is required."]) };
+  }
+
+  // A continuity key for the conversation, not an auth identity. When a token is
+  // forwarded, Convex validates this against the caller's own derived thread.
+  const threadId = requestedThreadId ?? crypto.randomUUID();
+  const tools = createConvexAgentToolbox(options.convexUrl, options.authToken);
+
+  try {
+    const result = await runAgentTurn({
+      request: {
+        threadId,
+        message,
+      },
+      runtimeMode: options.runtimeMode,
+      tools,
+    });
+    return {
+      status: 200,
+      body: {
+        ...result,
+        thread_id: result.threadId,
+      },
+    };
+  } catch (error) {
+    const detail =
+      error instanceof Error ? error.message : "Agent runtime failed.";
+    return {
+      status: 500,
+      body: {
+        error: {
+          code: "agent_runtime_failed",
+          details: [detail],
+        },
+      },
+    };
+  }
 }
 
 async function runDeterministicTurn(

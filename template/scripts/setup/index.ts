@@ -239,7 +239,7 @@ async function main() {
     }
 
     await configureResend(ctx);
-    await configureOpenAI(ctx);
+    await configureOpenAI(ctx, domainFeatures.customerAccounts);
 
     if (domainFeatures.polar) {
       await configurePolar(ctx, deployment);
@@ -964,10 +964,21 @@ async function probeResend(
   console.log("Resend probe succeeded.");
 }
 
-async function configureOpenAI(ctx: RuntimeContext) {
+async function configureOpenAI(ctx: RuntimeContext, customerAccounts: boolean) {
   const step = requireStep(ctx, "openai");
   section(step.title);
   console.log(step.requiredMessage ?? "OpenAI can be skipped.");
+
+  // apps/web always hosts the anonymous /api/chat route, so the agent runtime env
+  // always lands there. apps/app hosts an authenticated /api/chat route only when
+  // features.customerAccounts is on (its route 404s otherwise), so its env is
+  // written only then — a flags-off pack's apps/app/.env.local is unchanged.
+  const setAgentEnv = async (name: string, value: string) => {
+    await setLocalEnv(ctx, "web", name, value);
+    if (customerAccounts) {
+      await setLocalEnv(ctx, "app", name, value);
+    }
+  };
 
   const existing = readLocalEnv(ctx, "web").get("OPENAI_API_KEY");
   if (existing) {
@@ -978,7 +989,7 @@ async function configureOpenAI(ctx: RuntimeContext) {
       defaultValue: false,
     });
     if (!overwrite) {
-      await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "openai");
+      await setAgentEnv("AGENT_RUNTIME", "openai");
       return;
     }
   } else {
@@ -988,7 +999,7 @@ async function configureOpenAI(ctx: RuntimeContext) {
       defaultValue: false,
     });
     if (!configure) {
-      await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "mock");
+      await setAgentEnv("AGENT_RUNTIME", "mock");
       ui.skip("OpenAI 건너뜀 — AGENT_RUNTIME=mock 사용 (나중에 추가 가능)");
       return;
     }
@@ -999,13 +1010,13 @@ async function configureOpenAI(ctx: RuntimeContext) {
     requireVariable(step, "OPENAI_API_KEY"),
   );
   if (!apiKey) {
-    await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "mock");
+    await setAgentEnv("AGENT_RUNTIME", "mock");
     console.log("OpenAI deferred (유예됨). AGENT_RUNTIME=mock will be used.");
     return;
   }
   await probeOpenAI(ctx, apiKey);
-  await setLocalEnv(ctx, "web", "OPENAI_API_KEY", apiKey);
-  await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "openai");
+  await setAgentEnv("OPENAI_API_KEY", apiKey);
+  await setAgentEnv("AGENT_RUNTIME", "openai");
 }
 
 async function probeOpenAI(ctx: RuntimeContext, apiKey: string) {

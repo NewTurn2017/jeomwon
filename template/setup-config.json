@@ -206,13 +206,13 @@
       "variables": [
         {
           "name": "OPENAI_API_KEY",
-          "projects": ["web"],
-          "details": "Stored only in apps/web/.env.local for local Next route handlers.",
+          "projects": ["web", "app"],
+          "details": "Stored in apps/web/.env.local and apps/app/.env.local for local Next route handlers.",
           "secret": true
         },
         {
           "name": "AGENT_RUNTIME",
-          "projects": ["web"],
+          "projects": ["web", "app"],
           "details": "Set to openai when the key is configured, or mock when skipped.",
           "defaultValue": "mock",
           "secret": false

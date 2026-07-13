@@ -4,6 +4,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
+      "@jeomwon/agents": ["../../packages/agents/src/index.ts"],
+      "@jeomwon/agents/*": ["../../packages/agents/src/*"],
       "@jeomwon/backend": ["../../packages/backend"],
       "@jeomwon/backend/*": ["../../packages/backend/*"],
       "@jeomwon/email/reservation": [
