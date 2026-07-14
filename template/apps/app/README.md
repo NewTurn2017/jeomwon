@@ -67,28 +67,21 @@ the browser must not see who the operators are. `bun setup` prompts for it. The
 guard re-reads it on every call, so a `convex env set` takes effect on the next
 request without a redeploy.
 
-The rule is **conditionally fail-closed**, because "no allowlist" means two
-different things depending on who can sign in:
+The rule is always fail-closed and does not depend on `customerAccounts`:
 
-| `JEOMWON_ADMIN_EMAILS` | `features.customerAccounts` | Result |
-|---|---|---|
-| Set | either | Email on the list → operator. Otherwise `admin_forbidden`. |
-| Empty | `false` | Any signed-in user is an operator. |
-| Empty | `true` | Every call throws `admin_not_configured`. |
+| Identity / allowlist state | Result |
+|---|---|
+| Unauthenticated | `admin_auth_required` |
+| Allowlist missing or empty | `admin_not_configured` |
+| Anonymous, missing email, or normalized email not on the list | `admin_forbidden` |
+| Non-anonymous normalized exact email match | Operator |
 
-- **Empty + `customerAccounts: false`** is the historical behavior, kept exactly.
-  Only operators can sign in to such a deployment, so being signed in is itself
-  proof of role, and existing projects do not lock their operators out when they
-  upgrade. Setting the allowlist is still the safer choice.
-- **Empty + `customerAccounts: true`** is refused. Customers can sign in to that
-  deployment, so treating any signed-in user as an operator would hand every
-  customer the dashboard, internal memos and risk signals included. There is no
-  safe default, so the guard denies until you configure one — `bun setup` makes
-  the allowlist required whenever the pack turns customer accounts on.
+There is no signed-in-user fallback. The guard denies until you configure the
+allowlist, and `bun setup` requires it for every feature configuration while
+displaying configuration presence only.
 
 An account with no email — the dev anonymous provider from `AUTH_DEV_ANONYMOUS` —
-can never match a non-empty allowlist. Local QA that signs in anonymously must
-leave `JEOMWON_ADMIN_EMAILS` unset.
+can never be an operator, even if a synthetic matching email is present.
 
 `ensureCustomer(ctx)` is the counterpart guard, exported from the same module for
 customer-scoped queries. It asserts a signed-in user and returns

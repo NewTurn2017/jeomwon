@@ -55,38 +55,48 @@ export function assertCustomerAccountsEnabled() {
 // must not be frozen into a warm isolate, so `npx convex env set
 // JEOMWON_ADMIN_EMAILS ...` binds on the next call instead of racing the module
 // cache.
-export function adminEmailAllowlist() {
-  const raw = process.env.JEOMWON_ADMIN_EMAILS ?? "";
+export function normalizeAdminEmailAllowlist(raw: string | undefined) {
+  return [
+    ...new Set(
+      (raw ?? "")
+        .split(",")
+        .map((entry) => entry.trim().toLowerCase())
+        .filter((entry) => entry.length > 0),
+    ),
+  ];
+}
 
-  return raw
-    .split(",")
-    .map((entry) => entry.trim().toLowerCase())
-    .filter((entry) => entry.length > 0);
+export function adminEmailAllowlist() {
+  return normalizeAdminEmailAllowlist(process.env.JEOMWON_ADMIN_EMAILS);
 }
 
 /**
  * Is this signed-in user an operator? The non-throwing form of `ensureAdmin`'s
  * rule, shared so the two guards can never drift apart:
  *
- * - Allowlist set: the user's email must be on it. An account with no email (the
- *   dev anonymous provider) can never match, which is intended.
- * - Allowlist empty, `customerAccounts` false: every signed-in user is an
- *   operator. Only operators can sign in to such a deployment, so presence is
- *   proof of role. This is the pre-allowlist behavior, preserved.
- * - Allowlist empty, `customerAccounts` true: nobody is. Customers can sign in
- *   here, so "any signed-in user is an operator" would hand every customer the
- *   dashboard. There is no safe default, so refuse to guess.
+ * - Missing identity, anonymous identity, missing email, or empty allowlist:
+ *   never an operator.
+ * - Otherwise: only a normalized exact email match is an operator.
  */
-export async function isOperator(ctx: AuthCtx, userId: Id<"users">) {
-  const allowlist = adminEmailAllowlist();
-  if (allowlist.length === 0) {
-    return !domainConfig.features.customerAccounts;
+export function operatorRolePolicy(
+  user:
+    | { readonly email?: string; readonly isAnonymous?: boolean }
+    | null
+    | undefined,
+  allowlist: readonly string[],
+) {
+  if (!user || user.isAnonymous === true || allowlist.length === 0) {
+    return false;
   }
 
-  const user = await ctx.db.get(userId);
-  const email = user?.email?.trim().toLowerCase();
+  const email = user.email?.trim().toLowerCase();
+  return email !== undefined && email.length > 0 && allowlist.includes(email);
+}
 
-  return Boolean(email && allowlist.includes(email));
+export async function isOperator(ctx: AuthCtx, userId: Id<"users">) {
+  const allowlist = adminEmailAllowlist();
+  const user = await ctx.db.get(userId);
+  return operatorRolePolicy(user, allowlist);
 }
 
 /**
