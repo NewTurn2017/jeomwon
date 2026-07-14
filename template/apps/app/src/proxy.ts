@@ -63,5 +63,10 @@ export const config = {
     // entry is intentionally dropped for the same reason.
     "/((?!.*\\..*|_next|api).*)",
     "/",
+
+    // /api/auth is the one /api route the middleware MUST see: it is not a
+    // route handler — convexAuthNextjsMiddleware itself serves the sign-in/
+    // sign-out action proxy there. Without this entry every login POST 404s.
+    "/api/auth",
   ],
 };
