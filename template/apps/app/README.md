@@ -1,23 +1,29 @@
-# Admin Operator Surface (`apps/app`)
+# Customer and Admin Dashboard Surfaces (`apps/app`)
 
 ## Overview
 
-This app is the authenticated operator surface. Its dashboard shows live
-reservations, the escalation queue, and the agent activity timeline from a single
-authenticated Convex snapshot. It is Korean-first and ordered by action:
-escalations first, then reservations, then the timeline.
+This app routes authenticated customers to `CustomerReservationManager` on the
+root dashboard and exposes the operator dashboard at `/admin`. The customer
+surface uses the canonical `customerReservations` Convex module; the operator
+surface shows live reservations, the escalation queue, and the agent activity
+timeline from `admin.dashboardSnapshot`.
 
-This README documents the UI surface as it exists today, including the
-`adminWidget` render branch. For how to change backend reservation
+This README documents both authenticated surfaces as they exist today, including
+the `adminWidget` render branch. For how to change backend reservation
 behavior safely, read `../../packages/backend/convex/engine/README.md` for the
 engine primitives and the Code Extension Contract in the jeomwon skill
 repository's `skill/REFERENCE.md` for the extension sequence and Session Rules.
 
 ## Rendered surface
 
-- `./src/app/[locale]/(dashboard)/page.tsx` renders `Header` and the single
-  `AdminDashboard` component. Widget-type branching happens inside the
-  dashboard, not at this entry.
+- `./src/app/[locale]/(dashboard)/(onboarded)/page.tsx` resolves the viewer role.
+  Customers see `CustomerReservationManager`; operators see `AdminDashboard`.
+- `./src/app/[locale]/(dashboard)/admin/page.tsx` is the dedicated operator
+  route. It renders `AdminDashboard` only for an operator and returns not found
+  for every other viewer.
+- `./src/app/[locale]/(dashboard)/_components/customer-reservation-manager.tsx`
+  owns the customer reservation UI and calls only the canonical
+  `jeomwonConvex.customerReservations` query and mutations.
 - `./src/app/[locale]/(dashboard)/_components/admin-dashboard.tsx` is the
   dashboard shell. `AdminDashboard` subscribes to `admin.dashboardSnapshot` and
   renders four sections in fixed order: `EscalationQueue`, `AdminWidgetBoard`,
@@ -28,11 +34,13 @@ repository's `skill/REFERENCE.md` for the extension sequence and Session Rules.
 
 ## Component inventory
 
-Source: `./src/app/[locale]/(dashboard)/_components/admin-dashboard.tsx` and
+Source: `./src/app/[locale]/(dashboard)/_components/customer-reservation-manager.tsx`,
+`./src/app/[locale]/(dashboard)/_components/admin-dashboard.tsx`, and
 `./src/app/[locale]/(dashboard)/_components/admin-widget-board.tsx`.
 
 | Component | Role |
 |---|---|
+| `CustomerReservationManager` | Customer entry component. Reads `customerReservations.snapshot` and owns availability, hold, confirm, reschedule, and cancel calls. |
 | `AdminDashboard` | Entry component. Queries the snapshot and renders the four panels in order. |
 | `EscalationQueue` | Cancellation escalations that need operator judgment. Calls the `resolveEscalation` mutation with `approveCancel` / `keepReservation`. Shows internal memo, risk signals, and recent audit history. |
 | `AdminWidgetBoard` | Branches on `snapshot.domain.adminWidget`: `seatGrid` → `SeatGridWidget`, otherwise `CalendarWidget`. |
@@ -46,6 +54,11 @@ Source: `./src/app/[locale]/(dashboard)/_components/admin-dashboard.tsx` and
 
 ## Data contract
 
+- `CustomerReservationManager` reads
+  `jeomwonConvex.customerReservations.snapshot` and writes through
+  `jeomwonConvex.customerReservations.createHold`, `confirmReservation`,
+  `rescheduleReservation`, and `cancelReservation`. Availability comes from
+  `jeomwonConvex.customerReservations.availableSlots`.
 - `AdminDashboard` reads `jeomwonConvex.admin.dashboardSnapshot`: resources,
   reservations (time-sorted), escalations, recent events, business hours, and
   policies. The query is gated by `ensureAdmin` (see "Who is an operator" below);
@@ -89,8 +102,10 @@ requires an exact production opt-in, and fails its postflight when the two sides
 do not match. Guest browser identity is device-local, so the login screen warns
 that losing browser sign-in data also loses access to earlier reservations.
 
-`ensureCustomer(ctx)` is the counterpart guard, exported from the same module for
-customer-scoped queries. It asserts a signed-in user and returns
+`ensureCustomer(ctx)` is the customer guard exported from
+`../../packages/backend/convex/customerReservations.ts`. That canonical module
+owns the customer snapshot, availability, and reservation mutations. The guard
+asserts a signed-in user and returns
 `{ userId, user }` — it does **not** consult the allowlist. Customer-scoped reads
 authorize by scoping to that `userId`; the ownership check is the authorization
 and it belongs to the caller. Never authorize a customer by `threadId`: a thread

@@ -11,8 +11,10 @@
 import type * as admin from "../admin.js";
 import type * as agentTools from "../agentTools.js";
 import type * as auth from "../auth.js";
+import type * as authPolicy from "../authPolicy.js";
 import type * as chat from "../chat.js";
 import type * as crons from "../crons.js";
+import type * as customerReservations from "../customerReservations.js";
 import type * as demoReset from "../demoReset.js";
 import type * as email_deliveryMode from "../email/deliveryMode.js";
 import type * as email_index from "../email/index.js";
@@ -22,6 +24,9 @@ import type * as email_templates_subscriptionEmail from "../email/templates/subs
 import type * as email_validators from "../email/validators.js";
 import type * as engine_adminBooking from "../engine/adminBooking.js";
 import type * as engine_availability from "../engine/availability.js";
+import type * as engine_customerAvailability from "../engine/customerAvailability.js";
+import type * as engine_customerReservationLifecycle from "../engine/customerReservationLifecycle.js";
+import type * as engine_customerReservationPublicId from "../engine/customerReservationPublicId.js";
 import type * as engine_identity from "../engine/identity.js";
 import type * as engine_lifecycle from "../engine/lifecycle.js";
 import type * as engine_policy from "../engine/policy.js";
@@ -46,8 +51,10 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   agentTools: typeof agentTools;
   auth: typeof auth;
+  authPolicy: typeof authPolicy;
   chat: typeof chat;
   crons: typeof crons;
+  customerReservations: typeof customerReservations;
   demoReset: typeof demoReset;
   "email/deliveryMode": typeof email_deliveryMode;
   "email/index": typeof email_index;
@@ -57,6 +64,9 @@ declare const fullApi: ApiFromModules<{
   "email/validators": typeof email_validators;
   "engine/adminBooking": typeof engine_adminBooking;
   "engine/availability": typeof engine_availability;
+  "engine/customerAvailability": typeof engine_customerAvailability;
+  "engine/customerReservationLifecycle": typeof engine_customerReservationLifecycle;
+  "engine/customerReservationPublicId": typeof engine_customerReservationPublicId;
   "engine/identity": typeof engine_identity;
   "engine/lifecycle": typeof engine_lifecycle;
   "engine/policy": typeof engine_policy;

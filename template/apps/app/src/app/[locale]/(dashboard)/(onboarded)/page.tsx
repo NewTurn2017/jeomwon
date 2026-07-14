@@ -3,12 +3,9 @@ import { domainConfig } from "@jeomwon/backend/domain.config";
 import { jeomwonConvex } from "@jeomwon/backend/src/convex-refs";
 import { fetchQuery } from "convex/nextjs";
 import { AdminDashboard } from "@/app/[locale]/(dashboard)/_components/admin-dashboard";
-import { CustomerCalendar } from "@/app/[locale]/(dashboard)/_components/customer-calendar";
+import { CustomerReservationManager } from "@/app/[locale]/(dashboard)/_components/customer-reservation-manager";
 import { Header } from "@/app/[locale]/(dashboard)/_components/header";
-import {
-  loadViewerRole,
-  rootDashboardSurface,
-} from "@/lib/admin-routing";
+import { loadViewerRole, rootDashboardSurface } from "@/lib/admin-routing";
 import { getScopedI18n } from "@/locales/server";
 
 export const metadata = {
@@ -50,7 +47,7 @@ export default async function Page() {
         title={t("customer.title")}
         description={t("customer.description")}
       />
-      <CustomerCalendar />
+      <CustomerReservationManager />
     </>
   );
 }

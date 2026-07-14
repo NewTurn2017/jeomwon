@@ -21,13 +21,13 @@ import {
 } from "../../domain.config";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import { generateUniqueReservationNumber } from "../agentTools";
 import {
   calendarParts,
   hasCollision,
   isSlotAllowed,
   serviceEndMs,
 } from "./availability";
+import { generateUniqueReservationNumber } from "./customerReservationLifecycle";
 import {
   appendAudit,
   auditEvent,

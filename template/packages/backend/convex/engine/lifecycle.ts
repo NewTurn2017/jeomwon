@@ -4,21 +4,71 @@ import {
   domainConfig,
 } from "../../domain.config";
 import type {
-  AgentName,
   DomainPublicSnapshot,
   GuardrailStatus,
   PublicContext,
+  ReservationAuditActor,
   ReservationStatus,
 } from "../../src/agent-contract";
 import type { Doc } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { publicReservationId } from "./customerReservationPublicId";
 
 type AuditEvent = {
   atMs: number;
   type: string;
-  actor: AgentName;
+  actor: ReservationAuditActor;
   summary: string;
   publicMessage: string | null;
 };
+
+export const collisionActiveStatuses = [
+  "held",
+  "confirmed",
+  "rescheduled",
+  "escalated",
+] as const satisfies readonly ReservationStatus[];
+
+// Each resource/status lookup reads at most 257 rows: 256 candidates plus one
+// sentinel that tells callers to fail closed. This keeps hot reads comfortably
+// below Convex's per-query row limits. The tradeoff is deliberate: a resource
+// with more than 256 end-index candidates after the requested start becomes
+// temporarily unavailable until old/future active rows are reconciled.
+export const reservationOverlapCandidateCap = 256;
+
+export async function resourceReservationsOverlapping(
+  ctx: QueryCtx | MutationCtx,
+  resourceKey: string,
+  statuses: readonly ReservationStatus[],
+  startMs: number,
+  endMs: number,
+) {
+  const reads = await Promise.all(
+    statuses.map(async (status) => {
+      const rows = await ctx.db
+        .query("reservations")
+        .withIndex("by_resource_status_end", (query) =>
+          query
+            .eq("domainKey", domainConfig.domainKey)
+            .eq("resourceKey", resourceKey)
+            .eq("status", status)
+            .gt("endMs", startMs),
+        )
+        .take(reservationOverlapCandidateCap + 1);
+
+      return {
+        rows: rows.slice(0, reservationOverlapCandidateCap),
+        truncated: rows.length > reservationOverlapCandidateCap,
+      };
+    }),
+  );
+  const rows = reads.flatMap((read) => read.rows);
+
+  return {
+    reservations: rows.filter((reservation) => reservation.startMs < endMs),
+    truncated: reads.some((read) => read.truncated),
+  };
+}
 
 export function publicDomainSnapshot(): DomainPublicSnapshot {
   return {
@@ -64,7 +114,7 @@ export function publicContextFromReservation(
 
   return {
     displayName: reservation.displayName,
-    reservationId: reservation.reservationNumber ?? null,
+    reservationId: publicReservationId(reservation),
     serviceLabel: reservation.serviceLabel,
     resourceLabel: reservation.resourceLabel,
     timeWindow: timeWindowLabel(
@@ -187,7 +237,8 @@ export function timeWindowLabel(
 export function isActiveReservation(reservation: Doc<"reservations">) {
   if (
     reservation.status === "confirmed" ||
-    reservation.status === "rescheduled"
+    reservation.status === "rescheduled" ||
+    reservation.status === "escalated"
   ) {
     return true;
   }
@@ -204,7 +255,7 @@ export function isActiveReservation(reservation: Doc<"reservations">) {
 
 export function auditEvent(
   type: string,
-  actor: AgentName,
+  actor: ReservationAuditActor,
   summary: string,
   publicMessage: string | null,
 ): AuditEvent {

@@ -156,7 +156,7 @@ const customerSnapshotQuery = makeFunctionReference<
   "query",
   Record<string, never>,
   unknown
->("admin:customerSnapshot");
+>("customerReservations:snapshot");
 const publicStateQuery = makeFunctionReference<
   "query",
   { threadId?: string },
