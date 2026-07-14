@@ -2,15 +2,30 @@
 
 # jeomwon (점원)
 
+[![CI](https://github.com/NewTurn2017/jeomwon/actions/workflows/ci.yml/badge.svg)](https://github.com/NewTurn2017/jeomwon/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **Jeomwon** — Korean for "shop clerk" — is an agent kit that turns **one domain interview into a working reservation SaaS** for small business owners: marketing page, Google sign-in, customer-facing CS AI chat, admin dashboard, and lifecycle emails, on Convex + Next.js 16 + bun.
 
 Official site: **[jeomwon.codewithgenie.com](https://jeomwon.codewithgenie.com)**
 
 An AI clerk guards the front desk: customers book, reschedule, and cancel through chat; invariants (slot conflicts, holds, cancel windows) are enforced inside Convex mutations; owners watch everything land in a realtime dashboard.
 
+| Customer — KakaoTalk-style booking chat | Owner — operator dashboard |
+|---|---|
+| ![Customer booking chat widget](docs/assets/customer-chat.png) | ![Operator dashboard](docs/assets/operator-dashboard.png) |
+
 The generated UI is production-ready out of the box: a light, domain-aware landing page (services, hours, and policies rendered from `domain.config`), a KakaoTalk-style chat widget (side-aligned bubbles, Korean status labels, IME-safe input — no raw enums or API errors shown to customers), and a Korean-first operator dashboard ordered by action: escalation queue with approve/keep buttons, then reservations, then the agent activity timeline.
 
+## Why jeomwon
+
+- **Cal.com is a booking *app*** — one calendar product you configure. Jeomwon **generates the reservation SaaS itself** from a domain interview (a hair salon, a PC café, and a pension each come out as a different app).
+- **v0 and boilerplates give you *screens*** — jeomwon ships the screens plus the **domain logic enforced inside Convex mutations**: slot conflicts, hold TTLs, cancel windows.
+- **It ships as a Claude Code skill** — a coding agent interviews you, scaffolds the project, and proves it with an 11-gate live QA suite.
+
 ## Quick start
+
+**Prerequisites**: [bun](https://bun.sh) 1.3+ (required) · a free [Convex](https://convex.dev) account (you log in during `bun setup`) · optional: a Google OAuth client, [Resend](https://resend.com) / [OpenAI](https://platform.openai.com) keys (without them everything still works in email-capture mode with the `mock` agent runtime)
 
 ### With Claude Code (recommended)
 
@@ -19,9 +34,9 @@ git clone https://github.com/NewTurn2017/jeomwon.git && cd jeomwon
 ln -sfn "$(pwd)/skill" ~/.claude/skills/jeomwon
 ```
 
-Then in a Claude Code session, describe your domain (e.g. "PC방 좌석 예약 시스템 만들어줘"). The skill interviews you for one domain pack, then runs a single **bootstrap** command that scaffolds a project from `template/`, injects the domain pack, and runs the offline verification gate. Bootstrap is offline-only — it never runs live QA or `bun setup`.
+Then in a Claude Code session, describe your domain (e.g. "build a seat reservation system for my PC café"). The skill interviews you for one domain pack, then runs a single **bootstrap** command that scaffolds a project from `template/`, injects the domain pack, and runs the offline verification gate. Bootstrap is offline-only — it never runs live QA or `bun setup`.
 
-When bootstrap finishes it prints the generated path and the next steps to run yourself: `bun setup` (interactive credentials), then `bun run qa` (live 9-gate).
+When bootstrap finishes it prints the generated path and the next steps to run yourself: `bun setup` (interactive credentials), then `bun run qa` (live 11-gate).
 
 You can start from either a full repo clone or a skill-only install. In a repo clone, `bun skill/scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>` uses the local `template/` directory. With only `skill/` installed, `bun scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>` downloads a fresh GitHub tarball for `JEOMWON_TEMPLATE_REF` (default `main`); set `JEOMWON_TEMPLATE_ARCHIVE=/path/to/jeomwon.tar.gz` for offline or private-network scaffolds. The lower-level `scaffold.mjs`, `inject.mjs`, and `verify.mjs` commands remain available for retries and partial reruns.
 
@@ -41,14 +56,14 @@ bun dev          # web + app + backend, in parallel
 | Path | What it is |
 |---|---|
 | `template/` | The project source, fully rebranded to jeomwon (originally derived from get-convex/v1; pin recorded in `docs/upstream-report.md`): `domain.config.ts`-driven agents (triage + 4), KakaoTalk-style chat widget, operator dashboard, React Email × 4, `bun setup` wizard |
-| `skill/` | The Claude Code skill: `SKILL.md` fast path, `REFERENCE.md` methodology, `EXAMPLES.md` domain packs (salon, PC café, library, pension, generic), `scripts/{bootstrap,scaffold,inject,verify}.mjs` |
+| `skill/` | The Claude Code skill: `SKILL.md` fast path, `REFERENCE.md` methodology, `EXAMPLES.md` 10 domain packs (salon, PC café, library, pension, study café, futsal, webinar, equipment rental, pilates, generic), `scripts/{bootstrap,scaffold,inject,verify}.mjs` |
 | `samples/pension-stay/` | Self-proof: a pension (day-unit stay) project generated by the kit. Regenerated from the template periodically, so it may lag the latest template revision |
 | `docs/plan.md` | The living plan — architecture decisions, phase log, backlog |
 | `upstream/` | Read-only reference clone of get-convex/v1 (gitignored; pin recorded in `docs/upstream-report.md`) |
 
 ## QA gates
 
-Each tree ships a 9-gate QA suite (happy path, cancel-window escalation, write guards, relevance guard, schema 422, privacy grep, hold expiry, email capture, waitlist join/notify). `bun run qa` handles everything itself — Convex prep, web server startup, the nine gates, and teardown. You do not need a dev server running first.
+Each tree ships an 11-gate QA suite (happy path, cancel-window escalation, write guards, relevance guard, schema 422, privacy grep, hold expiry, email capture, waitlist join/notify, operator calendar CRUD, customer accounts). `bun run qa` handles everything itself — Convex prep, web server startup, all eleven gates, and teardown. You do not need a dev server running first.
 
 ```bash
 cd template
@@ -76,7 +91,11 @@ The ten invariants that survived real debugging are written down in `docs/plan.m
 
 ## Status
 
-Roadmap phases 0–7 are complete, plus a full UI redesign (starter branding removed end to end; template QA 9/9 and browser walkthroughs of both apps verified after the redesign). The repo is public and skill-only installs (the scaffold's GitHub tarball fallback) work. Remaining backlog: a fresh end-to-end rehearsal and regenerating `samples/pension-stay`.
+Roadmap phases 0–7 are complete, plus a full UI redesign (starter branding removed end to end; the full live QA suite and browser walkthroughs of both apps verified after the redesign). The repo is public and skill-only installs (the scaffold's GitHub tarball fallback) work. Remaining backlog: a fresh end-to-end rehearsal and regenerating `samples/pension-stay`.
+
+## Contributing
+
+A new vertical's domain pack is the best first contribution — the empty cells of the resource × slot × widget matrix are tracked in the Coverage Catalog inside [skill/EXAMPLES.md](skill/EXAMPLES.md). See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow.
 
 ## License
 

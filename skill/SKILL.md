@@ -15,7 +15,7 @@ Use this skill to turn one operational reservation domain into a generated Jeomw
    - Skill-only install: `bun scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>` from the installed skill; when local `template/` is absent scaffold downloads the GitHub tarball (`JEOMWON_TEMPLATE_REF`, default `main`; `JEOMWON_TEMPLATE_ARCHIVE` for offline tarballs).
    Bootstrap is offline-only: it strips an ambient `JEOMWON_QA_BASE_URL` from its verify step so it never runs live QA, and it never runs `bun setup`. On success it prints the generated path and the next steps below; on the first stage failure it stops and prints that stage's exact rerun command.
 3. Tell the user to run `bun setup` inside the generated project for Convex, Google OAuth, Resend, OpenAI, and optional Polar. This is a separate interactive step — bootstrap does not run it.
-4. Tell the user to run `bun run qa` (live 9-gate) after Convex/web are running. This is also separate from bootstrap.
+4. Tell the user to run `bun run qa` (live 11-gate) after Convex/web are running. This is also separate from bootstrap.
 
 Use the individual `scaffold.mjs`, `inject.mjs`, and `verify.mjs` commands (Script Contract below) for retries, partial reruns, and debugging after a bootstrap failure.
 
