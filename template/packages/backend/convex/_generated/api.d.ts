@@ -23,6 +23,7 @@ import type * as email_templates_subscriptionEmail from "../email/templates/subs
 import type * as email_validators from "../email/validators.js";
 import type * as engine_adminBooking from "../engine/adminBooking.js";
 import type * as engine_availability from "../engine/availability.js";
+import type * as engine_customerReservationLifecycle from "../engine/customerReservationLifecycle.js";
 import type * as engine_identity from "../engine/identity.js";
 import type * as engine_lifecycle from "../engine/lifecycle.js";
 import type * as engine_policy from "../engine/policy.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   "email/validators": typeof email_validators;
   "engine/adminBooking": typeof engine_adminBooking;
   "engine/availability": typeof engine_availability;
+  "engine/customerReservationLifecycle": typeof engine_customerReservationLifecycle;
   "engine/identity": typeof engine_identity;
   "engine/lifecycle": typeof engine_lifecycle;
   "engine/policy": typeof engine_policy;

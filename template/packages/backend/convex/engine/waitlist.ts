@@ -4,7 +4,10 @@ import { scheduleReservationEmail } from "../reservationEmailScheduler";
 import {
   appendAudit,
   auditEvent,
+  collisionActiveStatuses,
+  isActiveReservation,
   publicContextFromReservation,
+  resourceReservationsOverlapping,
 } from "./lifecycle";
 
 const waitlistSlotOpenedMessage = "자리가 났어요. 지금 예약 가능합니다.";
@@ -22,16 +25,32 @@ export async function onSlotFreed(
     return;
   }
 
-  const candidates = await ctx.db
-    .query("reservations")
-    .withIndex("by_domain_status_time", (q) =>
-      q.eq("domainKey", domainConfig.domainKey).eq("status", "waitlisted"),
+  const overlapRead = await resourceReservationsOverlapping(
+    ctx,
+    slot.resourceKey,
+    [...collisionActiveStatuses, "waitlisted"],
+    slot.startMs,
+    slot.endMs,
+  );
+  if (overlapRead.truncated) {
+    return;
+  }
+  const reservations = overlapRead.reservations;
+  if (
+    reservations.some(
+      (reservation) =>
+        isActiveReservation(reservation) &&
+        reservation.startMs < slot.endMs &&
+        reservation.endMs > slot.startMs,
     )
-    .collect();
-  const waitlisted = candidates.find(
+  ) {
+    return;
+  }
+
+  const waitlisted = reservations.find(
     (reservation) =>
+      reservation.status === "waitlisted" &&
       reservation.serviceKey === slot.serviceKey &&
-      reservation.resourceKey === slot.resourceKey &&
       reservation.startMs < slot.endMs &&
       reservation.endMs > slot.startMs &&
       !reservation.auditHistory.some(

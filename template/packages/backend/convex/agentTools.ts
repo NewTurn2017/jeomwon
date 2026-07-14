@@ -3,11 +3,9 @@ import {
   type DomainResource,
   type DomainService,
   domainConfig,
-  getHoldDurationMs,
 } from "../domain.config";
-import type { AgentName, PublicSlot } from "../src/agent-contract";
+import type { PublicSlot } from "../src/agent-contract";
 import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
 import {
   internalMutation,
   type MutationCtx,
@@ -24,21 +22,26 @@ import {
   serviceEndMs,
   slotStepMs,
 } from "./engine/availability";
+import {
+  appendChatEvent,
+  cancelCustomerReservation,
+  confirmCustomerReservation,
+  createCustomerReservationHold,
+  ensureThread,
+  expireCustomerReservationHold,
+  generateUniqueReservationNumber,
+  publicResources,
+  rescheduleCustomerReservation,
+  resolveThreadReservation,
+} from "./engine/customerReservationLifecycle";
 import { assertThreadAccess } from "./engine/identity";
 import {
-  appendAudit,
   auditEvent,
-  defaultGuardrailStatus,
-  defaultPublicContext,
-  isActiveReservation,
   publicContextFromReservation,
   resourceByKey,
   resourcesForService,
   serviceByKey,
 } from "./engine/lifecycle";
-import { isInsideCancelWindow } from "./engine/policy";
-import { onSlotFreed } from "./engine/waitlist";
-import { scheduleReservationEmail } from "./reservationEmailScheduler";
 
 const publicSlotValidator = v.object({
   serviceKey: v.string(),
@@ -396,91 +399,13 @@ export const createHold = mutation({
   },
   handler: async (ctx, args) => {
     await assertThreadAccess(ctx, args.threadId);
-    const resources = await publicResources(ctx);
-    const service = serviceByKey(args.serviceKey);
-    const resource = resourceByKey(args.resourceKey, service, resources);
-    const reservations = await ctx.db
-      .query("reservations")
-      .withIndex("by_resource_time", (q) =>
-        q
-          .eq("domainKey", domainConfig.domainKey)
-          .eq("resourceKey", resource.key),
-      )
-      .collect();
-
-    if (args.endMs !== serviceEndMs(service, args.startMs)) {
-      throw new Error("slot_duration_mismatch");
-    }
-
-    if (!isSlotAllowed(args.startMs, args.endMs, service)) {
-      throw new Error("slot_outside_business_hours");
-    }
-
-    if (hasCollision(reservations, resource.key, args.startMs, args.endMs)) {
-      throw new Error("slot_conflict");
-    }
-
-    const now = Date.now();
-    const holdExpiresAtMs = now + getHoldDurationMs();
-    const reservationNumber = await generateUniqueReservationNumber(ctx, now);
-    const reservationId = await ctx.db.insert("reservations", {
-      domainKey: domainConfig.domainKey,
+    return await createCustomerReservationHold(ctx, {
       threadId: args.threadId,
-      reservationNumber,
       displayName: args.displayName,
-      serviceKey: service.key,
-      serviceLabel: service.label,
-      resourceKey: resource.key,
-      resourceLabel: resource.label,
+      serviceKey: args.serviceKey,
+      resourceKey: args.resourceKey,
       startMs: args.startMs,
-      endMs: args.endMs,
-      status: "held",
-      holdExpiresAtMs,
-      // Server-set, never from client args. The operator board reads `origin` —
-      // and nothing else — to tell its own sessions from a customer's row.
-      origin: "customer",
-      auditHistory: [
-        auditEvent(
-          "reservation.held",
-          "reservation",
-          "Slot hold created.",
-          domainConfig.copy.holdCreated,
-        ),
-      ],
-      createdAtMs: now,
-      updatedAtMs: now,
     });
-    const reservation = await ctx.db.get(reservationId);
-    if (!reservation) {
-      throw new Error("reservation_insert_failed");
-    }
-
-    const publicContext = publicContextFromReservation(reservation);
-    const thread = await ensureThread(ctx, args.threadId, "reservation");
-    await ctx.db.patch(thread._id, {
-      activeAgent: "reservation",
-      publicContext,
-      guardrailBanner: null,
-      suggestedSlots: [],
-      updatedAtMs: now,
-    });
-    await appendChatEvent(ctx, {
-      threadId: args.threadId,
-      type: "reservation.held",
-      role: "system",
-      agent: "reservation",
-      message: domainConfig.copy.holdCreated,
-      publicPayload: {
-        reservationId: publicContext.reservationId,
-      },
-    });
-
-    // Schedule against the persisted deadline so retries and QA share one clock.
-    await ctx.scheduler.runAt(holdExpiresAtMs, internal.agentTools.expireHold, {
-      reservationId,
-    });
-
-    return { publicContext, holdExpiresAtMs };
   },
 });
 
@@ -492,82 +417,14 @@ export const confirmReservation = mutation({
   },
   handler: async (ctx, args) => {
     await assertThreadAccess(ctx, args.threadId);
-    const thread = await ensureThread(ctx, args.threadId, "reservation");
     if (!args.confirmed) {
+      const thread = await ensureThread(ctx, args.threadId, "reservation");
       return { publicContext: thread.publicContext };
     }
-
-    const reservation = await resolveThreadReservation(
-      ctx,
-      args.threadId,
-      args.reservationId,
-    );
-    if (!reservation) {
-      throw new Error("reservation_not_found");
-    }
-
-    if (
-      reservation.status === "held" &&
-      reservation.holdExpiresAtMs !== null &&
-      reservation.holdExpiresAtMs <= Date.now()
-    ) {
-      await expireReservation(ctx, reservation);
-      const expired = await ctx.db.get(reservation._id);
-      return {
-        publicContext: expired
-          ? publicContextFromReservation(expired)
-          : defaultPublicContext("expired"),
-      };
-    }
-
-    if (reservation.status !== "held") {
-      throw new Error("reservation_not_held");
-    }
-
-    await ctx.db.patch(reservation._id, {
-      status: "confirmed",
-      holdExpiresAtMs: null,
-      auditHistory: appendAudit(
-        reservation.auditHistory,
-        auditEvent(
-          "reservation.confirmed",
-          "reservation",
-          "Customer confirmed the held slot.",
-          domainConfig.copy.confirmed,
-        ),
-      ),
-      updatedAtMs: Date.now(),
-    });
-    const confirmed = await ctx.db.get(reservation._id);
-    if (!confirmed) {
-      throw new Error("reservation_confirm_failed");
-    }
-
-    const publicContext = publicContextFromReservation(confirmed);
-    await ctx.db.patch(thread._id, {
-      activeAgent: "reservation",
-      publicContext,
-      guardrailBanner: null,
-      suggestedSlots: [],
-      updatedAtMs: Date.now(),
-    });
-    await appendChatEvent(ctx, {
+    return await confirmCustomerReservation(ctx, {
       threadId: args.threadId,
-      type: "reservation.confirmed",
-      role: "system",
-      agent: "reservation",
-      message: domainConfig.copy.confirmed,
-      publicPayload: {
-        reservationId: publicContext.reservationId,
-      },
+      reservationId: args.reservationId,
     });
-    await scheduleReservationEmail(ctx, {
-      kind: "reservation.confirmed",
-      threadId: args.threadId,
-      publicContext,
-    });
-
-    return { publicContext };
   },
 });
 
@@ -579,78 +436,10 @@ export const cancelReservation = mutation({
   },
   handler: async (ctx, args) => {
     await assertThreadAccess(ctx, args.threadId);
-    const thread = await ensureThread(ctx, args.threadId, "reservation");
-    const reservation = await resolveThreadReservation(
-      ctx,
-      args.threadId,
-      args.reservationId,
-    );
-    if (!reservation) {
-      throw new Error("reservation_not_found");
-    }
-
-    const freesActiveSlot = isActiveReservation(reservation);
-    const escalated = isInsideCancelWindow(
-      reservation.startMs,
-      args.requestedAtMs,
-    );
-    const nextStatus = escalated ? "escalated" : "cancelled";
-    const message = escalated
-      ? domainConfig.copy.cancelEscalated
-      : domainConfig.copy.cancelled;
-
-    await ctx.db.patch(reservation._id, {
-      status: nextStatus,
-      auditHistory: appendAudit(
-        reservation.auditHistory,
-        auditEvent(
-          escalated ? "reservation.escalated" : "reservation.cancelled",
-          escalated ? "escalation" : "reservation",
-          escalated
-            ? "Cancel request was inside the cancel window."
-            : "Reservation cancelled.",
-          message,
-        ),
-      ),
-      updatedAtMs: Date.now(),
-    });
-    const updated = await ctx.db.get(reservation._id);
-    if (!updated) {
-      throw new Error("reservation_cancel_failed");
-    }
-
-    const publicContext = publicContextFromReservation(updated);
-    await ctx.db.patch(thread._id, {
-      activeAgent: escalated ? "escalation" : "reservation",
-      publicContext,
-      guardrailBanner: null,
-      updatedAtMs: Date.now(),
-    });
-    await appendChatEvent(ctx, {
+    return await cancelCustomerReservation(ctx, {
       threadId: args.threadId,
-      type: escalated ? "escalation.queued" : "reservation.cancelled",
-      role: "system",
-      agent: escalated ? "escalation" : "reservation",
-      message,
-      publicPayload: {
-        reservationId: publicContext.reservationId,
-      },
+      reservationId: args.reservationId,
     });
-    await scheduleReservationEmail(ctx, {
-      kind: escalated ? "reservation.escalated" : "reservation.cancelled",
-      threadId: args.threadId,
-      publicContext,
-    });
-    if (freesActiveSlot) {
-      await onSlotFreed(ctx, {
-        serviceKey: reservation.serviceKey,
-        resourceKey: reservation.resourceKey,
-        startMs: reservation.startMs,
-        endMs: reservation.endMs,
-      });
-    }
-
-    return { publicContext, escalated };
   },
 });
 
@@ -666,113 +455,13 @@ export const rescheduleReservation = mutation({
   },
   handler: async (ctx, args) => {
     await assertThreadAccess(ctx, args.threadId);
-    const thread = await ensureThread(ctx, args.threadId, "reservation");
-    const reservation = await resolveThreadReservation(
-      ctx,
-      args.threadId,
-      args.reservationId,
-    );
-    if (!reservation) {
-      throw new Error("reservation_not_found");
-    }
-    if (
-      reservation.status !== "confirmed" &&
-      reservation.status !== "rescheduled"
-    ) {
-      throw new Error("reservation_not_reschedulable");
-    }
-    if (isInsideCancelWindow(reservation.startMs, args.requestedAtMs)) {
-      throw new Error("reschedule_window_closed");
-    }
-
-    const resources = await publicResources(ctx);
-    const service = serviceByKey(args.serviceKey);
-    const resource = resourceByKey(args.resourceKey, service, resources);
-    const reservations = await ctx.db
-      .query("reservations")
-      .withIndex("by_resource_time", (q) =>
-        q
-          .eq("domainKey", domainConfig.domainKey)
-          .eq("resourceKey", resource.key),
-      )
-      .collect();
-
-    if (args.endMs !== serviceEndMs(service, args.startMs)) {
-      throw new Error("slot_duration_mismatch");
-    }
-    if (!isSlotAllowed(args.startMs, args.endMs, service)) {
-      throw new Error("slot_outside_business_hours");
-    }
-    if (
-      hasCollision(
-        reservations,
-        resource.key,
-        args.startMs,
-        args.endMs,
-        reservation._id,
-      )
-    ) {
-      throw new Error("slot_conflict");
-    }
-
-    const freedSlot = {
-      serviceKey: reservation.serviceKey,
-      resourceKey: reservation.resourceKey,
-      startMs: reservation.startMs,
-      endMs: reservation.endMs,
-    };
-
-    await ctx.db.patch(reservation._id, {
-      serviceKey: service.key,
-      serviceLabel: service.label,
-      resourceKey: resource.key,
-      resourceLabel: resource.label,
+    return await rescheduleCustomerReservation(ctx, {
+      threadId: args.threadId,
+      reservationId: args.reservationId,
+      serviceKey: args.serviceKey,
+      resourceKey: args.resourceKey,
       startMs: args.startMs,
-      endMs: args.endMs,
-      status: "rescheduled",
-      holdExpiresAtMs: null,
-      auditHistory: appendAudit(
-        reservation.auditHistory,
-        auditEvent(
-          "reservation.rescheduled",
-          "reservation",
-          "Reservation rescheduled by customer request.",
-          domainConfig.copy.rescheduled,
-        ),
-      ),
-      updatedAtMs: Date.now(),
     });
-    const updated = await ctx.db.get(reservation._id);
-    if (!updated) {
-      throw new Error("reservation_reschedule_failed");
-    }
-
-    const publicContext = publicContextFromReservation(updated);
-    await ctx.db.patch(thread._id, {
-      activeAgent: "reservation",
-      publicContext,
-      guardrailBanner: null,
-      suggestedSlots: [],
-      updatedAtMs: Date.now(),
-    });
-    await appendChatEvent(ctx, {
-      threadId: args.threadId,
-      type: "reservation.rescheduled",
-      role: "system",
-      agent: "reservation",
-      message: domainConfig.copy.rescheduled,
-      publicPayload: {
-        reservationId: publicContext.reservationId,
-      },
-    });
-    await scheduleReservationEmail(ctx, {
-      kind: "reservation.rescheduled",
-      threadId: args.threadId,
-      publicContext,
-    });
-    await onSlotFreed(ctx, freedSlot);
-
-    return { publicContext };
   },
 });
 
@@ -800,67 +489,11 @@ export const expireHold = internalMutation({
       return null;
     }
 
-    await expireReservation(ctx, reservation);
+    await expireCustomerReservationHold(ctx, reservation);
 
     return null;
   },
 });
-
-async function ensureThread(
-  ctx: MutationCtx,
-  threadId: string,
-  activeAgent: AgentName,
-) {
-  const existing = await ctx.db
-    .query("chatThreads")
-    .withIndex("by_thread", (q) => q.eq("threadId", threadId))
-    .unique();
-
-  if (existing) {
-    await ctx.db.patch(existing._id, {
-      activeAgent,
-      updatedAtMs: Date.now(),
-    });
-    return {
-      ...existing,
-      activeAgent,
-    };
-  }
-
-  const now = Date.now();
-  const id = await ctx.db.insert("chatThreads", {
-    domainKey: domainConfig.domainKey,
-    threadId,
-    activeAgent,
-    publicContext: defaultPublicContext(),
-    guardrailStatus: defaultGuardrailStatus(),
-    guardrailBanner: null,
-    suggestedSlots: [],
-    createdAtMs: now,
-    updatedAtMs: now,
-  });
-  const inserted = await ctx.db.get(id);
-  if (!inserted) {
-    throw new Error("thread_insert_failed");
-  }
-  return inserted;
-}
-
-async function publicResources(ctx: QueryCtx | MutationCtx) {
-  const rows = await ctx.db
-    .query("resources")
-    .withIndex("by_domain", (q) => q.eq("domainKey", domainConfig.domainKey))
-    .collect();
-  const activeRows = rows
-    .filter((row) => row.active)
-    .map((row) => ({
-      key: row.key,
-      label: row.label,
-      kind: row.kind,
-    }));
-
-  return activeRows.length > 0 ? activeRows : domainConfig.resources;
-}
 
 async function findAvailableSlots(
   ctx: QueryCtx | MutationCtx,
@@ -944,184 +577,4 @@ function strictResourceByKey(
     throw new Error("resource_not_found");
   }
   return resource;
-}
-
-async function appendChatEvent(
-  ctx: MutationCtx,
-  event: {
-    threadId: string;
-    type: string;
-    role: "user" | "assistant" | "system";
-    agent: AgentName;
-    message: string;
-    publicPayload: unknown;
-  },
-) {
-  await ctx.db.insert("chatEvents", {
-    domainKey: domainConfig.domainKey,
-    threadId: event.threadId,
-    type: event.type,
-    role: event.role,
-    agent: event.agent,
-    message: event.message,
-    publicPayload: event.publicPayload,
-    createdAtMs: Date.now(),
-  });
-}
-
-async function expireReservation(
-  ctx: MutationCtx,
-  reservation: Doc<"reservations">,
-) {
-  await ctx.db.patch(reservation._id, {
-    status: "expired",
-    holdExpiresAtMs: null,
-    auditHistory: appendAudit(
-      reservation.auditHistory,
-      auditEvent(
-        "reservation.expired",
-        "reservation",
-        "Hold expired before customer confirmation.",
-        domainConfig.copy.holdExpired,
-      ),
-    ),
-    updatedAtMs: Date.now(),
-  });
-  const updated = await ctx.db.get(reservation._id);
-  if (!updated) {
-    return;
-  }
-  const thread = await ctx.db
-    .query("chatThreads")
-    .withIndex("by_thread", (q) => q.eq("threadId", reservation.threadId))
-    .unique();
-  if (thread) {
-    await ctx.db.patch(thread._id, {
-      activeAgent: "availability",
-      publicContext: publicContextFromReservation(updated),
-      suggestedSlots: [],
-      updatedAtMs: Date.now(),
-    });
-  }
-  await appendChatEvent(ctx, {
-    threadId: reservation.threadId,
-    type: "reservation.expired",
-    role: "system",
-    agent: "reservation",
-    message: domainConfig.copy.holdExpired,
-    publicPayload: {
-      reservationId: publicContextFromReservation(updated).reservationId,
-    },
-  });
-  await onSlotFreed(ctx, {
-    serviceKey: reservation.serviceKey,
-    resourceKey: reservation.resourceKey,
-    startMs: reservation.startMs,
-    endMs: reservation.endMs,
-  });
-}
-
-async function resolveThreadReservation(
-  ctx: MutationCtx,
-  threadId: string,
-  reservationId: string,
-) {
-  const normalized = normalizeReservationNumber(reservationId);
-  const byNumber = await ctx.db
-    .query("reservations")
-    .withIndex("by_domain_reservation_number", (q) =>
-      q
-        .eq("domainKey", domainConfig.domainKey)
-        .eq("reservationNumber", normalized),
-    )
-    .unique();
-  const reservation =
-    byNumber ??
-    (isLegacyConvexReservationId(reservationId)
-      ? await ctx.db.get(reservationId as Id<"reservations">)
-      : null);
-
-  if (
-    !reservation ||
-    reservation.domainKey !== domainConfig.domainKey ||
-    reservation.threadId !== threadId
-  ) {
-    return null;
-  }
-
-  return reservation;
-}
-
-// Exported so every writer of a reservation row — chat mutations here, operator
-// calendar CRUD in engine/adminBooking — mints numbers from the one
-// domain-derived prefix. A feature must not invent its own prefix.
-export async function generateUniqueReservationNumber(
-  ctx: MutationCtx,
-  createdAtMs: number,
-) {
-  const prefix = reservationNumberPrefix();
-  const datePart = reservationNumberDatePart(createdAtMs);
-
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    const candidate = `${prefix}-${datePart}-${randomSuffix(6)}`;
-    const existing = await ctx.db
-      .query("reservations")
-      .withIndex("by_domain_reservation_number", (q) =>
-        q
-          .eq("domainKey", domainConfig.domainKey)
-          .eq("reservationNumber", candidate),
-      )
-      .unique();
-    if (!existing) {
-      return candidate;
-    }
-  }
-
-  throw new Error("reservation_number_generation_failed");
-}
-
-function reservationNumberPrefix() {
-  const words = domainConfig.domainKey
-    .toUpperCase()
-    .split(/[^A-Z0-9]+/g)
-    .filter(Boolean);
-  const initials = words.map((word) => word[0]).join("");
-  const compact =
-    initials || domainConfig.domainKey.replace(/[^A-Za-z0-9]/g, "");
-  return compact.toUpperCase().slice(0, 4).padEnd(2, "X");
-}
-
-function reservationNumberDatePart(timestampMs: number) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: domainConfig.storeTimezone,
-    year: "2-digit",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(timestampMs);
-  const part = (type: string) =>
-    parts.find((item) => item.type === type)?.value ?? "00";
-
-  return `${part("year")}${part("month")}${part("day")}`;
-}
-
-function randomSuffix(length: number) {
-  const alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const values = new Uint8Array(length);
-  if (globalThis.crypto) {
-    globalThis.crypto.getRandomValues(values);
-  } else {
-    for (let index = 0; index < values.length; index += 1) {
-      values[index] = Math.floor(Math.random() * 256);
-    }
-  }
-
-  return [...values].map((value) => alphabet[value % alphabet.length]).join("");
-}
-
-function normalizeReservationNumber(value: string) {
-  return value.trim().toUpperCase();
-}
-
-function isLegacyConvexReservationId(value: string) {
-  return /^[a-z0-9]{20,}$/.test(value);
 }

@@ -117,7 +117,13 @@ export default defineSchema({
     .index("by_domain_status_time", ["domainKey", "status", "startMs"])
     .index("by_domain_reservation_number", ["domainKey", "reservationNumber"])
     .index("by_thread", ["threadId"])
-    .index("by_resource_time", ["domainKey", "resourceKey", "startMs"]),
+    .index("by_resource_time", ["domainKey", "resourceKey", "startMs"])
+    .index("by_resource_status_end", [
+      "domainKey",
+      "resourceKey",
+      "status",
+      "endMs",
+    ]),
   chatThreads: defineTable({
     domainKey: v.string(),
     threadId: v.string(),
