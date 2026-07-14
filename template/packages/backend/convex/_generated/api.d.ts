@@ -12,6 +12,7 @@ import type * as admin from "../admin.js";
 import type * as agentTools from "../agentTools.js";
 import type * as auth from "../auth.js";
 import type * as chat from "../chat.js";
+import type * as demoReset from "../demoReset.js";
 import type * as email_index from "../email/index.js";
 import type * as email_reservationActions from "../email/reservationActions.js";
 import type * as email_reservationEvents from "../email/reservationEvents.js";
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   agentTools: typeof agentTools;
   auth: typeof auth;
   chat: typeof chat;
+  demoReset: typeof demoReset;
   "email/index": typeof email_index;
   "email/reservationActions": typeof email_reservationActions;
   "email/reservationEvents": typeof email_reservationEvents;
