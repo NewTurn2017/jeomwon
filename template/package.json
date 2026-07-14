@@ -17,7 +17,7 @@
     "dev:app": "turbo dev --filter=@jeomwon/app",
     "start:web": "turbo start --filter=@jeomwon/web",
     "start:app": "turbo start --filter=@jeomwon/app",
-    "test": "turbo test --parallel",
+    "test": "bun test",
     "qa": "bun scripts/qa-local.ts",
     "qa:run": "tsx scripts/qa.ts",
     "setup": "bun scripts/setup/index.ts",
@@ -25,7 +25,7 @@
     "lint": "turbo lint && biome lint scripts",
     "lint:repo": "bunx sherif@latest",
     "lint:repo:fix": "bunx sherif@latest --fix",
-    "typecheck": "turbo typecheck && tsc --noEmit -p packages/backend/convex/tsconfig.json && tsc --noEmit -p scripts/setup/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json"
+    "typecheck": "turbo typecheck && tsc --noEmit -p packages/backend/convex/tsconfig.json && tsc --noEmit -p packages/backend/tests/tsconfig.json && tsc --noEmit -p scripts/setup/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json"
   },
   "devDependencies": {
     "@jeomwon/typescript": "workspace:*",
