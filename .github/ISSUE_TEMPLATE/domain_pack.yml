@@ -1,0 +1,33 @@
+name: 도메인 팩 제안 / Domain pack proposal
+description: 새 업종 도메인 팩을 제안하거나 기여를 시작할 때
+labels: ["domain-pack"]
+body:
+  - type: input
+    id: vertical
+    attributes:
+      label: 업종 / Vertical
+      placeholder: "예: 네일샵, 공유주방, 캠핑장 …"
+    validations:
+      required: true
+  - type: input
+    id: cell
+    attributes:
+      label: 커버리지 칸 / Coverage cell
+      description: skill/EXAMPLES.md의 Coverage Catalog에서 이 팩이 채우는 resourceKind × slotUnit × adminWidget 조합
+      placeholder: "예: seat × minutes:30 × seatGrid"
+    validations:
+      required: true
+  - type: textarea
+    id: shape
+    attributes:
+      label: 도메인 스케치 / Domain sketch
+      description: 리소스(몇 자리·몇 팀), 대표 서비스와 소요 시간, 영업시간 특이점, 취소/홀드 정책 감각을 자유롭게.
+    validations:
+      required: true
+  - type: checkboxes
+    id: intent
+    attributes:
+      label: 진행 방식 / How
+      options:
+        - label: 직접 팩을 만들어 PR까지 하고 싶어요 (CONTRIBUTING.md 참고)
+        - label: 제안만 남깁니다 — 누구든 가져가세요
