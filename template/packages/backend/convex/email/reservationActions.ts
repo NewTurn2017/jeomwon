@@ -9,6 +9,7 @@ import { domainConfig } from "../../domain.config";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import { env } from "../env";
+import { reservationEmailMode } from "./deliveryMode";
 import { sendEmail } from "./index";
 import {
   publicContextValidator,
@@ -47,13 +48,16 @@ export const sendReservationEmail = internalAction({
         },
       },
     });
-    // During QA (dev deployment env JEOMWON_QA_RESET=1) always capture instead
-    // of sending: keeps the 9-gate email check deterministic and never fires a
-    // real Resend send, so a production RESEND_API_KEY can stay configured.
-    const captureMode =
-      !env.RESEND_API_KEY || process.env.JEOMWON_QA_RESET === "1";
+    // QA and public demo deployments always capture instead of sending so a
+    // configured production RESEND_API_KEY can never trigger a real delivery.
+    const deliveryMode = reservationEmailMode({
+      resendApiKey: env.RESEND_API_KEY,
+      qaResetFlag: process.env.JEOMWON_QA_RESET,
+      demoResetFlag: process.env.JEOMWON_DEMO_RESET,
+    });
+    const captureMode = deliveryMode === "capture";
     const payload = {
-      mode: captureMode ? "capture" : "sent",
+      mode: deliveryMode,
       subject: content.subject,
       summary: content.summary,
       reservationId: args.publicContext.reservationId,

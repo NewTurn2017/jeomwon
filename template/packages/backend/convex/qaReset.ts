@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { domainConfig } from "../domain.config";
+import type { MutationCtx } from "./_generated/server";
 import { internalMutation } from "./_generated/server";
 
 export const resetDomain = internalMutation({
@@ -26,36 +27,42 @@ export const resetDomain = internalMutation({
       );
     }
 
-    const reservations = await ctx.db
-      .query("reservations")
-      .withIndex("by_domain_status_time", (q) =>
-        q.eq("domainKey", args.domainKey),
-      )
-      .collect();
-    for (const reservation of reservations) {
-      await ctx.db.delete(reservation._id);
-    }
-
-    const chatThreads = (await ctx.db.query("chatThreads").collect()).filter(
-      (thread) => thread.domainKey === args.domainKey,
-    );
-    for (const thread of chatThreads) {
-      await ctx.db.delete(thread._id);
-    }
-
-    const chatEvents = await ctx.db
-      .query("chatEvents")
-      .withIndex("by_domain_time", (q) => q.eq("domainKey", args.domainKey))
-      .collect();
-    for (const event of chatEvents) {
-      await ctx.db.delete(event._id);
-    }
+    const counts = await resetDomainData(ctx, args.domainKey);
 
     return {
       domainKey: args.domainKey,
-      reservations: reservations.length,
-      chatThreads: chatThreads.length,
-      chatEvents: chatEvents.length,
+      ...counts,
     };
   },
 });
+
+export async function resetDomainData(ctx: MutationCtx, domainKey: string) {
+  const reservations = await ctx.db
+    .query("reservations")
+    .withIndex("by_domain_status_time", (q) => q.eq("domainKey", domainKey))
+    .collect();
+  for (const reservation of reservations) {
+    await ctx.db.delete(reservation._id);
+  }
+
+  const chatThreads = (await ctx.db.query("chatThreads").collect()).filter(
+    (thread) => thread.domainKey === domainKey,
+  );
+  for (const thread of chatThreads) {
+    await ctx.db.delete(thread._id);
+  }
+
+  const chatEvents = await ctx.db
+    .query("chatEvents")
+    .withIndex("by_domain_time", (q) => q.eq("domainKey", domainKey))
+    .collect();
+  for (const event of chatEvents) {
+    await ctx.db.delete(event._id);
+  }
+
+  return {
+    reservations: reservations.length,
+    chatThreads: chatThreads.length,
+    chatEvents: chatEvents.length,
+  };
+}
