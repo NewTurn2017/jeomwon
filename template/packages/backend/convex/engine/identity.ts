@@ -93,10 +93,20 @@ export function operatorRolePolicy(
   return email !== undefined && email.length > 0 && allowlist.includes(email);
 }
 
+export function viewerRolePolicy(
+  user:
+    | { readonly email?: string; readonly isAnonymous?: boolean }
+    | null
+    | undefined,
+  allowlist: readonly string[],
+): "operator" | "customer" {
+  return operatorRolePolicy(user, allowlist) ? "operator" : "customer";
+}
+
 export async function isOperator(ctx: AuthCtx, userId: Id<"users">) {
   const allowlist = adminEmailAllowlist();
   const user = await ctx.db.get(userId);
-  return operatorRolePolicy(user, allowlist);
+  return viewerRolePolicy(user, allowlist) === "operator";
 }
 
 /**

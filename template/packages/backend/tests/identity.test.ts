@@ -11,9 +11,18 @@ type OperatorRolePolicy = (
   allowlist: readonly string[],
 ) => boolean;
 
+type ViewerRolePolicy = (
+  subject: RoleSubject | null | undefined,
+  allowlist: readonly string[],
+) => "operator" | "customer";
+
 type AllowlistNormalizer = (raw: string | undefined) => readonly string[];
 
 function isOperatorRolePolicy(value: unknown): value is OperatorRolePolicy {
+  return typeof value === "function";
+}
+
+function isViewerRolePolicy(value: unknown): value is ViewerRolePolicy {
   return typeof value === "function";
 }
 
@@ -27,6 +36,16 @@ function loadOperatorRolePolicy(): OperatorRolePolicy {
   expect(isOperatorRolePolicy(candidate)).toBe(true);
   if (!isOperatorRolePolicy(candidate)) {
     throw new Error("operator_role_policy_missing");
+  }
+  return candidate;
+}
+
+function loadViewerRolePolicy(): ViewerRolePolicy {
+  const candidate =
+    "viewerRolePolicy" in identity ? identity.viewerRolePolicy : undefined;
+  expect(isViewerRolePolicy(candidate)).toBe(true);
+  if (!isViewerRolePolicy(candidate)) {
+    throw new Error("viewer_role_policy_missing");
   }
   return candidate;
 }
@@ -131,4 +150,18 @@ describe("operatorRolePolicy", () => {
       expect(allowed).toBe(scenario.expected);
     });
   }
+});
+
+describe("viewerRolePolicy", () => {
+  test("returns customer when the operator allowlist is empty", () => {
+    // Given
+    const subject = { email: "owner@example.com", isAnonymous: false };
+    const allowlist = loadAllowlistNormalizer()(undefined);
+
+    // When
+    const role = loadViewerRolePolicy()(subject, allowlist);
+
+    // Then
+    expect(role).toBe("customer");
+  });
 });

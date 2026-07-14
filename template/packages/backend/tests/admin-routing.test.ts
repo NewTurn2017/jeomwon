@@ -7,6 +7,17 @@ import {
   returnToFromUrl,
 } from "../../../apps/app/src/lib/admin-routing";
 
+type RootDashboardSurfacePolicy = (
+  viewerRole: "operator" | "customer",
+  customerAccountsEnabled: boolean,
+) => "operator" | "customer" | "customer-disabled";
+
+function isRootDashboardSurfacePolicy(
+  value: unknown,
+): value is RootDashboardSurfacePolicy {
+  return typeof value === "function";
+}
+
 describe("normalizeReturnTo", () => {
   test("allows only the two literal targets", () => {
     const cases: ReadonlyArray<readonly [unknown, "/" | "/admin"]> = [
@@ -99,4 +110,25 @@ describe("loadViewerRole", () => {
       }),
     ).toBe("customer");
   });
+});
+
+test("customer root does not select the operator surface when customer accounts are disabled", async () => {
+  // Given
+  const routing = await import(
+    "../../../apps/app/src/lib/admin-routing"
+  );
+  const candidate =
+    "rootDashboardSurface" in routing
+      ? routing.rootDashboardSurface
+      : undefined;
+  expect(isRootDashboardSurfacePolicy(candidate)).toBe(true);
+  if (!isRootDashboardSurfacePolicy(candidate)) {
+    throw new Error("root_dashboard_surface_policy_missing");
+  }
+
+  // When
+  const surface = candidate("customer", false);
+
+  // Then
+  expect(surface).toBe("customer-disabled");
 });
