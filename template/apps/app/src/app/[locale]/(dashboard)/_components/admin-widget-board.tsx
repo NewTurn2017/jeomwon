@@ -1,9 +1,9 @@
 "use client";
 
 import type {
-  AdminDashboardSnapshot,
-  AdminReservation,
   ReservationStatus,
+  WidgetReservation,
+  WidgetSnapshot,
 } from "@jeomwon/backend/src/agent-contract";
 import { CalendarDays, LayoutGrid } from "lucide-react";
 import { useScopedI18n } from "@/locales/client";
@@ -27,7 +27,7 @@ const slotOccupyingStatuses: ReadonlySet<ReservationStatus> = new Set([
 export function AdminWidgetBoard({
   snapshot,
 }: {
-  snapshot: AdminDashboardSnapshot;
+  snapshot: WidgetSnapshot;
 }) {
   if (snapshot.domain.adminWidget === "seatGrid") {
     return <SeatGridWidget snapshot={snapshot} />;
@@ -39,10 +39,10 @@ export function AdminWidgetBoard({
 type CalendarDay = {
   key: string;
   startMs: number;
-  reservations: AdminReservation[];
+  reservations: WidgetReservation[];
 };
 
-function CalendarWidget({ snapshot }: { snapshot: AdminDashboardSnapshot }) {
+function CalendarWidget({ snapshot }: { snapshot: WidgetSnapshot }) {
   const t = useScopedI18n("dashboard");
   const { locale, storeTimezone } = snapshot.domain;
   const days = buildCalendarDays(
@@ -106,7 +106,7 @@ function CalendarWidget({ snapshot }: { snapshot: AdminDashboardSnapshot }) {
 }
 
 function buildCalendarDays(
-  reservations: AdminReservation[],
+  reservations: WidgetReservation[],
   timeZone: string,
   nowMs: number,
 ): CalendarDay[] {
@@ -132,11 +132,11 @@ function buildCalendarDays(
 }
 
 type SeatState =
-  | { kind: "occupied"; reservation: AdminReservation }
-  | { kind: "upcoming"; reservation: AdminReservation }
+  | { kind: "occupied"; reservation: WidgetReservation }
+  | { kind: "upcoming"; reservation: WidgetReservation }
   | { kind: "available" };
 
-function SeatGridWidget({ snapshot }: { snapshot: AdminDashboardSnapshot }) {
+function SeatGridWidget({ snapshot }: { snapshot: WidgetSnapshot }) {
   const t = useScopedI18n("dashboard");
   const { locale, storeTimezone } = snapshot.domain;
 
@@ -197,7 +197,7 @@ function SeatGridWidget({ snapshot }: { snapshot: AdminDashboardSnapshot }) {
 
 function resolveSeatState(
   resourceKey: string,
-  reservations: AdminReservation[],
+  reservations: WidgetReservation[],
   nowMs: number,
 ): SeatState {
   const occupying = reservations.filter(

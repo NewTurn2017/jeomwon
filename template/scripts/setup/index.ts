@@ -113,6 +113,7 @@ type SetupStubs = {
   convexSiteUrl?: string;
   domainFeatures?: {
     polar?: boolean;
+    customerAccounts?: boolean;
   };
   probes?: {
     openaiModels?: boolean;
@@ -156,6 +157,7 @@ const CORE_STEP_ORDER = [
   "convex-auth",
   "google-oauth",
   "dev-anonymous",
+  "admin-emails",
   "resend",
   "openai",
   "polar",
@@ -226,8 +228,18 @@ async function main() {
     await configureConvexAuth(ctx, deployment, siteUrl);
     await configureGoogleOAuth(ctx, deployment);
     await configureDevAnonymous(ctx);
+
+    if (domainFeatures.customerAccounts) {
+      await configureAdminEmails(ctx);
+    } else {
+      section("Operator allowlist");
+      console.log(
+        "domain.config.features.customerAccounts=false, skipping. Only operators sign in, so every signed-in account is an operator. To restrict the desk to named staff, set JEOMWON_ADMIN_EMAILS yourself: npx convex env set JEOMWON_ADMIN_EMAILS a@x.com,b@x.com",
+      );
+    }
+
     await configureResend(ctx);
-    await configureOpenAI(ctx);
+    await configureOpenAI(ctx, domainFeatures.customerAccounts);
 
     if (domainFeatures.polar) {
       await configurePolar(ctx, deployment);
@@ -377,10 +389,18 @@ function section(title: string) {
   console.log(`  ${RULE}`);
 }
 
-async function readDomainFeatures(ctx: RuntimeContext) {
+type DomainFeatures = {
+  polar: boolean;
+  customerAccounts: boolean;
+};
+
+async function readDomainFeatures(
+  ctx: RuntimeContext,
+): Promise<DomainFeatures> {
   if (ctx.stubs.domainFeatures) {
     return {
       polar: ctx.stubs.domainFeatures.polar === true,
+      customerAccounts: ctx.stubs.domainFeatures.customerAccounts === true,
     };
   }
 
@@ -390,11 +410,15 @@ async function readDomainFeatures(ctx: RuntimeContext) {
   );
   const moduleUrl = pathToFileURL(domainConfigPath).href;
   const imported = (await import(moduleUrl)) as {
-    domainConfig?: { features?: { polar?: boolean } };
+    domainConfig?: {
+      features?: { polar?: boolean; customerAccounts?: boolean };
+    };
   };
 
   return {
     polar: imported.domainConfig?.features?.polar === true,
+    customerAccounts:
+      imported.domainConfig?.features?.customerAccounts === true,
   };
 }
 
@@ -731,6 +755,74 @@ async function configureDevAnonymous(ctx: RuntimeContext) {
   await setLocalEnv(ctx, "app", "AUTH_DEV_ANONYMOUS", "1");
 }
 
+// JEOMWON_ADMIN_EMAILS is a Convex deployment env var only — it is never written
+// to any .env.local and never prefixed NEXT_PUBLIC_, so it cannot reach the
+// browser. The backend guard (packages/backend/convex/admin.ts) reads it per call.
+// Only reached when features.customerAccounts is true. Customers and operators
+// then share one login, so the allowlist is the only thing separating them — an
+// empty one would hand every customer the dashboard. The backend refuses to guess
+// (admin_not_configured), so the wizard must not let a project ship without it.
+async function configureAdminEmails(ctx: RuntimeContext) {
+  const step = requireStep(ctx, "admin-emails");
+  section(step.title);
+
+  const variable = requireVariable(step, "JEOMWON_ADMIN_EMAILS");
+  console.log(
+    "Customers sign in to this deployment too, so the allowlist is what separates operators from customers.",
+  );
+
+  const configured = await isConvexEnvConfigured(ctx, "JEOMWON_ADMIN_EMAILS");
+  if (configured) {
+    console.log("JEOMWON_ADMIN_EMAILS is configured (value hidden).");
+    const overwrite = await promptConfirm(ctx, {
+      key: "overwrite:JEOMWON_ADMIN_EMAILS",
+      message: "Overwrite JEOMWON_ADMIN_EMAILS?",
+      defaultValue: false,
+    });
+    if (!overwrite) {
+      return;
+    }
+  }
+
+  const value = await promptText(ctx, {
+    key: "JEOMWON_ADMIN_EMAILS",
+    message: "Operator emails (comma-separated)",
+    defaultValue: variable.defaultValue ?? "",
+    secret: false,
+    required: true,
+  });
+  const emails = normalizeAdminEmails(value);
+
+  if (!emails) {
+    throw new Error(
+      "JEOMWON_ADMIN_EMAILS is required when domain.config.features.customerAccounts is true.",
+    );
+  }
+
+  await ensureConvexEnv(ctx, "JEOMWON_ADMIN_EMAILS", emails, {
+    secret: false,
+    force: true,
+  });
+}
+
+// Stored normalized (trimmed, lowercased, de-duplicated). The backend lowercases
+// both sides anyway, so this is for legibility in `convex env get`, not matching.
+function normalizeAdminEmails(value: string) {
+  const emails = value
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.length > 0);
+
+  const invalid = emails.filter((email) => !email.includes("@"));
+  if (invalid.length > 0) {
+    throw new Error(
+      `JEOMWON_ADMIN_EMAILS expects email addresses, got: ${invalid.join(", ")}`,
+    );
+  }
+
+  return [...new Set(emails)].join(",");
+}
+
 async function configureResend(ctx: RuntimeContext) {
   const step = requireStep(ctx, "resend");
   section(step.title);
@@ -872,10 +964,21 @@ async function probeResend(
   console.log("Resend probe succeeded.");
 }
 
-async function configureOpenAI(ctx: RuntimeContext) {
+async function configureOpenAI(ctx: RuntimeContext, customerAccounts: boolean) {
   const step = requireStep(ctx, "openai");
   section(step.title);
   console.log(step.requiredMessage ?? "OpenAI can be skipped.");
+
+  // apps/web always hosts the anonymous /api/chat route, so the agent runtime env
+  // always lands there. apps/app hosts an authenticated /api/chat route only when
+  // features.customerAccounts is on (its route 404s otherwise), so its env is
+  // written only then — a flags-off pack's apps/app/.env.local is unchanged.
+  const setAgentEnv = async (name: string, value: string) => {
+    await setLocalEnv(ctx, "web", name, value);
+    if (customerAccounts) {
+      await setLocalEnv(ctx, "app", name, value);
+    }
+  };
 
   const existing = readLocalEnv(ctx, "web").get("OPENAI_API_KEY");
   if (existing) {
@@ -886,7 +989,7 @@ async function configureOpenAI(ctx: RuntimeContext) {
       defaultValue: false,
     });
     if (!overwrite) {
-      await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "openai");
+      await setAgentEnv("AGENT_RUNTIME", "openai");
       return;
     }
   } else {
@@ -896,7 +999,7 @@ async function configureOpenAI(ctx: RuntimeContext) {
       defaultValue: false,
     });
     if (!configure) {
-      await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "mock");
+      await setAgentEnv("AGENT_RUNTIME", "mock");
       ui.skip("OpenAI 건너뜀 — AGENT_RUNTIME=mock 사용 (나중에 추가 가능)");
       return;
     }
@@ -907,13 +1010,13 @@ async function configureOpenAI(ctx: RuntimeContext) {
     requireVariable(step, "OPENAI_API_KEY"),
   );
   if (!apiKey) {
-    await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "mock");
+    await setAgentEnv("AGENT_RUNTIME", "mock");
     console.log("OpenAI deferred (유예됨). AGENT_RUNTIME=mock will be used.");
     return;
   }
   await probeOpenAI(ctx, apiKey);
-  await setLocalEnv(ctx, "web", "OPENAI_API_KEY", apiKey);
-  await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "openai");
+  await setAgentEnv("OPENAI_API_KEY", apiKey);
+  await setAgentEnv("AGENT_RUNTIME", "openai");
 }
 
 async function probeOpenAI(ctx: RuntimeContext, apiKey: string) {
@@ -1260,7 +1363,7 @@ function printCompletion(ctx: RuntimeContext, deployment: ConvexDeployment) {
   console.log("");
   console.log(`  ${style.bold("검증")} ${style.gray("— 원할 때")}`);
   console.log(
-    `  ${glyph.arrow} ${style.cyan("bun run qa")}    ${style.gray("9게이트 QA — dev 배포 자동 준비 후 한 번에 실행")}`,
+    `  ${glyph.arrow} ${style.cyan("bun run qa")}    ${style.gray("스모크 QA — dev 배포 자동 준비 후 한 번에 실행")}`,
   );
   console.log(
     `                ${style.gray("mock+capture 로 격리 실행하고, 끝나면 원래대로 되돌립니다.")}`,

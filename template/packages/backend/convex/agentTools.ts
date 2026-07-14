@@ -24,6 +24,7 @@ import {
   serviceEndMs,
   slotStepMs,
 } from "./engine/availability";
+import { assertThreadAccess } from "./engine/identity";
 import {
   appendAudit,
   auditEvent,
@@ -49,12 +50,25 @@ const publicSlotValidator = v.object({
   timeWindow: v.string(),
 });
 
+// Every function below is a PUBLIC Convex function whose only scoping is the
+// caller-supplied `threadId`. `assertThreadAccess` is what makes that string
+// safe to act on once accounts exist: with `features.customerAccounts` on, the
+// caller's thread is re-derived from their authenticated identity and the
+// argument is compared against it, so passing someone else's thread fails
+// instead of working. With the flag off the guard returns immediately and these
+// mutations behave byte-for-byte as they did before.
+//
+// The guard runs FIRST in each handler — before any read or write — so an
+// unauthorized caller cannot even provoke a row to be created (`ensureThread`
+// inserts on miss).
+
 export const logUserMessage = mutation({
   args: {
     threadId: v.string(),
     message: v.string(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     await ensureThread(ctx, args.threadId, "triage");
     await appendChatEvent(ctx, {
       threadId: args.threadId,
@@ -82,6 +96,7 @@ export const logAssistantMessage = mutation({
     publicPayload: v.any(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     await ensureThread(ctx, args.threadId, args.agent);
     await appendChatEvent(ctx, {
       threadId: args.threadId,
@@ -107,6 +122,7 @@ export const recordGuardrail = mutation({
     status: v.literal("draft"),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const thread = await ensureThread(ctx, args.threadId, "triage");
     const guardrailStatus = {
       ...thread.guardrailStatus,
@@ -147,6 +163,7 @@ export const searchAvailability = query({
     count: v.number(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const resources = await publicResources(ctx);
     const service = serviceByKey(args.serviceKey);
     const resourceCandidates =
@@ -172,6 +189,7 @@ export const recordAvailability = mutation({
     reservationId: v.union(v.string(), v.null()),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const thread = await ensureThread(ctx, args.threadId, "availability");
     const publicContext = {
       ...thread.publicContext,
@@ -213,6 +231,7 @@ export const joinWaitlist = mutation({
     preferredStartMs: v.union(v.number(), v.null()),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     if (!domainConfig.features.waitlist) {
       throw new Error("waitlist_disabled");
     }
@@ -280,6 +299,9 @@ export const joinWaitlist = mutation({
       endMs,
       status: "waitlisted",
       holdExpiresAtMs: null,
+      // Server-set, never from client args. The operator board reads `origin` —
+      // and nothing else — to tell its own sessions from a customer's row.
+      origin: "customer",
       auditHistory: [
         auditEvent(
           "waitlist.joined",
@@ -329,6 +351,7 @@ export const lookupReservation = mutation({
     reservationId: v.string(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const thread = await ensureThread(ctx, args.threadId, "reservation");
     const reservation = await resolveThreadReservation(
       ctx,
@@ -372,6 +395,7 @@ export const createHold = mutation({
     endMs: v.number(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const resources = await publicResources(ctx);
     const service = serviceByKey(args.serviceKey);
     const resource = resourceByKey(args.resourceKey, service, resources);
@@ -412,6 +436,9 @@ export const createHold = mutation({
       endMs: args.endMs,
       status: "held",
       holdExpiresAtMs,
+      // Server-set, never from client args. The operator board reads `origin` —
+      // and nothing else — to tell its own sessions from a customer's row.
+      origin: "customer",
       auditHistory: [
         auditEvent(
           "reservation.held",
@@ -464,6 +491,7 @@ export const confirmReservation = mutation({
     confirmed: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const thread = await ensureThread(ctx, args.threadId, "reservation");
     if (!args.confirmed) {
       return { publicContext: thread.publicContext };
@@ -550,6 +578,7 @@ export const cancelReservation = mutation({
     requestedAtMs: v.number(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const thread = await ensureThread(ctx, args.threadId, "reservation");
     const reservation = await resolveThreadReservation(
       ctx,
@@ -636,6 +665,7 @@ export const rescheduleReservation = mutation({
     requestedAtMs: v.number(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const thread = await ensureThread(ctx, args.threadId, "reservation");
     const reservation = await resolveThreadReservation(
       ctx,
@@ -1022,7 +1052,10 @@ async function resolveThreadReservation(
   return reservation;
 }
 
-async function generateUniqueReservationNumber(
+// Exported so every writer of a reservation row — chat mutations here, operator
+// calendar CRUD in engine/adminBooking — mints numbers from the one
+// domain-derived prefix. A feature must not invent its own prefix.
+export async function generateUniqueReservationNumber(
   ctx: MutationCtx,
   createdAtMs: number,
 ) {

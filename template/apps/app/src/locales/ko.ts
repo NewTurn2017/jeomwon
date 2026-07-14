@@ -67,6 +67,12 @@ export default {
       policy: "정책",
       escalation: "운영 확인",
     },
+    customer: {
+      title: "내 예약",
+      description: "확정된 예약과 다가오는 일정을 확인합니다.",
+      empty: "아직 예약이 없습니다. 아래 채팅으로 새 예약을 시작해 보세요.",
+      bookViaChat: "예약 변경이나 새 예약은 아래 채팅으로 문의하세요.",
+    },
   },
   login: {
     title: "운영자 로그인",

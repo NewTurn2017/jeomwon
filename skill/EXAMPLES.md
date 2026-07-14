@@ -705,17 +705,106 @@ New kit-authored pack that fills the `unit × minutes:30 × calendar` and `unit 
 }
 ```
 
+## Pilates Studio
+
+New kit-authored pack for a logged-in membership studio: members sign in to book
+and manage their own 1:1 and duet sessions with a specific coach, and the studio
+runs its own board directly on the calendar. It exercises the two optional packs
+together — `features.customerAccounts: true` (member login → own-reservations
+calendar + authenticated chat) and `features.operatorCalendarCrud: true` (the desk
+creates, edits, and cancels sessions on the admin calendar) — and fills the
+`person × hour × calendar` coverage cell (see the coverage catalog below).
+`adminWidget` is `calendar`, which the injector requires whenever
+`operatorCalendarCrud` is on.
+
+```json
+{
+  "domainKey": "pilates-studio",
+  "storeName": "코어무브 필라테스",
+  "storeTimezone": "Asia/Seoul",
+  "locale": "ko-KR",
+  "resources": [
+    { "key": "coach-hana", "label": "하나 코치", "kind": "person" },
+    { "key": "coach-jiwoo", "label": "지우 코치", "kind": "person" },
+    { "key": "coach-min", "label": "민 코치", "kind": "person" }
+  ],
+  "services": [
+    {
+      "key": "private-lesson",
+      "label": "1:1 개인 레슨",
+      "durationMinutes": 60,
+      "slotUnit": "hour",
+      "price": "60000원",
+      "resourceKind": "person"
+    },
+    {
+      "key": "duet-lesson",
+      "label": "듀엣 레슨 (2인)",
+      "durationMinutes": 60,
+      "slotUnit": "hour",
+      "price": "1인 40000원",
+      "resourceKind": "person"
+    }
+  ],
+  "businessHours": {
+    "monday": { "open": "07:00", "close": "22:00" },
+    "tuesday": { "open": "07:00", "close": "22:00" },
+    "wednesday": { "open": "07:00", "close": "22:00" },
+    "thursday": { "open": "07:00", "close": "22:00" },
+    "friday": { "open": "07:00", "close": "22:00" },
+    "saturday": { "open": "09:00", "close": "17:00" },
+    "sunday": { "closed": true }
+  },
+  "blackouts": [],
+  "policies": {
+    "cancelWindowHours": 12,
+    "holdMinutes": 10,
+    "confirmationRequired": true
+  },
+  "adminWidget": "calendar",
+  "notificationEmail": "hello@coremove.example",
+  "features": {
+    "email": true,
+    "polar": false,
+    "waitlist": true,
+    "customerAccounts": true,
+    "operatorCalendarCrud": true
+  },
+  "copy": {
+    "chatTitle": "레슨 예약 도우미",
+    "chatGreeting": "원하는 레슨과 시간을 알려주시면 담당 코치의 가능한 수업 시간을 찾아드릴게요.",
+    "chatPlaceholder": "예: 이번 주 목요일 저녁 1:1 레슨",
+    "relevanceRefusal": "필라테스 레슨 예약, 변경, 취소 문의만 도와드릴 수 있어요.",
+    "confirmationRequired": "레슨 예약 확정은 회원님 확인 후에만 진행할 수 있습니다.",
+    "privacyRefusal": "공개 가능한 예약 정보만 안내할 수 있어요.",
+    "availabilityIntro": "예약 가능한 레슨 시간을 찾았어요.",
+    "holdCreated": "선택한 레슨 시간을 잠시 잡아두었습니다.",
+    "confirmed": "레슨 예약이 확정되었습니다.",
+    "rescheduled": "레슨 예약이 변경되었습니다.",
+    "cancelled": "레슨 예약이 취소되었습니다.",
+    "cancelEscalated": "수업 12시간 이내 취소라 스튜디오 확인이 필요합니다.",
+    "holdExpired": "임시 홀드 시간이 지나 예약 가능 상태로 돌아갔습니다.",
+    "schemaError": "레슨 예약 요청 형식이 올바르지 않습니다.",
+    "guardrailBanner": "필라테스 레슨 예약 관련 문의만 도와드릴 수 있어요.",
+    "nextStepAvailability": "원하는 레슨 시간을 선택해 주세요.",
+    "nextStepHold": "내용이 맞으면 확인한다고 답해 주세요.",
+    "nextStepConfirmed": "변경이나 취소가 필요하면 다시 말씀해 주세요.",
+    "policySummary": "임시 홀드는 10분 유지되며, 수업 시작 12시간 이내 취소는 스튜디오 확인이 필요합니다."
+  }
+}
+```
+
 ## Coverage Catalog
 
 This catalog is the exhaustive `resourceKind × slotUnit × adminWidget` universe: four resource kinds (`person`, `seat`, `room`, `unit`) × three slot units (`minutes:30`, `hour`, `day`) × two admin widgets (`calendar`, `seatGrid`) = 24 service-level cells. Each cell is derived only from a pack service's `resourceKind` and `slotUnit` paired with that pack's `adminWidget`; duplicate services and unrelated resources never inflate a cell. A covered cell lists every embedded pack that supplies that combination; an uncovered cell is `gap`.
 
-After the three showcase promotions the catalog covers 6/24 cells. Adding the kit-authored `equipment-rental` pack — which supplies `unit × minutes:30 × calendar` and `unit × day × calendar` — brings coverage to 8/24, leaving 16 gaps.
+After the three showcase promotions the catalog covers 6/24 cells. Adding the kit-authored `equipment-rental` pack — which supplies `unit × minutes:30 × calendar` and `unit × day × calendar` — brought coverage to 8/24. Adding the kit-authored `pilates-studio` pack — which supplies `person × hour × calendar` — brings coverage to 9/24, leaving 15 gaps.
 
 <!-- matrix:start -->
 | Resource kind | Slot unit | calendar | seatGrid |
 | --- | --- | --- | --- |
 | person | minutes:30 | `generic-appointment`, `salon-appointment` | gap |
-| person | hour | gap | gap |
+| person | hour | `pilates-studio` | gap |
 | person | day | gap | gap |
 | seat | minutes:30 | gap | gap |
 | seat | hour | gap | `library-study`, `pcbang-seat`, `studycafe-seat`, `webinar-live` |

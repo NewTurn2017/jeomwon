@@ -48,12 +48,54 @@ Source: `./src/app/[locale]/(dashboard)/_components/admin-dashboard.tsx` and
 
 - `AdminDashboard` reads `jeomwonConvex.admin.dashboardSnapshot`: resources,
   reservations (time-sorted), escalations, recent events, business hours, and
-  policies. The query is gated by `ensureAdmin`; an unauthenticated caller gets
-  `admin_auth_required`.
+  policies. The query is gated by `ensureAdmin` (see "Who is an operator" below);
+  an unauthenticated caller gets `admin_auth_required`.
 - `EscalationQueue` writes through `jeomwonConvex.admin.resolveEscalation`
   (`approveCancel` → `cancelled`, `keepReservation` → `confirmed`). The mutation
   records audit history and schedules customer mail in the backend.
 - Localized strings come from `./src/locales/*.ts` under the `dashboard` scope.
+
+## Who is an operator: `JEOMWON_ADMIN_EMAILS`
+
+Every query and mutation in `../../packages/backend/convex/admin.ts` runs behind
+`ensureAdmin`. `JEOMWON_ADMIN_EMAILS` is the allowlist it checks: a
+comma-separated list of operator emails, matched case-insensitively against the
+signed-in account's email. It is a **Convex deployment env var**
+(`npx convex env set JEOMWON_ADMIN_EMAILS ops@store.com,owner@store.com` from
+`packages/backend`), never a Next `.env.local` value and never `NEXT_PUBLIC_` —
+the browser must not see who the operators are. `bun setup` prompts for it. The
+guard re-reads it on every call, so a `convex env set` takes effect on the next
+request without a redeploy.
+
+The rule is **conditionally fail-closed**, because "no allowlist" means two
+different things depending on who can sign in:
+
+| `JEOMWON_ADMIN_EMAILS` | `features.customerAccounts` | Result |
+|---|---|---|
+| Set | either | Email on the list → operator. Otherwise `admin_forbidden`. |
+| Empty | `false` | Any signed-in user is an operator. |
+| Empty | `true` | Every call throws `admin_not_configured`. |
+
+- **Empty + `customerAccounts: false`** is the historical behavior, kept exactly.
+  Only operators can sign in to such a deployment, so being signed in is itself
+  proof of role, and existing projects do not lock their operators out when they
+  upgrade. Setting the allowlist is still the safer choice.
+- **Empty + `customerAccounts: true`** is refused. Customers can sign in to that
+  deployment, so treating any signed-in user as an operator would hand every
+  customer the dashboard, internal memos and risk signals included. There is no
+  safe default, so the guard denies until you configure one — `bun setup` makes
+  the allowlist required whenever the pack turns customer accounts on.
+
+An account with no email — the dev anonymous provider from `AUTH_DEV_ANONYMOUS` —
+can never match a non-empty allowlist. Local QA that signs in anonymously must
+leave `JEOMWON_ADMIN_EMAILS` unset.
+
+`ensureCustomer(ctx)` is the counterpart guard, exported from the same module for
+customer-scoped queries. It asserts a signed-in user and returns
+`{ userId, user }` — it does **not** consult the allowlist. Customer-scoped reads
+authorize by scoping to that `userId`; the ownership check is the authorization
+and it belongs to the caller. Never authorize a customer by `threadId`: a thread
+id is a routing key anyone can hold, not proof of who is asking.
 
 ## `adminWidget`: pack-driven render branch
 
@@ -100,3 +142,7 @@ Widget behavior notes:
 - Do not remove or repurpose the `adminWidget` data path (config → inject
   validation → snapshot → `AdminWidgetBoard`).
 - Do not expose internal reservation context on any public surface.
+- Do not weaken `ensureAdmin` into a presence check when `customerAccounts` is
+  true, and do not move `JEOMWON_ADMIN_EMAILS` into a `.env.local` or a
+  `NEXT_PUBLIC_` var. Authorization is a server decision.
+- Do not authorize any caller — operator or customer — by `threadId`.

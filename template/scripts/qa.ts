@@ -119,6 +119,49 @@ const lookupReservationMutation = makeFunctionReference<
   { threadId: string; reservationId: string },
   { publicContext: PublicContext }
 >("agentTools:lookupReservation");
+// Operator calendar CRUD (features.operatorCalendarCrud). The response types are
+// intentionally `unknown`: gate 10 only proves these mutations fail closed at the
+// admin auth boundary, so it never reads a success payload.
+const createSessionMutation = makeFunctionReference<
+  "mutation",
+  {
+    title: string;
+    serviceKey: string;
+    resourceKey: string;
+    dateKey: string;
+    startTime: string;
+  },
+  unknown
+>("admin:createSession");
+const updateSessionMutation = makeFunctionReference<
+  "mutation",
+  {
+    reservationId: string;
+    title: string;
+    serviceKey: string;
+    resourceKey: string;
+    dateKey: string;
+    startTime: string;
+  },
+  unknown
+>("admin:updateSession");
+const deleteSessionMutation = makeFunctionReference<
+  "mutation",
+  { reservationId: string },
+  unknown
+>("admin:deleteSession");
+// Customer accounts (features.customerAccounts). Gate 11 proves both the
+// authenticated-read surface and the chat path fail closed without an identity.
+const customerSnapshotQuery = makeFunctionReference<
+  "query",
+  Record<string, never>,
+  unknown
+>("admin:customerSnapshot");
+const publicStateQuery = makeFunctionReference<
+  "query",
+  { threadId?: string },
+  unknown
+>("chat:publicState");
 const convexCliTimeoutMs = 60_000;
 
 fs.mkdirSync(artifactDir, { recursive: true });
@@ -140,6 +183,8 @@ async function main() {
     results.push(await qaHoldExpiry());
     results.push(await qaEmailCaptureGate());
     results.push(await qaWaitlistGate());
+    results.push(await qaOperatorCalendarCrudGate());
+    results.push(await qaCustomerAccountsGate());
   } catch (error) {
     results.push({
       id: 99,
@@ -918,6 +963,177 @@ async function qaWaitlistGate(): Promise<QaResult> {
       `availabilityExistsRejected: ${availabilityExistsRejected}`,
       `chatEvent: ${slotOpened.type}`,
       `emailTemplate: ${email.template}`,
+    ],
+  };
+}
+
+// Operator calendar CRUD (features.operatorCalendarCrud). Deterministic SKIP when
+// the flag is off, so the template default and the nine anonymous packs still
+// pass. When on, it locks the ADMIN AUTH BOUNDARY only: a bare ConvexHttpClient
+// carries no identity, and the runner's admin key is deployment auth rather than
+// a logged-in operator (getAuthUserId is null for it), so there is no way to mint
+// a real operator here. ensureAdmin therefore fails closed with
+// admin_auth_required before any row is written — that is the assertion. The full
+// authenticated create/edit/cancel round-trip is proved in the browser gate,
+// where a signed-in operator identity exists. A live signIn / AUTH_DEV_ANONYMOUS
+// path is intentionally NOT wired: it would make this gate non-deterministic and
+// break the default run.
+async function qaOperatorCalendarCrudGate(): Promise<QaResult> {
+  if (!domainConfig.features.operatorCalendarCrud) {
+    return {
+      id: 10,
+      name: "운영자 캘린더 CRUD",
+      status: "SKIP",
+      output: [
+        "features.operatorCalendarCrud=false — 운영자 캘린더 CRUD 게이트는 결정론적으로 생략.",
+      ],
+    };
+  }
+
+  const convexUrl =
+    resolveQaEnv("NEXT_PUBLIC_CONVEX_URL") ?? resolveQaEnv("CONVEX_URL");
+  if (!convexUrl) {
+    throw new Error(
+      "operatorCalendarCrud QA requires NEXT_PUBLIC_CONVEX_URL or CONVEX_URL to prove the admin auth boundary",
+    );
+  }
+
+  const client = new ConvexHttpClient(convexUrl, { logger: false });
+  const service = qaService ?? domainConfig.services[0];
+  assert(service !== undefined, "operatorCalendarCrud QA requires a service");
+  const resource =
+    domainConfig.resources.find(
+      (candidate) => candidate.kind === service.resourceKind,
+    ) ?? domainConfig.resources[0];
+  assert(resource !== undefined, "operatorCalendarCrud QA requires a resource");
+  // Never actually read: ensureAdmin throws before resolveSlot runs. Any
+  // well-typed placeholder is fine because the boundary rejects first.
+  const placeholder = { dateKey: "2099-01-01", startTime: "10:00" };
+
+  const createRejected = await expectMutationRejects(
+    () =>
+      client.mutation(createSessionMutation, {
+        title: "QA 경계 확인",
+        serviceKey: service.key,
+        resourceKey: resource.key,
+        dateKey: placeholder.dateKey,
+        startTime: placeholder.startTime,
+      }),
+    "admin_auth_required",
+  );
+  assert(
+    createRejected,
+    "unauthenticated createSession was not rejected with admin_auth_required",
+  );
+
+  const updateRejected = await expectMutationRejects(
+    () =>
+      client.mutation(updateSessionMutation, {
+        reservationId: "QA-000000-QABND0",
+        title: "QA 경계 확인",
+        serviceKey: service.key,
+        resourceKey: resource.key,
+        dateKey: placeholder.dateKey,
+        startTime: placeholder.startTime,
+      }),
+    "admin_auth_required",
+  );
+  assert(
+    updateRejected,
+    "unauthenticated updateSession was not rejected with admin_auth_required",
+  );
+
+  const deleteRejected = await expectMutationRejects(
+    () =>
+      client.mutation(deleteSessionMutation, {
+        reservationId: "QA-000000-QABND0",
+      }),
+    "admin_auth_required",
+  );
+  assert(
+    deleteRejected,
+    "unauthenticated deleteSession was not rejected with admin_auth_required",
+  );
+
+  writeJson("10-operator-calendar-crud.json", {
+    service: service.key,
+    resource: resource.key,
+    createRejected,
+    updateRejected,
+    deleteRejected,
+  });
+
+  return {
+    id: 10,
+    name: "운영자 캘린더 CRUD",
+    status: "PASS",
+    output: [
+      "auth 경계: 미인증 create/update/deleteSession 모두 admin_auth_required로 차단",
+      "전체 CRUD round-trip은 로그인 운영자 신원이 필요해 브라우저 게이트에서 검증",
+    ],
+  };
+}
+
+// Customer accounts (features.customerAccounts). Deterministic SKIP when the flag
+// is off. When on, both customer surfaces must fail closed without a logged-in
+// identity: customerSnapshot derives the thread from the authenticated user (no
+// threadId to forge), and the chat path (publicState) refuses a foreign thread it
+// cannot resolve to a caller. Same identity constraint as gate 10 — the runner's
+// admin key is not a customer login — so this locks the boundary and leaves the
+// authenticated own-reservations read to the browser gate.
+async function qaCustomerAccountsGate(): Promise<QaResult> {
+  if (!domainConfig.features.customerAccounts) {
+    return {
+      id: 11,
+      name: "고객 계정 경계",
+      status: "SKIP",
+      output: [
+        "features.customerAccounts=false — 고객 계정 경계 게이트는 결정론적으로 생략.",
+      ],
+    };
+  }
+
+  const convexUrl =
+    resolveQaEnv("NEXT_PUBLIC_CONVEX_URL") ?? resolveQaEnv("CONVEX_URL");
+  if (!convexUrl) {
+    throw new Error(
+      "customerAccounts QA requires NEXT_PUBLIC_CONVEX_URL or CONVEX_URL to prove the customer auth boundary",
+    );
+  }
+
+  const client = new ConvexHttpClient(convexUrl, { logger: false });
+
+  const snapshotRejected = await expectMutationRejects(
+    () => client.query(customerSnapshotQuery, {}),
+    "auth_required",
+  );
+  assert(
+    snapshotRejected,
+    "unauthenticated customerSnapshot was not rejected with auth_required",
+  );
+
+  const foreignThreadRejected = await expectMutationRejects(
+    () => client.query(publicStateQuery, { threadId: "user:__foreign__" }),
+    "auth_required",
+  );
+  assert(
+    foreignThreadRejected,
+    "unauthenticated chat publicState did not fail closed on a foreign thread",
+  );
+
+  writeJson("11-customer-accounts.json", {
+    snapshotRejected,
+    foreignThreadRejected,
+  });
+
+  return {
+    id: 11,
+    name: "고객 계정 경계",
+    status: "PASS",
+    output: [
+      "auth 경계: 미인증 customerSnapshot은 auth_required로 차단",
+      "chat publicState는 미인증 상태에서 타인 thread를 auth_required로 차단(fail closed)",
+      "본인 예약 조회 round-trip은 로그인 신원이 필요해 브라우저 게이트에서 검증",
     ],
   };
 }

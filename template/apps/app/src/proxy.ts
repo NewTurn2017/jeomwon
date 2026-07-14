@@ -57,9 +57,11 @@ export const config = {
   matcher: [
     "/((?!_next/static|api|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
 
-    // all routes except static assets
-    "/((?!.*\\..*|_next).*)",
+    // all routes except static assets and /api. /api is excluded so route
+    // handlers (e.g. /api/chat) run their own auth and return real JSON status
+    // codes instead of a 307 redirect to /login. The explicit "/(api|trpc)(.*)"
+    // entry is intentionally dropped for the same reason.
+    "/((?!.*\\..*|_next|api).*)",
     "/",
-    "/(api|trpc)(.*)",
   ],
 };

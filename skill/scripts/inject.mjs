@@ -32,6 +32,13 @@ const TOP_LEVEL_KEYS = [
 	"features",
 	"copy",
 ];
+// Kit-core feature flags whose code ships in `template/`. Each is optional in the
+// pack for backward compatibility and defaults to `false`.
+const OPTIONAL_FEATURE_KEYS = [
+	"waitlist",
+	"customerAccounts",
+	"operatorCalendarCrud",
+];
 const COPY_KEYS = [
 	"chatTitle",
 	"chatGreeting",
@@ -164,7 +171,7 @@ function validateDomainPack(value) {
 	validateBusinessHours(value.businessHours);
 	validateBlackouts(value.blackouts);
 	validatePolicies(value.policies);
-	validateFeatures(value.features);
+	validateFeatures(value.features, value.adminWidget);
 	validateCopy(value.copy);
 }
 
@@ -311,11 +318,13 @@ function validatePolicies(policies) {
 	}
 }
 
-function validateFeatures(features) {
+function validateFeatures(features, adminWidget) {
 	assertRecord(features, "features");
 	const keys = ["email", "polar"];
-	if (features.waitlist !== undefined) {
-		keys.push("waitlist");
+	for (const key of OPTIONAL_FEATURE_KEYS) {
+		if (features[key] !== undefined) {
+			keys.push(key);
+		}
 	}
 	requireExactKeys(features, keys, "features");
 	if (typeof features.email !== "boolean") {
@@ -324,10 +333,19 @@ function validateFeatures(features) {
 	if (typeof features.polar !== "boolean") {
 		fail("features.polar must be boolean");
 	}
-	if (features.waitlist === undefined) {
-		features.waitlist = false;
-	} else if (typeof features.waitlist !== "boolean") {
-		fail("features.waitlist must be boolean");
+	// Materialize the default: the emitted DomainConfig type declares these flags
+	// non-optional, so an absent pack key must become `false` in the written config
+	// or the generated project fails typecheck.
+	for (const key of OPTIONAL_FEATURE_KEYS) {
+		if (features[key] === undefined) {
+			features[key] = false;
+		} else if (typeof features[key] !== "boolean") {
+			fail(`features.${key} must be boolean`);
+		}
+	}
+	// seatGrid has no operator CRUD surface; the pack must not ask for one.
+	if (features.operatorCalendarCrud && adminWidget !== "calendar") {
+		fail('operatorCalendarCrud requires adminWidget: "calendar"');
 	}
 }
 
@@ -439,6 +457,8 @@ export type DomainConfig = {
     email: boolean;
     polar: boolean;
     waitlist: boolean;
+    customerAccounts: boolean;
+    operatorCalendarCrud: boolean;
   };
   copy: DomainCopy;
 };

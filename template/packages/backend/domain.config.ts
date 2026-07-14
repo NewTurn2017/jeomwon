@@ -99,6 +99,8 @@ export type DomainConfig = {
     email: boolean;
     polar: boolean;
     waitlist: boolean;
+    customerAccounts: boolean;
+    operatorCalendarCrud: boolean;
   };
   copy: DomainCopy;
 };
@@ -150,6 +152,8 @@ export const domainConfig: DomainConfig = {
     email: true,
     polar: false,
     waitlist: false,
+    customerAccounts: false,
+    operatorCalendarCrud: false,
   },
   copy: {
     chatTitle: "예약 도우미",

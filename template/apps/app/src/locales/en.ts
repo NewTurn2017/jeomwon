@@ -68,6 +68,12 @@ export default {
       policy: "Policy",
       escalation: "Operator review",
     },
+    customer: {
+      title: "My Reservations",
+      description: "Your confirmed reservations and upcoming schedule.",
+      empty: "You have no reservations yet. Start a new booking in the chat below.",
+      bookViaChat: "To change a reservation or make a new one, use the chat below.",
+    },
   },
   login: {
     title: "Operator sign-in",
