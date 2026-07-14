@@ -2,6 +2,7 @@ import { domainConfig } from "@jeomwon/backend/domain.config";
 import type { Metadata } from "next";
 import { GoogleSignin } from "@/components/google-signin";
 import { normalizeReturnTo } from "@/lib/admin-routing";
+import { anonymousLoginAvailable } from "@/lib/anonymous-login";
 import { getScopedI18n } from "@/locales/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -18,7 +19,10 @@ export default async function Page({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const t = await getScopedI18n("login");
-  const devAnonymousEnabled = process.env.AUTH_DEV_ANONYMOUS === "1";
+  const anonymousLoginEnabled = anonymousLoginAvailable({
+    customerAccounts: domainConfig.features.customerAccounts,
+    appEnv: process.env.AUTH_ANONYMOUS_LOGIN,
+  });
   const returnTo = normalizeReturnTo((await searchParams).returnTo);
 
   return (
@@ -43,7 +47,7 @@ export default async function Page({
         </div>
         <div className="mt-8">
           <GoogleSignin
-            devAnonymousEnabled={devAnonymousEnabled}
+            anonymousLoginEnabled={anonymousLoginEnabled}
             returnTo={returnTo}
           />
         </div>

@@ -80,8 +80,14 @@ There is no signed-in-user fallback. The guard denies until you configure the
 allowlist, and `bun setup` requires it for every feature configuration while
 displaying configuration presence only.
 
-An account with no email — the dev anonymous provider from `AUTH_DEV_ANONYMOUS` —
-can never be an operator, even if a synthetic matching email is present.
+An account with no email — the product anonymous provider from
+`AUTH_ANONYMOUS_LOGIN` — can never be an operator, even if a synthetic matching
+email is present. The provider is available only when customer accounts are on,
+the Convex and app server flags are both exactly `1`, and the Convex deployment
+has a non-empty operator allowlist. `bun setup` writes both flags together,
+requires an exact production opt-in, and fails its postflight when the two sides
+do not match. Guest browser identity is device-local, so the login screen warns
+that losing browser sign-in data also loses access to earlier reservations.
 
 `ensureCustomer(ctx)` is the counterpart guard, exported from the same module for
 customer-scoped queries. It asserts a signed-in user and returns
