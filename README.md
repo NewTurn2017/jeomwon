@@ -89,7 +89,7 @@ bun run qa
 
 ## 상태
 
-로드맵 Phase 0~7 완료 + UI 전면 재설계 완료(스타터 브랜딩 전면 제거, 재설계 후 template 라이브 QA 전 게이트 통과와 양 앱 브라우저 실증 확인). 레포는 공개 상태이고 스킬 단독 설치(scaffold의 GitHub tarball 폴백)가 동작합니다. 잔여 백로그: 전 과정 리허설, `samples/pension-stay` 재생성.
+로드맵 Phase 0~7 완료 + UI 전면 재설계 완료(스타터 브랜딩 전면 제거, 재설계 후 template 라이브 QA 전 게이트 통과와 양 앱 브라우저 실증 확인). 레포는 공개 상태이고 스킬 단독 설치(scaffold의 GitHub tarball 폴백)가 동작합니다. `samples/pension-stay`는 현행 template에서 bootstrap으로 재생성된 최신 상태입니다.
 
 ## 기여
 

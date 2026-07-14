@@ -8,26 +8,28 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@pension-stay/ui/dropdown-menu";
+import { Logo } from "@pension-stay/ui/logo";
 import { cn } from "@pension-stay/ui/utils";
 import { type Preloaded, usePreloadedQuery } from "convex/react";
-import {
-  Check,
-  ChevronDown,
-  ChevronUp,
-  LogOut,
-  Settings,
-  Slash,
-} from "lucide-react";
+import { Check, ChevronDown, ChevronUp, LogOut, Settings } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useScopedI18n } from "@/locales/client";
-import { LanguageSwitcher } from "./language-switcher";
-import { ThemeSwitcher } from "./theme-switcher";
+import { useTheme } from "next-themes";
+import {
+  useChangeLocale,
+  useCurrentLocale,
+  useScopedI18n,
+} from "@/locales/client";
 
 const PolarCheckoutLink = dynamic(
   () =>
@@ -50,8 +52,7 @@ export function Navigation({
   const { signOut } = useAuthActions();
   const pathname = usePathname();
   const router = useRouter();
-  const normalizedPath =
-    pathname.replace(/^\/(ko|en|fr|es)(?=\/|$)/, "") || "/";
+  const normalizedPath = pathname.replace(/^\/(ko|en)(?=\/|$)/, "") || "/";
   const isDashboardPath = normalizedPath === "/";
   const isSettingsPath = normalizedPath === "/settings";
   const isBillingPath = normalizedPath === "/settings/billing";
@@ -63,18 +64,21 @@ export function Navigation({
   }
 
   return (
-    <nav className="sticky top-0 z-50 flex w-full flex-col border-b border-border bg-card px-6">
+    <nav className="sticky top-0 z-50 flex w-full flex-col border-b border-border bg-card/95 px-4 backdrop-blur sm:px-6">
       <div className="mx-auto flex w-full max-w-screen-xl items-center justify-between py-3">
         <div className="flex h-10 items-center gap-2">
-          <Link href="/" className="flex h-10 items-center gap-1">
-            <Image src="/logo.png" alt="logo" width={50} height={50} />
+          <Link
+            href="/"
+            aria-label="Jeomwon"
+            className="flex h-10 items-center"
+          >
+            <Logo width={32} height={32} />
           </Link>
-          <Slash className="h-6 w-6 -rotate-12 stroke-[1.5px] text-primary/10" />
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="gap-2 px-2 data-[state=open]:bg-primary/5"
+                className="gap-2 px-2 data-[state=open]:bg-muted"
               >
                 <div className="flex items-center gap-2">
                   {user.avatarUrl ? (
@@ -87,19 +91,19 @@ export function Navigation({
                       height={32}
                     />
                   ) : (
-                    <span className="h-8 w-8 rounded-full bg-gradient-to-br from-lime-400 from-10% via-cyan-300 to-blue-500" />
+                    <span className="h-8 w-8 rounded-full border border-border bg-muted" />
                   )}
 
-                  <p className="text-sm font-medium text-primary/80">
+                  <p className="text-sm font-medium text-foreground">
                     {user?.name || ""}
                   </p>
-                  <span className="flex h-5 items-center rounded-full bg-primary/10 px-2 text-xs font-medium text-primary/80">
+                  <span className="flex h-5 items-center rounded-full bg-muted px-2 text-muted-foreground text-xs font-medium">
                     {t("free")}
                   </span>
                 </div>
                 <span className="flex flex-col items-center justify-center">
-                  <ChevronUp className="relative top-[3px] h-[14px] w-[14px] stroke-[1.5px] text-primary/60" />
-                  <ChevronDown className="relative bottom-[3px] h-[14px] w-[14px] stroke-[1.5px] text-primary/60" />
+                  <ChevronUp className="relative top-[3px] h-[14px] w-[14px] stroke-[1.5px] text-muted-foreground" />
+                  <ChevronDown className="relative bottom-[3px] h-[14px] w-[14px] stroke-[1.5px] text-muted-foreground" />
                 </span>
               </Button>
             </DropdownMenuTrigger>
@@ -107,10 +111,10 @@ export function Navigation({
               sideOffset={8}
               className="min-w-56 bg-card p-2"
             >
-              <DropdownMenuLabel className="flex items-center text-xs font-normal text-primary/60">
+              <DropdownMenuLabel className="flex items-center font-normal text-muted-foreground text-xs">
                 {t("account")}
               </DropdownMenuLabel>
-              <DropdownMenuItem className="h-10 w-full cursor-pointer justify-between rounded-md bg-secondary px-2">
+              <DropdownMenuItem className="h-10 w-full cursor-pointer justify-between rounded-md bg-muted px-2">
                 <div className="flex items-center gap-2">
                   {user.avatarUrl ? (
                     <Image
@@ -122,14 +126,14 @@ export function Navigation({
                       height={24}
                     />
                   ) : (
-                    <span className="h-6 w-6 rounded-full bg-gradient-to-br from-lime-400 from-10% via-cyan-300 to-blue-500" />
+                    <span className="h-6 w-6 rounded-full border border-border bg-background" />
                   )}
 
-                  <p className="text-sm font-medium text-primary/80">
+                  <p className="text-sm font-medium text-foreground">
                     {user.name || ""}
                   </p>
                 </div>
-                <Check className="h-[18px] w-[18px] stroke-[1.5px] text-primary/60" />
+                <Check className="h-[18px] w-[18px] stroke-[1.5px] text-muted-foreground" />
               </DropdownMenuItem>
 
               <DropdownMenuSeparator className="mx-0 my-2" />
@@ -141,24 +145,6 @@ export function Navigation({
         </div>
 
         <div className="flex h-10 items-center gap-3">
-          <a
-            href="https://github.com/get-convex/v1/tree/main/docs"
-            className={cn(
-              `${buttonVariants({ variant: "outline", size: "sm" })} group hidden h-8 gap-2 rounded-full bg-transparent px-2 pr-2.5 md:flex`,
-            )}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 text-primary"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-            </svg>
-            <span className="text-sm text-primary/60 transition group-hover:text-primary group-focus:text-primary">
-              {t("documentation")}
-            </span>
-          </a>
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-8 w-8 rounded-full">
@@ -172,7 +158,7 @@ export function Navigation({
                     height={32}
                   />
                 ) : (
-                  <span className="min-h-8 min-w-8 rounded-full bg-gradient-to-br from-lime-400 from-10% via-cyan-300 to-blue-500" />
+                  <span className="min-h-8 min-w-8 rounded-full border border-border bg-muted" />
                 )}
               </Button>
             </DropdownMenuTrigger>
@@ -181,43 +167,24 @@ export function Navigation({
               className="fixed -right-4 min-w-56 bg-card p-2"
             >
               <DropdownMenuItem className="group flex-col items-start focus:bg-transparent">
-                <p className="text-sm font-medium text-primary/80 group-hover:text-primary group-focus:text-primary">
+                <p className="text-sm font-medium text-foreground">
                   {user?.name || ""}
                 </p>
-                <p className="text-sm text-primary/60">{user?.email}</p>
+                <p className="text-muted-foreground text-sm">{user?.email}</p>
               </DropdownMenuItem>
 
               <DropdownMenuItem
                 className="group h-9 w-full cursor-pointer justify-between rounded-md px-2"
                 onClick={() => router.push("/settings")}
               >
-                <span className="text-sm text-primary/60 group-hover:text-primary group-focus:text-primary">
+                <span className="text-muted-foreground text-sm group-hover:text-foreground group-focus:text-foreground">
                   {t("settings")}
                 </span>
-                <Settings className="h-[18px] w-[18px] stroke-[1.5px] text-primary/60 group-hover:text-primary group-focus:text-primary" />
+                <Settings className="h-[18px] w-[18px] stroke-[1.5px] text-muted-foreground group-hover:text-foreground group-focus:text-foreground" />
               </DropdownMenuItem>
 
-              <DropdownMenuItem
-                className={cn(
-                  "group flex h-9 justify-between rounded-md px-2 hover:bg-transparent",
-                )}
-              >
-                <span className="w-full text-sm text-primary/60 group-hover:text-primary group-focus:text-primary">
-                  {t("theme")}
-                </span>
-                <ThemeSwitcher />
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                className={cn(
-                  "group flex h-9 justify-between rounded-md px-2 hover:bg-transparent",
-                )}
-              >
-                <span className="w-full text-sm text-primary/60 group-hover:text-primary group-focus:text-primary">
-                  {t("language")}
-                </span>
-                <LanguageSwitcher />
-              </DropdownMenuItem>
+              <ThemeSubmenu />
+              <LanguageSubmenu />
 
               <DropdownMenuSeparator className="mx-0 my-2" />
 
@@ -225,10 +192,10 @@ export function Navigation({
                 className="group h-9 w-full cursor-pointer justify-between rounded-md px-2"
                 onClick={() => signOut()}
               >
-                <span className="text-sm text-primary/60 group-hover:text-primary group-focus:text-primary">
+                <span className="text-muted-foreground text-sm group-hover:text-foreground group-focus:text-foreground">
                   {t("logout")}
                 </span>
-                <LogOut className="h-[18px] w-[18px] stroke-[1.5px] text-primary/60 group-hover:text-primary group-focus:text-primary" />
+                <LogOut className="h-[18px] w-[18px] stroke-[1.5px] text-muted-foreground group-hover:text-foreground group-focus:text-foreground" />
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -245,7 +212,7 @@ export function Navigation({
           <Link
             href="/"
             className={cn(
-              `${buttonVariants({ variant: "ghost", size: "sm" })} text-primary/80`,
+              `${buttonVariants({ variant: "ghost", size: "sm" })} text-foreground`,
             )}
           >
             {t("dashboard")}
@@ -260,7 +227,7 @@ export function Navigation({
           <Link
             href="/settings"
             className={cn(
-              `${buttonVariants({ variant: "ghost", size: "sm" })} text-primary/80`,
+              `${buttonVariants({ variant: "ghost", size: "sm" })} text-foreground`,
             )}
           >
             {t("settings")}
@@ -276,7 +243,7 @@ export function Navigation({
             <Link
               href="/settings/billing"
               className={cn(
-                `${buttonVariants({ variant: "ghost", size: "sm" })} text-primary/80`,
+                `${buttonVariants({ variant: "ghost", size: "sm" })} text-foreground`,
               )}
             >
               {t("billing")}
@@ -293,6 +260,7 @@ function PolarUpgradeMenuItem({
 }: {
   preloadedProducts: ProductsPreload;
 }) {
+  const t = useScopedI18n("navigation");
   const products = usePreloadedQuery(preloadedProducts);
   const monthlyProProduct = products?.find(
     (product) => product.recurringInterval === "month",
@@ -311,9 +279,80 @@ function PolarUpgradeMenuItem({
         <PolarCheckoutLink
           productIds={[monthlyProProduct.id, yearlyProProduct.id]}
         >
-          Upgrade to PRO
+          {t("upgradePro")}
         </PolarCheckoutLink>
       </Button>
     </DropdownMenuItem>
+  );
+}
+
+function ThemeSubmenu() {
+  const t = useScopedI18n("navigation");
+  const { theme, setTheme, themes } = useTheme();
+
+  function formatTheme(value: string) {
+    if (value === "light") {
+      return t("themeOptions.light");
+    }
+    if (value === "dark") {
+      return t("themeOptions.dark");
+    }
+    return t("themeOptions.system");
+  }
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger className="h-9 rounded-md px-2 text-muted-foreground text-sm">
+        {t("theme")}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="bg-card">
+        <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+          {themes.map((value) => (
+            <DropdownMenuRadioItem
+              key={value}
+              value={value}
+              className="text-muted-foreground text-sm"
+            >
+              {formatTheme(value)}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+}
+
+function LanguageSubmenu() {
+  const t = useScopedI18n("navigation");
+  const changeLocale = useChangeLocale();
+  const locale = useCurrentLocale();
+
+  const langs = [
+    { text: "한국어", value: "ko" },
+    { text: "English", value: "en" },
+  ] as const;
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger className="h-9 rounded-md px-2 text-muted-foreground text-sm">
+        {t("language")}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="bg-card">
+        <DropdownMenuRadioGroup
+          value={locale}
+          onValueChange={(value) => changeLocale(value as "ko" | "en")}
+        >
+          {langs.map(({ text, value }) => (
+            <DropdownMenuRadioItem
+              key={value}
+              value={value}
+              className="text-muted-foreground text-sm"
+            >
+              {text}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
   );
 }

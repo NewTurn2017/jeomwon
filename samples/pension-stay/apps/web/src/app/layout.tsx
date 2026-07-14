@@ -1,23 +1,32 @@
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "@pension-stay/ui/globals.css";
+import "@/components/customer-chat-widget.css";
+import { domainConfig } from "@pension-stay/backend/domain.config";
 import { cn } from "@pension-stay/ui/utils";
-import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { ConvexClientProvider } from "./convex-client-provider";
 
-const DepartureMono = localFont({
-  src: "../fonts/DepartureMono-Regular.woff2",
-  variable: "--font-departure-mono",
-});
+const pageTitle = `${domainConfig.storeName} 예약`;
+const pageDescription = `${domainConfig.storeName}의 서비스 예약을 채팅으로 문의하고 확정할 수 있습니다.`;
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://convex-v1.run"),
-  title: "Pension Stay",
-  description:
-    "A free, open-source starter kit for your next project, built with insights from Midday.",
+  title: {
+    default: pageTitle,
+    template: `%s | ${domainConfig.storeName}`,
+  },
+  description: pageDescription,
+  openGraph: {
+    title: pageTitle,
+    description: pageDescription,
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: pageTitle,
+    description: pageDescription,
+  },
 };
 
 export default function RootLayout({
@@ -25,14 +34,11 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const language = domainConfig.locale === "ko-KR" ? "ko" : "en";
+
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={cn(
-          `${DepartureMono.variable} ${GeistSans.variable} ${GeistMono.variable}`,
-          "antialiased dark",
-        )}
-      >
+    <html lang={language} suppressHydrationWarning>
+      <body className={cn("min-h-screen bg-background font-sans antialiased")}>
         <ConvexClientProvider>
           <Header />
           {children}

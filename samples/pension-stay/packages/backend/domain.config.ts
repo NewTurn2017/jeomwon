@@ -96,6 +96,9 @@ export type DomainConfig = {
   features: {
     email: boolean;
     polar: boolean;
+    waitlist: boolean;
+    customerAccounts: boolean;
+    operatorCalendarCrud: boolean;
   };
   copy: DomainCopy;
 };
@@ -184,6 +187,9 @@ export const domainConfig: DomainConfig = {
   features: {
     email: true,
     polar: false,
+    waitlist: false,
+    customerAccounts: false,
+    operatorCalendarCrud: false,
   },
   copy: {
     chatTitle: "펜션 예약 도우미",

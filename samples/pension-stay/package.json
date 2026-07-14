@@ -17,14 +17,15 @@
     "dev:app": "turbo dev --filter=@pension-stay/app",
     "start:web": "turbo start --filter=@pension-stay/web",
     "start:app": "turbo start --filter=@pension-stay/app",
-    "test": "turbo test --parallel",
-    "qa": "tsx scripts/qa.ts",
+    "test": "bun test",
+    "qa": "bun scripts/qa-local.ts",
+    "qa:run": "tsx scripts/qa.ts",
     "setup": "bun scripts/setup/index.ts",
     "format": "biome format --write .",
-    "lint": "turbo lint && biome lint scripts/setup",
+    "lint": "turbo lint && biome lint scripts",
     "lint:repo": "bunx sherif@latest",
     "lint:repo:fix": "bunx sherif@latest --fix",
-    "typecheck": "turbo typecheck && tsc --noEmit -p scripts/setup/tsconfig.json"
+    "typecheck": "turbo typecheck && tsc --noEmit -p packages/backend/convex/tsconfig.json && tsc --noEmit -p packages/backend/tests/tsconfig.json && tsc --noEmit -p scripts/setup/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json"
   },
   "devDependencies": {
     "@pension-stay/typescript": "workspace:*",

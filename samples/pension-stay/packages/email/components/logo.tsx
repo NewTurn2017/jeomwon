@@ -1,13 +1,9 @@
-import { Img } from "@react-email/components";
+import { Text } from "@react-email/components";
 
-export function Logo({ baseUrl }: { baseUrl: string }) {
+export function Logo({ storeName = "Jeomwon" }: { storeName?: string }) {
   return (
-    <Img
-      src={`${baseUrl}/logo.png`}
-      alt="Logo"
-      className="my-0 mx-auto text-center"
-      width={70}
-      height={70}
-    />
+    <Text className="my-0 text-center font-semibold text-[20px]">
+      {storeName}
+    </Text>
   );
 }

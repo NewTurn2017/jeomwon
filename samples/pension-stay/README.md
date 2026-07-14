@@ -2,8 +2,7 @@
 
 이 디렉터리는 [jeomwon](https://github.com/NewTurn2017/jeomwon) 킷의 **셀프 증명 샘플**입니다.
 `skill/EXAMPLES.md`의 Pension Stay 도메인 팩(일 단위 숙박, `room` 리소스, 체크인 15:00 / 체크아웃 11:00)을
-`bootstrap.mjs`에 넣어 실제로 생성한 결과물을 그대로 커밋했습니다. 템플릿에서 주기적으로
-재생성하므로 최신 `template/`보다 뒤처질 수 있습니다.
+`bootstrap.mjs`에 넣어 실제로 생성한 결과물을 그대로 커밋했습니다 (`VERIFY PASS` 확인 후).
 
 고객은 공개 웹 페이지에서 채팅으로 숙박 예약을 문의하고, 운영자는 관리자 앱에서
 예약 상태와 확인 필요 요청을 관리합니다. 슬롯 충돌·홀드·취소 기한 같은 불변식은
@@ -26,7 +25,7 @@ tooling          공유 TypeScript 설정
 이 샘플과 같은 프로젝트를 새로 만들려면 킷 루트에서 한 줄이면 됩니다:
 
 ```bash
-bun skill/scripts/bootstrap.mjs my-pension pension-stay skill-domain-pack.json
+bun skill/scripts/bootstrap.mjs my-pension pension-stay pension-pack.json
 ```
 
 도메인 팩 JSON은 `skill/EXAMPLES.md`의 Pension Stay 섹션에 있습니다.
@@ -50,15 +49,14 @@ bun dev          # web + app + backend 병렬 실행
 ## 개발 검증
 
 ```bash
-bun typecheck
-bun lint
-bun run qa       # 라이브 QA 게이트
+bun run typecheck
+bun run lint
+bun test         # 엔진 순수 함수 단위 테스트
+bun run qa       # 라이브 QA — Convex 준비부터 서버 기동·정리까지 원커맨드
 ```
 
-이 샘플 세대의 `qa`는 러너 직접 실행형입니다 — 로컬 앱(`bun dev`)과 Convex dev
-배포가 준비된 상태에서 실행하세요. QA는 `dev:` 배포가 아니면 실행을 거부합니다 —
-해당 도메인의 예약·챗 데이터를 초기화하기 때문입니다. 자세한 QA 규약은 킷 루트
-README를 참고하세요.
+`bun run qa`는 `dev:` 배포가 아니면 실행을 거부합니다 — 해당 도메인의 예약·챗
+데이터를 초기화하기 때문입니다. 자세한 QA 규약은 킷 루트 README를 참고하세요.
 
 ## 라이선스
 

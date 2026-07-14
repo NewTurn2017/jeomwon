@@ -1,11 +1,19 @@
 {
-  "extends": "@pension-stay/typescript/nextjs.json",
+  "extends": "../../tooling/typescript/nextjs.json",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@pension-stay/agents": ["../../packages/agents/src/index.ts"],
-      "@pension-stay/agents/*": ["../../packages/agents/src/*"]
+      "@pension-stay/agents/*": ["../../packages/agents/src/*"],
+      "@pension-stay/backend": ["../../packages/backend"],
+      "@pension-stay/backend/*": ["../../packages/backend/*"],
+      "@pension-stay/email/reservation": [
+        "../../packages/email/src/reservation.tsx"
+      ],
+      "@pension-stay/ui/globals.css": ["../../packages/ui/src/globals.css"],
+      "@pension-stay/ui/utils": ["../../packages/ui/src/utils/index.ts"],
+      "@pension-stay/ui/*": ["../../packages/ui/src/components/*"]
     },
     "strict": true,
     "allowJs": true,
