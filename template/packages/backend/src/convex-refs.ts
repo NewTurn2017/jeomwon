@@ -13,6 +13,10 @@ import type {
   CancelArgs,
   ChatRequest,
   ConfirmArgs,
+  CustomerAvailableSlotsArgs,
+  CustomerCreateHoldArgs,
+  CustomerRescheduleArgs,
+  CustomerReservationRef,
   CustomerSnapshot,
   DomainPublicSnapshot,
   GuardrailStatus,
@@ -26,7 +30,41 @@ import type {
   WaitlistArgs,
 } from "./agent-contract";
 
+const customerReservationRefs = {
+  snapshot: makeFunctionReference<
+    "query",
+    Record<string, never>,
+    CustomerSnapshot
+  >("customerReservations:snapshot"),
+  availableSlots: makeFunctionReference<
+    "query",
+    CustomerAvailableSlotsArgs,
+    { slots: PublicSlot[] }
+  >("customerReservations:availableSlots"),
+  createHold: makeFunctionReference<
+    "mutation",
+    CustomerCreateHoldArgs,
+    { publicContext: PublicContext; holdExpiresAtMs: number }
+  >("customerReservations:createHold"),
+  confirmReservation: makeFunctionReference<
+    "mutation",
+    CustomerReservationRef,
+    { publicContext: PublicContext }
+  >("customerReservations:confirmReservation"),
+  cancelReservation: makeFunctionReference<
+    "mutation",
+    CustomerReservationRef,
+    { publicContext: PublicContext; escalated: boolean }
+  >("customerReservations:cancelReservation"),
+  rescheduleReservation: makeFunctionReference<
+    "mutation",
+    CustomerRescheduleArgs,
+    { publicContext: PublicContext }
+  >("customerReservations:rescheduleReservation"),
+} as const;
+
 export const jeomwonConvex = {
+  customerReservations: customerReservationRefs,
   admin: {
     dashboardSnapshot: makeFunctionReference<
       "query",
@@ -62,15 +100,9 @@ export const jeomwonConvex = {
       AdminReservationRef,
       AdminCancelResult
     >("admin:deleteSession"),
-    // A CUSTOMER-facing query that happens to live in admin.ts, next to the
-    // `ensureCustomer` guard it depends on. It takes no arguments: the thread is
-    // derived from the caller's token, so there is nothing to forge. Requires
-    // `features.customerAccounts`.
-    customerSnapshot: makeFunctionReference<
-      "query",
-      Record<string, never>,
-      CustomerSnapshot
-    >("admin:customerSnapshot"),
+    // Compatibility property for the existing customer calendar. Its function
+    // identity is canonical `customerReservations:snapshot`, not an admin query.
+    customerSnapshot: customerReservationRefs.snapshot,
     // Which surface the signed-in viewer should see. Answers, never throws;
     // reuses the same `isOperator` rule as `ensureAdmin`, decided inside Convex
     // because the operator allowlist lives in the deployment env.

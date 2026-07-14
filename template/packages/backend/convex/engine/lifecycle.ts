@@ -4,19 +4,20 @@ import {
   domainConfig,
 } from "../../domain.config";
 import type {
-  AgentName,
   DomainPublicSnapshot,
   GuardrailStatus,
   PublicContext,
+  ReservationAuditActor,
   ReservationStatus,
 } from "../../src/agent-contract";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { publicReservationId } from "./customerReservationPublicId";
 
 type AuditEvent = {
   atMs: number;
   type: string;
-  actor: AgentName;
+  actor: ReservationAuditActor;
   summary: string;
   publicMessage: string | null;
 };
@@ -113,7 +114,7 @@ export function publicContextFromReservation(
 
   return {
     displayName: reservation.displayName,
-    reservationId: reservation.reservationNumber ?? null,
+    reservationId: publicReservationId(reservation),
     serviceLabel: reservation.serviceLabel,
     resourceLabel: reservation.resourceLabel,
     timeWindow: timeWindowLabel(
@@ -236,7 +237,8 @@ export function timeWindowLabel(
 export function isActiveReservation(reservation: Doc<"reservations">) {
   if (
     reservation.status === "confirmed" ||
-    reservation.status === "rescheduled"
+    reservation.status === "rescheduled" ||
+    reservation.status === "escalated"
   ) {
     return true;
   }
@@ -253,7 +255,7 @@ export function isActiveReservation(reservation: Doc<"reservations">) {
 
 export function auditEvent(
   type: string,
-  actor: AgentName,
+  actor: ReservationAuditActor,
   summary: string,
   publicMessage: string | null,
 ): AuditEvent {

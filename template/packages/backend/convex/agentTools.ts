@@ -388,6 +388,10 @@ export const lookupReservation = mutation({
   },
 });
 
+/**
+ * @deprecated Compatibility adapter for `features.customerAccounts=false`.
+ * Authenticated chat and direct UI use `customerReservations:*`; remove in PR4.
+ */
 export const createHold = mutation({
   args: {
     threadId: v.string(),
@@ -398,6 +402,7 @@ export const createHold = mutation({
     endMs: v.number(),
   },
   handler: async (ctx, args) => {
+    assertLegacyReservationAdapterEnabled();
     await assertThreadAccess(ctx, args.threadId);
     return await createCustomerReservationHold(ctx, {
       threadId: args.threadId,
@@ -409,6 +414,7 @@ export const createHold = mutation({
   },
 });
 
+/** @deprecated Compatibility adapter for the PR4 legacy-web removal. */
 export const confirmReservation = mutation({
   args: {
     threadId: v.string(),
@@ -416,6 +422,7 @@ export const confirmReservation = mutation({
     confirmed: v.boolean(),
   },
   handler: async (ctx, args) => {
+    assertLegacyReservationAdapterEnabled();
     await assertThreadAccess(ctx, args.threadId);
     if (!args.confirmed) {
       const thread = await ensureThread(ctx, args.threadId, "reservation");
@@ -428,6 +435,7 @@ export const confirmReservation = mutation({
   },
 });
 
+/** @deprecated Compatibility adapter for the PR4 legacy-web removal. */
 export const cancelReservation = mutation({
   args: {
     threadId: v.string(),
@@ -435,6 +443,7 @@ export const cancelReservation = mutation({
     requestedAtMs: v.number(),
   },
   handler: async (ctx, args) => {
+    assertLegacyReservationAdapterEnabled();
     await assertThreadAccess(ctx, args.threadId);
     return await cancelCustomerReservation(ctx, {
       threadId: args.threadId,
@@ -443,6 +452,7 @@ export const cancelReservation = mutation({
   },
 });
 
+/** @deprecated Compatibility adapter for the PR4 legacy-web removal. */
 export const rescheduleReservation = mutation({
   args: {
     threadId: v.string(),
@@ -454,6 +464,7 @@ export const rescheduleReservation = mutation({
     requestedAtMs: v.number(),
   },
   handler: async (ctx, args) => {
+    assertLegacyReservationAdapterEnabled();
     await assertThreadAccess(ctx, args.threadId);
     return await rescheduleCustomerReservation(ctx, {
       threadId: args.threadId,
@@ -464,6 +475,12 @@ export const rescheduleReservation = mutation({
     });
   },
 });
+
+function assertLegacyReservationAdapterEnabled() {
+  if (domainConfig.features.customerAccounts) {
+    throw new Error("legacy_reservation_adapter_disabled");
+  }
+}
 
 export const expireHold = internalMutation({
   args: {

@@ -26,6 +26,8 @@ export type AgentName =
   | "policy"
   | "escalation";
 
+export type ReservationAuditActor = AgentName | "operator";
+
 export type GuardrailStatus = {
   relevance: "clear" | "blocked";
   confirmation: "clear" | "blocked";
@@ -112,7 +114,7 @@ export type AdminDomainSnapshot = Pick<
 export type AdminAuditEvent = {
   atMs: number;
   type: string;
-  actor: AgentName;
+  actor: ReservationAuditActor;
   summary: string;
   publicMessage: string | null;
 };
@@ -314,6 +316,30 @@ export type RescheduleArgs = {
   startMs: number;
   endMs: number;
   requestedAtMs: number;
+};
+
+export type CustomerAvailableSlotsArgs = {
+  serviceKey: string;
+  resourceKey: string | null;
+  preferredStartMs: number | null;
+  count: number;
+};
+
+export type CustomerCreateHoldArgs = {
+  serviceKey: string;
+  resourceKey: string;
+  startMs: number;
+};
+
+export type CustomerReservationRef = {
+  reservationId: string;
+};
+
+export type CustomerRescheduleArgs = {
+  reservationId: string;
+  serviceKey: string;
+  resourceKey: string;
+  startMs: number;
 };
 
 /**

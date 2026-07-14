@@ -67,11 +67,28 @@ export type AgentToolbox = {
   ): Promise<{ publicContext: PublicContext }>;
 };
 
+const legacyCustomerReservationToolReferences = {
+  availableSlots: jeomwonConvex.agentTools.searchAvailability,
+  createHold: jeomwonConvex.agentTools.createHold,
+  confirmReservation: jeomwonConvex.agentTools.confirmReservation,
+  cancelReservation: jeomwonConvex.agentTools.cancelReservation,
+  rescheduleReservation: jeomwonConvex.agentTools.rescheduleReservation,
+} as const;
+
+export function customerReservationToolReferences(customerAccounts: boolean) {
+  return customerAccounts
+    ? jeomwonConvex.customerReservations
+    : legacyCustomerReservationToolReferences;
+}
+
 export function createConvexAgentToolbox(
   convexUrl: string,
   authToken?: string,
 ): AgentToolbox {
   const client = new ConvexHttpClient(convexUrl);
+  const customerReservationRefs = customerReservationToolReferences(
+    domainConfig.features.customerAccounts,
+  );
   // Anonymous by default: with no token this is byte-for-byte the old toolbox,
   // so the public web route keeps working with zero auth. When a token IS
   // present (the authenticated apps/app route), attach it as the bearer so
@@ -106,10 +123,15 @@ export function createConvexAgentToolbox(
     },
     async searchAvailability(args) {
       normalizeConvexArgs(args);
-      return await client.query(
-        jeomwonConvex.agentTools.searchAvailability,
-        args,
-      );
+      if ("snapshot" in customerReservationRefs) {
+        return await client.query(customerReservationRefs.availableSlots, {
+          serviceKey: args.serviceKey ?? domainConfig.services[0]?.key ?? "",
+          resourceKey: args.resourceKey,
+          preferredStartMs: args.preferredStartMs,
+          count: args.count,
+        });
+      }
+      return await client.query(customerReservationRefs.availableSlots, args);
     },
     async recordAvailability(input) {
       normalizeConvexArgs(input);
@@ -131,26 +153,59 @@ export function createConvexAgentToolbox(
     },
     async createHold(args) {
       normalizeConvexArgs(args);
-      return await client.mutation(jeomwonConvex.agentTools.createHold, args);
+      if ("snapshot" in customerReservationRefs) {
+        return await client.mutation(customerReservationRefs.createHold, {
+          serviceKey: args.serviceKey,
+          resourceKey: args.resourceKey,
+          startMs: args.startMs,
+        });
+      }
+      return await client.mutation(customerReservationRefs.createHold, args);
     },
     async confirmReservation(args) {
       normalizeConvexArgs(args);
+      if ("snapshot" in customerReservationRefs) {
+        if (!args.confirmed) {
+          throw new Error("confirmation_required");
+        }
+        return await client.mutation(
+          customerReservationRefs.confirmReservation,
+          { reservationId: args.reservationId },
+        );
+      }
       return await client.mutation(
-        jeomwonConvex.agentTools.confirmReservation,
+        customerReservationRefs.confirmReservation,
         args,
       );
     },
     async cancelReservation(args) {
       normalizeConvexArgs(args);
+      if ("snapshot" in customerReservationRefs) {
+        return await client.mutation(
+          customerReservationRefs.cancelReservation,
+          { reservationId: args.reservationId },
+        );
+      }
       return await client.mutation(
-        jeomwonConvex.agentTools.cancelReservation,
+        customerReservationRefs.cancelReservation,
         args,
       );
     },
     async rescheduleReservation(args) {
       normalizeConvexArgs(args);
+      if ("snapshot" in customerReservationRefs) {
+        return await client.mutation(
+          customerReservationRefs.rescheduleReservation,
+          {
+            reservationId: args.reservationId,
+            serviceKey: args.serviceKey,
+            resourceKey: args.resourceKey,
+            startMs: args.startMs,
+          },
+        );
+      }
       return await client.mutation(
-        jeomwonConvex.agentTools.rescheduleReservation,
+        customerReservationRefs.rescheduleReservation,
         args,
       );
     },

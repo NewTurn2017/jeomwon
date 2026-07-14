@@ -75,8 +75,8 @@ export const publicState = query({
         // One thread carries ONE `publicContext`, and every booking overwrites
         // it, so on a permanent per-account thread this card is the conversation's
         // CURRENT focus — the reservation last touched — not "my reservations".
-        // The customer's full list is `admin:customerSnapshot`, which is scoped by
-        // the authenticated user rather than by this single slot.
+        // The customer's full list is `customerReservations:snapshot`, which is
+        // scoped by the authenticated user rather than by this single slot.
         reservationCard: publicContext,
         guardrailBanner,
       },

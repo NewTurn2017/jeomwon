@@ -30,6 +30,15 @@ const agentName = v.union(
   v.literal("escalation"),
 );
 
+const reservationAuditActor = v.union(
+  v.literal("triage"),
+  v.literal("availability"),
+  v.literal("reservation"),
+  v.literal("policy"),
+  v.literal("escalation"),
+  v.literal("operator"),
+);
+
 const publicContext = v.object({
   displayName: v.union(v.string(), v.null()),
   reservationId: v.union(v.string(), v.null()),
@@ -106,7 +115,7 @@ export default defineSchema({
       v.object({
         atMs: v.number(),
         type: v.string(),
-        actor: agentName,
+        actor: reservationAuditActor,
         summary: v.string(),
         publicMessage: v.union(v.string(), v.null()),
       }),

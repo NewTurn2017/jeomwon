@@ -4,12 +4,20 @@ import {
   domainConfig,
   getHoldDurationMs,
 } from "../../domain.config";
-import type { AgentName } from "../../src/agent-contract";
+import type {
+  AgentName,
+  ReservationAuditActor,
+} from "../../src/agent-contract";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { scheduleReservationEmail } from "../reservationEmailScheduler";
 import { hasCollision, isSlotAllowed, serviceEndMs } from "./availability";
+import {
+  customerReservationThreadReadCap,
+  isLegacyPublicReservationId,
+  publicReservationId,
+} from "./customerReservationPublicId";
 import {
   appendAudit,
   auditEvent,
@@ -24,6 +32,7 @@ import { isInsideCancelWindow } from "./policy";
 import { onSlotFreed } from "./waitlist";
 
 type CreateHoldInput = {
+  actor?: ReservationLifecycleActor;
   threadId: string;
   displayName: string | null;
   serviceKey: string;
@@ -32,9 +41,12 @@ type CreateHoldInput = {
 };
 
 type ReservationActionInput = {
+  actor?: ReservationLifecycleActor;
   threadId: string;
   reservationId: string;
 };
+
+export type ReservationLifecycleActor = "customer" | "operator";
 
 type RescheduleInput = ReservationActionInput & {
   serviceKey: string;
@@ -92,7 +104,7 @@ export async function createCustomerReservationHold(
     auditHistory: [
       auditEvent(
         "reservation.held",
-        "reservation",
+        reservationAuditActor(input.actor),
         "Slot hold created.",
         domainConfig.copy.holdCreated,
       ),
@@ -151,7 +163,7 @@ export async function confirmCustomerReservation(
       reservation.auditHistory,
       auditEvent(
         "reservation.confirmed",
-        "reservation",
+        reservationAuditActor(input.actor),
         "Customer confirmed the held slot.",
         domainConfig.copy.confirmed,
       ),
@@ -229,7 +241,7 @@ export async function cancelCustomerReservation(
       reservation.auditHistory,
       auditEvent(
         escalated ? "reservation.escalated" : "reservation.cancelled",
-        escalated ? "escalation" : "reservation",
+        cancelAuditActor(input.actor, escalated),
         escalated
           ? "Cancel request was inside the cancel window."
           : "Reservation cancelled.",
@@ -349,7 +361,7 @@ export async function rescheduleCustomerReservation(
       reservation.auditHistory,
       auditEvent(
         "reservation.rescheduled",
-        "reservation",
+        reservationAuditActor(input.actor),
         "Reservation rescheduled by customer request.",
         domainConfig.copy.rescheduled,
       ),
@@ -522,17 +534,41 @@ export async function resolveThreadReservation(
     .unique();
   const reservation =
     byNumber ??
-    (isLegacyConvexReservationId(reservationId)
-      ? await ctx.db.get(reservationId as Id<"reservations">)
-      : null);
+    (isLegacyPublicReservationId(normalized)
+      ? await resolveLegacyPublicReservation(ctx, threadId, normalized)
+      : isLegacyConvexReservationId(reservationId)
+        ? await ctx.db.get(reservationId as Id<"reservations">)
+        : null);
   if (
     !reservation ||
     reservation.domainKey !== domainConfig.domainKey ||
-    reservation.threadId !== threadId
+    reservation.threadId !== threadId ||
+    reservation.origin === "operator"
   ) {
     return null;
   }
   return reservation;
+}
+
+async function resolveLegacyPublicReservation(
+  ctx: MutationCtx,
+  threadId: string,
+  reservationId: string,
+) {
+  const rows = await ctx.db
+    .query("reservations")
+    .withIndex("by_thread", (q) => q.eq("threadId", threadId))
+    .take(customerReservationThreadReadCap + 1);
+  if (rows.length > customerReservationThreadReadCap) {
+    return null;
+  }
+  const matches = rows.filter(
+    (row) =>
+      row.domainKey === domainConfig.domainKey &&
+      row.origin !== "operator" &&
+      publicReservationId(row) === reservationId,
+  );
+  return matches.length === 1 ? matches[0] : null;
 }
 
 export async function generateUniqueReservationNumber(
@@ -640,4 +676,20 @@ function normalizeReservationNumber(value: string) {
 
 function isLegacyConvexReservationId(value: string) {
   return /^[a-z0-9]{20,}$/.test(value);
+}
+
+function reservationAuditActor(
+  actor: ReservationLifecycleActor | undefined,
+): ReservationAuditActor {
+  return actor === "operator" ? "operator" : "reservation";
+}
+
+function cancelAuditActor(
+  actor: ReservationLifecycleActor | undefined,
+  escalated: boolean,
+): ReservationAuditActor {
+  if (actor === "operator") {
+    return "operator";
+  }
+  return escalated ? "escalation" : "reservation";
 }

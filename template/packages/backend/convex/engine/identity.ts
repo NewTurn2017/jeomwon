@@ -116,12 +116,9 @@ export async function isOperator(ctx: AuthCtx, userId: Id<"users">) {
  * Flag on: their OWN derived thread. The argument is optional precisely because
  * the server does not need it; when present it is checked, not trusted.
  *
- * An operator may still name another thread. That is not a backdoor: the same
- * person can already read every transcript through `admin:dashboardSnapshot`,
- * and `admin:rescheduleCustomerReservation` / `admin:deleteSession` reach the
- * chat mutations by `ctx.runMutation`, which carries the OPERATOR's identity
- * into a CUSTOMER's thread. Without this branch, turning both flags on would
- * break the operator board.
+ * Operators do not get a public-thread exception. Admin customer actions call
+ * the deep lifecycle helper only after `ensureAdmin`, with an explicit actor and
+ * target thread, so the public chat guard remains customer-exact.
  */
 export async function resolveCustomerThreadId(
   ctx: AuthCtx,
@@ -152,10 +149,6 @@ export async function resolveCustomerThreadId(
   const ownThreadId = customerThreadId(userId);
   if (!requestedThreadId || requestedThreadId === ownThreadId) {
     return ownThreadId;
-  }
-
-  if (await isOperator(ctx, userId)) {
-    return requestedThreadId;
   }
 
   throw new Error("thread_forbidden");
