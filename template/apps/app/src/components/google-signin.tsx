@@ -5,12 +5,15 @@ import { Button } from "@jeomwon/ui/button";
 import { useConvexAuth } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import type { ReturnTo } from "@/lib/admin-routing";
 import { useScopedI18n } from "@/locales/client";
 
 export function GoogleSignin({
   devAnonymousEnabled = false,
+  returnTo = "/",
 }: {
   devAnonymousEnabled?: boolean;
+  returnTo?: ReturnTo;
 }) {
   const t = useScopedI18n("login");
   const { signIn } = useAuthActions();
@@ -23,17 +26,17 @@ export function GoogleSignin({
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace("/");
+      router.replace(returnTo);
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, returnTo, router]);
 
   async function signInWithProvider(provider: "google" | "anonymous") {
     setSigningInWith(provider);
     setErrorMessage(null);
     try {
-      const result = await signIn(provider, { redirectTo: "/" });
+      const result = await signIn(provider, { redirectTo: returnTo });
       if (result.signingIn) {
-        router.replace("/");
+        router.replace(returnTo);
       }
     } catch {
       setErrorMessage(t("signInError"));

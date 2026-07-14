@@ -5,6 +5,11 @@ import {
 } from "@convex-dev/auth/nextjs/server";
 import { domainConfig } from "@jeomwon/backend/domain.config";
 import { createI18nMiddleware } from "next-international/middleware";
+import { NextResponse } from "next/server";
+import {
+  adminLoginRedirectUrl,
+  authenticatedLoginRedirectUrl,
+} from "@/lib/admin-routing";
 
 const domainLocale = (
   {
@@ -26,18 +31,22 @@ const proxy = convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   const isAuthenticated = await convexAuth.isAuthenticated();
   const isSignIn = isSignInPage(request);
   if (isSignIn && isAuthenticated) {
-    console.log("redirecting to /", {
+    const redirectUrl = authenticatedLoginRedirectUrl(request.nextUrl);
+    console.log("redirecting authenticated login", {
       isSignIn,
       isAuthenticated,
+      pathname: redirectUrl.pathname,
     });
-    return nextjsMiddlewareRedirect(request, "/");
+    return NextResponse.redirect(redirectUrl);
   }
   if (!isSignIn && !isAuthenticated) {
     console.log("redirecting to /login", {
       isSignIn,
       isAuthenticated,
     });
-    return nextjsMiddlewareRedirect(request, "/login");
+    return request.nextUrl.pathname === "/admin"
+      ? NextResponse.redirect(adminLoginRedirectUrl(request.nextUrl))
+      : nextjsMiddlewareRedirect(request, "/login");
   }
   console.log("no redirect", {
     isSignIn,

@@ -30,6 +30,7 @@ import {
   useCurrentLocale,
   useScopedI18n,
 } from "@/locales/client";
+import type { ViewerRole } from "@/lib/admin-routing";
 
 const PolarCheckoutLink = dynamic(
   () =>
@@ -43,10 +44,12 @@ export function Navigation({
   isPolarEnabled,
   preloadedUser,
   preloadedProducts,
+  viewerRole,
 }: {
   isPolarEnabled: boolean;
   preloadedUser: Preloaded<typeof api.users.getUser>;
   preloadedProducts: ProductsPreload | null;
+  viewerRole: ViewerRole;
 }) {
   const t = useScopedI18n("navigation");
   const { signOut } = useAuthActions();
@@ -54,6 +57,7 @@ export function Navigation({
   const router = useRouter();
   const normalizedPath = pathname.replace(/^\/(ko|en)(?=\/|$)/, "") || "/";
   const isDashboardPath = normalizedPath === "/";
+  const isAdminPath = normalizedPath === "/admin";
   const isSettingsPath = normalizedPath === "/settings";
   const isBillingPath = normalizedPath === "/settings/billing";
 
@@ -218,6 +222,23 @@ export function Navigation({
             {t("dashboard")}
           </Link>
         </div>
+        {viewerRole === "operator" ? (
+          <div
+            className={cn(
+              "flex h-12 items-center border-b-2",
+              isAdminPath ? "border-primary" : "border-transparent",
+            )}
+          >
+            <Link
+              href="/admin"
+              className={cn(
+                `${buttonVariants({ variant: "ghost", size: "sm" })} text-foreground`,
+              )}
+            >
+              {t("admin")}
+            </Link>
+          </div>
+        ) : null}
         <div
           className={cn(
             "flex h-12 items-center border-b-2",

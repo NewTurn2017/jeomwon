@@ -75,6 +75,11 @@ export default {
       bookViaChat: "To change a reservation or make a new one, use the chat below.",
     },
   },
+  admin: {
+    title: "Reservation Operations",
+    description:
+      "Monitor live reservations, escalations, and agent activity in one authenticated operator surface.",
+  },
   login: {
     title: "Operator sign-in",
     description: "The operator dashboard is available only after sign-in.",
@@ -89,6 +94,7 @@ export default {
   },
   navigation: {
     dashboard: "Dashboard",
+    admin: "Admin",
     settings: "Settings",
     billing: "Billing",
     account: "Operator Account",

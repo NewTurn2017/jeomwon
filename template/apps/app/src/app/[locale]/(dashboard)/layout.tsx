@@ -2,9 +2,10 @@ import "@/components/customer-chat-widget.css";
 import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { api } from "@jeomwon/backend/convex/_generated/api";
 import { domainConfig } from "@jeomwon/backend/domain.config";
+import { jeomwonConvex } from "@jeomwon/backend/src/convex-refs";
 import { fetchQuery, preloadQuery } from "convex/nextjs";
-import { redirect } from "next/navigation";
 import { CustomerChatWidget } from "@/components/customer-chat-widget";
+import { loadViewerRole } from "@/lib/admin-routing";
 import { Navigation } from "./_components/navigation";
 
 export default async function Layout({
@@ -13,10 +14,9 @@ export default async function Layout({
   children: React.ReactNode;
 }) {
   const token = await convexAuthNextjsToken();
-  const user = await fetchQuery(api.users.getUser, {}, { token });
-  if (!user?.username) {
-    return redirect("/onboarding");
-  }
+  const viewerRole = await loadViewerRole(() =>
+    fetchQuery(jeomwonConvex.admin.viewerRole, {}, { token }),
+  );
   const preloadedUser = await preloadQuery(api.users.getUser, {}, { token });
   const preloadedProducts = domainConfig.features.polar
     ? await preloadQuery(api.subscriptions.listAllProducts, {}, { token })
@@ -27,6 +27,7 @@ export default async function Layout({
         isPolarEnabled={domainConfig.features.polar}
         preloadedUser={preloadedUser}
         preloadedProducts={preloadedProducts}
+        viewerRole={viewerRole}
       />
       {children}
       {/*

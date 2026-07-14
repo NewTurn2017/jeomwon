@@ -74,6 +74,11 @@ export default {
       bookViaChat: "예약 변경이나 새 예약은 아래 채팅으로 문의하세요.",
     },
   },
+  admin: {
+    title: "예약 관제",
+    description:
+      "실시간 예약 상태, 에스컬레이션, 에이전트 활동을 한 화면에서 확인합니다.",
+  },
   login: {
     title: "운영자 로그인",
     description: "운영 대시보드는 로그인 후에만 접근할 수 있습니다.",
@@ -87,6 +92,7 @@ export default {
   },
   navigation: {
     dashboard: "대시보드",
+    admin: "관리자",
     settings: "설정",
     billing: "결제",
     account: "운영자 계정",
