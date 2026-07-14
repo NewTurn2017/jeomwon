@@ -1,294 +1,66 @@
-![hero](image.png)
+# Pension Stay — jeomwon 생성 샘플
 
+이 디렉터리는 [jeomwon](https://github.com/NewTurn2017/jeomwon) 킷의 **셀프 증명 샘플**입니다.
+`skill/EXAMPLES.md`의 Pension Stay 도메인 팩(일 단위 숙박, `room` 리소스, 체크인 15:00 / 체크아웃 11:00)을
+`bootstrap.mjs`에 넣어 실제로 생성한 결과물을 그대로 커밋했습니다. 템플릿에서 주기적으로
+재생성하므로 최신 `template/`보다 뒤처질 수 있습니다.
 
-<p align="center">
-	<h1 align="center"><b>Pension Stay</b></h1>
-<p align="center">
-    An open-source starter kit based on an <a href="https://v1.run">open-source starter kit</a> by <a href="https://midday.ai">Midday</a>. Ported to <a href="https://convex.dev">Convex</a>.
-    <br />
-    <br />
-    <a href="https://convex-v1.run"><strong>Website</strong></a> ·
-    <a href="https://github.com/get-convex/v1/issues"><strong>Issues</strong></a> ·
-    <a href="#whats-included"><strong>What's included</strong></a> ·
-    <a href="#prerequisites"><strong>Prerequisites</strong></a> ·
-    <a href="#getting-started"><strong>Getting Started</strong></a> ·
-    <a href="#deployment"><strong>Deploying to Production</strong></a>
-  </p>
-</p>
+고객은 공개 웹 페이지에서 채팅으로 숙박 예약을 문의하고, 운영자는 관리자 앱에서
+예약 상태와 확인 필요 요청을 관리합니다. 슬롯 충돌·홀드·취소 기한 같은 불변식은
+전부 Convex mutation 안에서 강제됩니다.
 
-Everything you need to build a production ready SaaS, it's an opinionated stack
-using Convex and the latest Next.js framework, a monorepo with a focus on code
-reuse and best practices that will grow with your business.
+## 구성
 
-## What's included
-
-[Convex](https://convex.dev/) - Authentication, database, storage, background jobs, validated server actions, cache, rate limiting<br>
-[Next.js](https://nextjs.org/) - Framework<br>
-[Turborepo](https://turbo.build) - Build system<br>
-[Biome](https://biomejs.dev) - Linter, formatter<br>
-[TailwindCSS](https://tailwindcss.com/) - Styling<br>
-[Shadcn](https://ui.shadcn.com/) - UI components<br>
-[TypeScript](https://www.typescriptlang.org/) - Type safety<br>
-[React Email](https://react.email/) - Email templates<br>
-[Resend](https://resend.com/) - Email delivery<br>
-[i18n](https://next-international.vercel.app/) - Internationalization<br>
-[Polar](https://polar.sh) - Billing<br>
-[nuqs](https://nuqs.47ng.com/) - Type-safe search params state manager<br>
-[next-themes](https://next-themes-example.vercel.app/) - Theme manager<br>
-
-## Directory Structure
-
-```
-.
-├── apps                         # App workspace
-│    ├── app                     # App - your product
-│    ├── web                     # Marketing site
-│    └── ...
-├── packages                     # Shared packages between apps
-│    ├── backend                 # Convex (API, Auth, Database, Storage, Background Jobs, Validated Server Actions, Cache, Rate Limiting)
-│    ├── email                   # React email library
-│    └── ui                      # Shared UI components (Shadcn)
-├── tooling                      # are the shared configuration that are used by the apps and packages
-│    └── typescript              # Shared TypeScript configuration
-├── .cursorrules                 # Cursor rules specific to this project
-├── biome.json                   # Biome configuration
-├── turbo.json                   # Turbo configuration
-├── LICENSE
-└── README.md
+```text
+apps/web         고객용 예약 웹 앱
+apps/app         운영자 관리자 앱
+packages/backend Convex 함수, 예약 도메인 설정, 에이전트 도구
+packages/agents  예약 에이전트 런타임 연결
+packages/email   예약 및 구독 이메일 템플릿
+packages/ui      Tailwind v4 + shadcn 기반 공용 UI
+tooling          공유 TypeScript 설정
 ```
 
-## Prerequisites
+## 직접 생성해 보기
 
-### Bun
-
-Bun is the only prerequisite you need to install before getting started.
-
-To install Bun, please follow the official installation instructions:
-
-[Bun Installation Guide](https://bun.sh/docs/installation)
-
-
-## Getting Started
-
-You have two options to create a new Pension Stay project:
-
-### Option 1: Using the CLI (Recommended)
-
-To create a new Pension Stay project using our CLI tool, run:
+이 샘플과 같은 프로젝트를 새로 만들려면 킷 루트에서 한 줄이면 됩니다:
 
 ```bash
-bun create @convex-dev/v1@latest
+bun skill/scripts/bootstrap.mjs my-pension pension-stay skill-domain-pack.json
 ```
 
-This command will guide you through the process of setting up your project, including:
+도메인 팩 JSON은 `skill/EXAMPLES.md`의 Pension Stay 섹션에 있습니다.
 
-1. Creating a new directory for your project
-2. Cloning the v1 repository
-3. Installing dependencies
-4. Initializing a git repository
-5. Setting up the Convex backend
-6. Configuring authentication
-7. Setting up environment variables
-8. Adding test products to Polar
-9. Seeding the database for subscriptions
-
-After the setup is complete, you can start your development server by running:
+## 실행
 
 ```bash
-cd your-project-name
-bun dev
+bun install
+bun setup        # Convex 프로비저닝, JWT 키 생성, Google OAuth / Resend / OpenAI 안내
+bun dev          # web + app + backend 병렬 실행
 ```
 
-### Option 2: Manual Setup
+개별 앱만 실행하려면 `bun dev:web` 또는 `bun dev:app`을 사용합니다.
 
-If you prefer to set up the project manually, follow these steps:
+## 주요 설정
 
-1. Clone the repository:
-   ```bash
-   bunx degit get-convex/v1 pension-stay
-   cd pension-stay
-   ```
+상점명, 서비스, 리소스, 영업 시간, 예약 정책, 고객 안내 문구는
+`packages/backend/domain.config.ts`에서 관리합니다. 고객용 웹 앱은 이 설정의
+공개 정보만 읽어 화면과 메타데이터를 구성합니다.
 
-2. Install dependencies:
-   ```bash
-   bun install
-   ```
-
-3. Initialize git repository:
-   ```bash
-   git init && git commit -am 'initial commit'
-   ```
-
-4. Run the setup wizard:
-   ```bash
-   bun setup
-   ```
-   This provisions Convex, prints the Google OAuth redirect URI, configures
-   Resend/OpenAI, and shows Polar only when the generated domain enables it.
-   Secrets are entered interactively and are never printed.
-
-5. Follow the Google OAuth instructions printed by the wizard.
-
-6. If you prefer to set up services manually or want more control over the process, refer to the [Detailed Service Setup Instructions](#detailed-service-setup-instructions) section below.
-
-7. Initialize Polar products and seed database only when Polar is enabled:
-   ```bash
-   cd packages/backend
-   bunx convex run init
-   ```
-
-8. Start the development server:
-   ```bash
-   bun dev
-   ```
-   This starts everything in development mode (web, app, api, email).
-
-   Alternatively, you can start specific apps:
-   - `bun dev:web`: starts the web app
-   - `bun dev:app`: starts the app
-
-## Detailed Service Setup Instructions
-
-<details>
-<summary>Click to expand detailed setup instructions</summary>
-
-If you choose to manually set up services and environment variables, follow these steps for each service:
-
-### Convex
-
-1. Create a new project at https://dashboard.convex.dev
-2. Obtain your Convex URL from the dashboard under 'Settings' > 'URL & Deploy Key'
-3. Add the following to `apps/web/.env.local` and `apps/app/.env.local`:
-   ```
-   # The Convex URL from the dashboard. It should look like 'https://example-123.convex.cloud'
-   NEXT_PUBLIC_CONVEX_URL=https://foobar-42.convex.cloud
-   ```
-4. Set the following as a Convex environment variable:
-   ```
-   # The public marketing site URL used in backend email templates and server-side links
-   SITE_URL=http://localhost:3001
-   ```
-
-### Resend
-
-1. Create an account at https://resend.com
-2. Set the following as Convex environment variables:
-   ```
-   # The API key from Resend dashboard under 'API Keys'. Starts with 're_'
-   RESEND_API_KEY=<resend-api-key>
-
-   # (Optional) The email address you want to use as the sender for authentication emails
-   # Make sure it's verified in your Resend account under 'Domains'
-   RESEND_SENDER_EMAIL_AUTH=auth@yourdomain.com
-   ```
-
-### Polar
-
-1. Set up an account at https://polar.sh
-   _Note: If you're just testing, be sure to switch to Sandbox via the top left dropdown in the dashboard before proceeding._
-2. Set the following as Convex environment variables:
-   ```
-   # Generate this in Polar dashboard under 'Account' > 'Developer settings'
-
-   # Required permissions:
-   # products:read, products:write,
-   # subscriptions:read, subscriptions:write,
-   # customers:read, customers:write,
-   # checkouts:read, checkouts:write,
-   # checkout_links:read, checkout_links:write,
-   # customer_portal:read, customer_portal:write,
-   # customer_sessions:write
-   POLAR_ORGANIZATION_TOKEN=<polar-organization-token>
-
-   # Create a webhook in Polar dashboard under 'Settings' > 'Webhooks'
-   # The webhook should point to: https://your-convex-deployment.convex.site/polar/events
-   POLAR_WEBHOOK_SECRET=<polar-webhook-secret>
-   ```
-
-### Cal.com (Optional)
-
-1. Set up your Cal.com account
-2. Add the following to `apps/web/.env.local`:
-   ```
-   # Your public Cal.com link, e.g., 'https://cal.com/yourusername'
-   NEXT_PUBLIC_CAL_LINK=https://cal.com/your-username
-   ```
-
-### Loops (Optional)
-
-1. Set up an account at https://loops.so
-2. Set the following as a Convex environment variable:
-   ```
-   # The ID of the Loops form you want to use, found in the Loops dashboard
-   LOOPS_FORM_ID=foobarfoobar42
-   ```
-
-### Google Authentication
-
-1. Set up Google OAuth 2.0 credentials following the guide at https://support.google.com/cloud/answer/6158849?hl=en
-2. Set the following as Convex environment variables:
-   ```
-   # The client ID from your Google OAuth 2.0 credentials
-   AUTH_GOOGLE_ID=<google-oauth-client-id>
-
-   # The client secret from your Google OAuth 2.0 credentials
-   AUTH_GOOGLE_SECRET=<google-oauth-client-secret>
-   ```
-3. Set up the authorized redirect URI in your Google Cloud Console:
-   - Use your Convex deployment's HTTP Actions URL with the path '/api/auth/callback/google'
-   - Example: 'https://your-convex-deployment.convex.site/api/auth/callback/google'
-   - You can find your Convex deployment's HTTP Actions URL in the Convex dashboard under 'Settings' > 'URL & Deploy Key'
-4. Add both http://localhost:3000 and http://localhost:3001 to the list of authorized JavaScript origins for local development.
-
-### Dev-only Anonymous Authentication
-
-For browser QA on a dev deployment, operators may explicitly opt in to the
-Anonymous provider by setting `AUTH_DEV_ANONYMOUS=1` on the Convex deployment:
+## 개발 검증
 
 ```bash
-npx convex env set -- AUTH_DEV_ANONYMOUS 1
+bun typecheck
+bun lint
+bun run qa       # 라이브 QA 게이트
 ```
 
-Set the same variable on the app server environment only when you want the login
-page to show the dev-only anonymous sign-in button. Never set this variable on a
-production Convex or app deployment; setup wizards and deployment docs must keep
-this shortcut dev-only.
+이 샘플 세대의 `qa`는 러너 직접 실행형입니다 — 로컬 앱(`bun dev`)과 Convex dev
+배포가 준비된 상태에서 실행하세요. QA는 `dev:` 배포가 아니면 실행을 거부합니다 —
+해당 도메인의 예약·챗 데이터를 초기화하기 때문입니다. 자세한 QA 규약은 킷 루트
+README를 참고하세요.
 
-QA runs reset persistent dev data only when the Convex deployment has `JEOMWON_QA_RESET=1` and the local runner has `CONVEX_DEPLOY_KEY`; never set `JEOMWON_QA_RESET` in production.
+## 라이선스
 
-After setting up all required services and environment variables, run `bun setup`
-again to verify idempotency or start the local apps with the localhost commands
-above.
-
-For more detailed information on each component, refer to their respective documentation linked in the "What's included" section above.
-</details>
-
-## Deployment
-
-To deploy your Pension Stay project to production, follow these steps:
-
-### Deploying to Vercel
-
-This repo contains two Next.js apps, you can deploy one or both to Vercel. Each
-would be a separate Vercel project.
-
-Steps to deploy a Vercel project with Convex can be found
-[here](https://docs.convex.dev/production/hosting/vercel#deploying-to-vercel).
-
-
-### Production Environment Variables
-
-- **NEXT_PUBLIC_APP_URL**
-  _Optional for apps/web_
-  This is the URL for your deployed app, e.g., `https://your-app.vercel.app`.
-  It is used by the marketing site to link to the app.
-
-- **NEXT_PUBLIC_CONVEX_URL**
-  _Required for both apps_
-  This is the URL for your deployed Convex instance, e.g.,
-  `https://your-project-name.convex.cloud`.
-
-- **SITE_URL**
-  _Required for the Convex backend_
-  This is the public marketing site URL used in backend email templates and
-  server-side links, e.g., `https://your-site.vercel.app`.
+킷 루트의 [MIT LICENSE](../../LICENSE)를 따르며, 파생원(get-convex/v1)의
+원저작권 고지는 `LICENSE.md`에 유지됩니다.

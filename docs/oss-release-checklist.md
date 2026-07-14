@@ -20,7 +20,7 @@
 ## 권고 (차단 아님)
 
 - [ ] `docs/superpowers/specs/2026-07-09-m3-primitives-design.md`에 Convex dev 배포명(`dev:adamant-mole-272`)이 남음 — 키가 아닌 이름뿐이라 저위험. 역사 관측 문서라 본문 정정 대신 **공개 전 배포 재생성**(또는 감수) 권장. 같은 배포명이 dev 운영 중이므로 재생성 시 setup 재실행 필요.
-- [ ] `START-HERE.md`(세션 인계 톤)·`VISION.md`·`FEATURES.md`(내부 로드맵)가 루트에 노출 — 내용상 무해하나 공개 첫인상 관점에서 `docs/` 이동 또는 톤 정리 검토.
+- [x] `START-HERE.md`(세션 인계 톤) 루트 노출 — 2026-07-14 `docs/dev-kickoff.md`로 이동 + 메인테이너 노트 헤더 명시. `VISION.md`·`FEATURES.md`는 공개 로드맵/기능 명세 성격이라 루트 유지.
 - [x] README의 Next.js 버전 문구와 코드 실버전 일치 여부 확인 — 2026-07-13 확인: README "Next.js 16" = 실버전 `^16.2.10`, 일치.
 - [x] package.json license 필드 — 2026-07-13 루트 LICENSE와 함께 16개 전부 MIT로 정리.
 - [x] dev 배포(adamant-mole-272)의 JWT 키 로컬 세션 로그 노출 건 — 2026-07-13 RS256 키쌍 재생성 후 `JWT_PRIVATE_KEY`/`JWKS` 교체(값 비출력), 라이브 QA 9게이트 통과로 검증.

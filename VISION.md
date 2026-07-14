@@ -27,11 +27,11 @@
 ### 2.2 이미 되는 것 (골격 기능)
 - 챗 기반 예약 수명주기: 가용성 → 홀드 → 확정 → 변경 → 취소 → 에스컬레이션.
 - 가드레일: relevance/privacy/confirmation, 공개-내부 컨텍스트 분리.
-- 관리자 위젯 필드: `calendar` / `seatGrid` (팩·데이터 경로만 — 대시보드 렌더 미반영, 2.3·`apps/app/README.md` 참고).
+- 관리자 위젯 필드: `calendar` / `seatGrid` (`AdminWidgetBoard`가 대시보드에서 분기 렌더 — `apps/app/README.md` 참고).
 - 라이프사이클 메일: capture(키 없음) / sent(Resend).
 - 인증: Google OAuth + 익명 dev 로그인.
 - 선택 결제: Polar (features.polar).
-- 9게이트 QA + 오프라인 verify 게이트.
+- 11게이트 QA + 오프라인 verify 게이트.
 - 리소스 4종(person/seat/room/unit) × slot 3종(minutes:30/hour/day) × 위젯 2종.
 
 ### 2.3 알려진 한계·버그 (이번 세션 발견)
@@ -87,7 +87,7 @@
 - pre-built core, minimal-change 사용.
 - 모듈식·조합 가능 — 켜고/붙이고/조합.
 - 스킬-가이드 안전 확장 — 불변식(Session Rules) 상속.
-- 검증된 채 출고 — verify + 9게이트 QA는 모든 경로에 유지.
+- 검증된 채 출고 — verify + 11게이트 QA는 모든 경로에 유지.
 - 비밀은 팩 밖 · setup에만.
 
 ---

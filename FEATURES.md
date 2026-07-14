@@ -135,7 +135,7 @@ tooling            공유 TypeScript 설정
 
 ## 10. 검증
 
-**9게이트 QA** (`scripts/qa.ts`, `bun run qa` = `scripts/qa-local.ts` 오케스트레이터로 원커맨드):
+**11게이트 QA** (`scripts/qa.ts`, `bun run qa` = `scripts/qa-local.ts` 오케스트레이터로 원커맨드):
 
 | # | 이름 | 확인 |
 |---|------|------|
@@ -148,6 +148,8 @@ tooling            공유 TypeScript 설정
 | 7 | 홀드 만료 전이 | 홀드 → `expired` (`JEOMWON_TEST_HOLD_MS`) |
 | 8 | 메일 capture 모드 | confirmed/cancelled/(escalated)/rescheduled `email.captured` |
 | 9 | 대기자 접수·알림 | `features.waitlist=false`면 SKIP, on이면 포화→0슬롯→`waitlisted` row→슬롯 해제→`waitlist.slotOpened` + `reservation.waitlist_opened` |
+| 10 | 운영자 캘린더 CRUD 경계 | `features.operatorCalendarCrud=false`면 SKIP, on이면 미인증 create/update/delete가 `admin_auth_required`로 fail-closed (전체 인증 왕복은 브라우저 게이트 소관) |
+| 11 | 고객 계정 경계 | `features.customerAccounts=false`면 SKIP, on이면 미인증 `customerSnapshot`·타인 thread `publicState`가 `auth_required`로 fail-closed |
 
 QA는 business-hours-aware — cancel-window 오프셋을 엔진 순수 헬퍼(`nextAllowedSlotStart`/`insideCancelFeasible`)로 실제 열린 슬롯에 앵커, 불가능한 실행시각엔 게이트 2·8을 결정론 SKIP.
 
@@ -161,7 +163,7 @@ QA는 business-hours-aware — cancel-window 오프셋을 엔진 순수 헬퍼(`
 
 - **리소스 4종** — `person` / `seat` / `room` / `unit`.
 - **슬롯 3종** — `minutes:30` / `hour` / `day`(day는 체크인/체크아웃 시각·라벨 필요).
-- **위젯 필드 2종** — `calendar` / `seatGrid` (팩·데이터 경로만, 대시보드 렌더 미반영 — 6절 참고).
+- **위젯 필드 2종** — `calendar` / `seatGrid` (`AdminWidgetBoard`가 대시보드에서 분기 렌더 — 6절 참고).
 - **정책** — `cancelWindowHours` · `holdMinutes` · `confirmationRequired`(항상 `true`).
 - **기능 토글** — `features.email` · `features.polar` · `features.waitlist`.
 - **대기자 매트릭스** — `waitlist=false`: gate 9 SKIP, 슬롯 0개 기존 경로 유지. `waitlist=true`: gate 9 PASS 대상, notify-only 접수·알림 활성.

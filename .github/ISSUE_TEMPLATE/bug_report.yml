@@ -1,0 +1,38 @@
+name: 버그 리포트 / Bug report
+description: 킷(스킬·스크립트·template)이 기대와 다르게 동작할 때
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: surface
+    attributes:
+      label: 어디서 났나요? / Where?
+      options:
+        - skill/ 스크립트 (bootstrap·scaffold·inject·verify)
+        - template/ (생성 전 원본)
+        - 생성된 프로젝트 (bootstrap 결과물)
+        - bun setup 위저드
+        - QA 게이트 (bun run qa)
+        - 문서
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 재현 절차 / Steps to reproduce
+      description: 실행한 명령을 순서대로. 도메인 팩이 관련되면 팩 JSON(시크릿 제외)을 함께.
+      placeholder: |
+        1. bun skill/scripts/bootstrap.mjs ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대한 동작 vs 실제 동작 / Expected vs actual
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: 환경 / Environment
+      placeholder: "OS, bun 버전(bun --version), 레포 커밋 또는 스킬 설치 방식"

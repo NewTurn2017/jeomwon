@@ -800,6 +800,8 @@ This catalog is the exhaustive `resourceKind × slotUnit × adminWidget` univers
 
 After the three showcase promotions the catalog covers 6/24 cells. Adding the kit-authored `equipment-rental` pack — which supplies `unit × minutes:30 × calendar` and `unit × day × calendar` — brought coverage to 8/24. Adding the kit-authored `pilates-studio` pack — which supplies `person × hour × calendar` — brings coverage to 9/24, leaving 15 gaps.
 
+**Every `gap` cell below is an open contribution** — a new vertical's pack that fills one is the best first PR. The workflow (propose → author → `bootstrap.mjs` proof → update this catalog) is in [CONTRIBUTING.md](../CONTRIBUTING.md); the field contract is in [REFERENCE.md](REFERENCE.md).
+
 <!-- matrix:start -->
 | Resource kind | Slot unit | calendar | seatGrid |
 | --- | --- | --- | --- |
