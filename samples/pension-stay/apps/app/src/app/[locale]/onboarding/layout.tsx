@@ -1,18 +1,16 @@
-import Image from "next/image";
-
 export default async function Layout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative flex h-screen w-full bg-card">
-      <div className="absolute left-1/2 top-8 mx-auto -translate-x-1/2 transform justify-center">
-        <Image src="/logo.png" alt="logo" width={100} height={100} />
+    <div className="relative flex min-h-screen w-full bg-muted/40">
+      <div className="absolute top-8 left-1/2 mx-auto -translate-x-1/2 transform justify-center">
+        <div className="rounded-md border border-border bg-card px-3 py-2 font-semibold text-foreground text-sm">
+          Jeomwon
+        </div>
       </div>
-      <div className="z-10 h-screen w-screen">{children}</div>
-      <div className="base-grid fixed h-screen w-screen opacity-40" />
-      <div className="fixed bottom-0 h-screen w-screen bg-gradient-to-t from-[var(--card)] to-transparent" />
+      <div className="z-10 min-h-screen w-full">{children}</div>
     </div>
   );
 }

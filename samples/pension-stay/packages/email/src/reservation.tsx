@@ -15,6 +15,7 @@ export const reservationEmailKinds = [
   "reservation.rescheduled",
   "reservation.cancelled",
   "reservation.escalated",
+  "reservation.waitlist_opened",
 ] as const;
 
 export type ReservationEmailKind = (typeof reservationEmailKinds)[number];
@@ -117,6 +118,19 @@ export function ReservationEscalatedEmail({ context }: ReservationEmailProps) {
       title="운영자 확인 접수 안내"
       preview={`${context.storeName} 운영자 확인 요청이 접수되었습니다.`}
       lead={context.copy.cancelEscalated}
+    />
+  );
+}
+
+export function ReservationWaitlistOpenedEmail({
+  context,
+}: ReservationEmailProps) {
+  return (
+    <ReservationEmailLayout
+      context={context}
+      title="대기 고객 예약 가능 안내"
+      preview={`${context.storeName} 대기 고객에게 예약 가능 알림이 필요합니다.`}
+      lead="대기 고객에게 예약 가능한 자리가 열렸습니다."
     />
   );
 }
@@ -241,6 +255,8 @@ function emailElement(
       return <ReservationCancelledEmail context={context} />;
     case "reservation.escalated":
       return <ReservationEscalatedEmail context={context} />;
+    case "reservation.waitlist_opened":
+      return <ReservationWaitlistOpenedEmail context={context} />;
     default:
       return assertNever(kind);
   }
@@ -256,6 +272,8 @@ function subjectForKind(kind: ReservationEmailKind, storeName: string) {
       return `[${storeName}] 예약이 취소되었습니다`;
     case "reservation.escalated":
       return `[${storeName}] 운영자 확인 요청이 접수되었습니다`;
+    case "reservation.waitlist_opened":
+      return `[${storeName}] 대기 고객에게 예약 가능 알림이 필요합니다`;
     default:
       return assertNever(kind);
   }

@@ -1,5 +1,10 @@
 import { v } from "convex/values";
-import { domainConfig, getHoldDurationMs } from "../domain.config";
+import {
+  type DomainResource,
+  type DomainService,
+  domainConfig,
+  getHoldDurationMs,
+} from "../domain.config";
 import type { AgentName, PublicSlot } from "../src/agent-contract";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -12,22 +17,27 @@ import {
 } from "./_generated/server";
 import {
   alignToSlot,
-  appendAudit,
-  auditEvent,
   buildSlot,
-  defaultGuardrailStatus,
-  defaultPublicContext,
   firstSearchStart,
   hasCollision,
-  isInsideCancelWindow,
   isSlotAllowed,
+  serviceEndMs,
+  slotStepMs,
+} from "./engine/availability";
+import { assertThreadAccess } from "./engine/identity";
+import {
+  appendAudit,
+  auditEvent,
+  defaultGuardrailStatus,
+  defaultPublicContext,
+  isActiveReservation,
   publicContextFromReservation,
   resourceByKey,
   resourcesForService,
   serviceByKey,
-  serviceEndMs,
-  slotStepMs,
-} from "./jeomwonLib";
+} from "./engine/lifecycle";
+import { isInsideCancelWindow } from "./engine/policy";
+import { onSlotFreed } from "./engine/waitlist";
 import { scheduleReservationEmail } from "./reservationEmailScheduler";
 
 const publicSlotValidator = v.object({
@@ -40,12 +50,25 @@ const publicSlotValidator = v.object({
   timeWindow: v.string(),
 });
 
+// Every function below is a PUBLIC Convex function whose only scoping is the
+// caller-supplied `threadId`. `assertThreadAccess` is what makes that string
+// safe to act on once accounts exist: with `features.customerAccounts` on, the
+// caller's thread is re-derived from their authenticated identity and the
+// argument is compared against it, so passing someone else's thread fails
+// instead of working. With the flag off the guard returns immediately and these
+// mutations behave byte-for-byte as they did before.
+//
+// The guard runs FIRST in each handler — before any read or write — so an
+// unauthorized caller cannot even provoke a row to be created (`ensureThread`
+// inserts on miss).
+
 export const logUserMessage = mutation({
   args: {
     threadId: v.string(),
     message: v.string(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     await ensureThread(ctx, args.threadId, "triage");
     await appendChatEvent(ctx, {
       threadId: args.threadId,
@@ -73,6 +96,7 @@ export const logAssistantMessage = mutation({
     publicPayload: v.any(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     await ensureThread(ctx, args.threadId, args.agent);
     await appendChatEvent(ctx, {
       threadId: args.threadId,
@@ -98,6 +122,7 @@ export const recordGuardrail = mutation({
     status: v.literal("draft"),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const thread = await ensureThread(ctx, args.threadId, "triage");
     const guardrailStatus = {
       ...thread.guardrailStatus,
@@ -138,43 +163,19 @@ export const searchAvailability = query({
     count: v.number(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const resources = await publicResources(ctx);
     const service = serviceByKey(args.serviceKey);
     const resourceCandidates =
       args.resourceKey !== null
         ? [resourceByKey(args.resourceKey, service, resources)]
         : resourcesForService(service, resources);
-    const reservations = await ctx.db
-      .query("reservations")
-      .withIndex("by_domain_status_time", (q) =>
-        q.eq("domainKey", domainConfig.domainKey),
-      )
-      .collect();
-    const slots: PublicSlot[] = [];
-    const startSearch = firstSearchStart(args.preferredStartMs, service);
-    const stepMs = slotStepMs(service);
-    const horizonMs = startSearch + 21 * 24 * 60 * 60 * 1000;
-
-    for (
-      let cursorMs = startSearch;
-      cursorMs < horizonMs && slots.length < Math.max(1, args.count);
-      cursorMs += stepMs
-    ) {
-      const alignedStartMs = alignToSlot(cursorMs, service);
-      for (const resource of resourceCandidates) {
-        const endMs = serviceEndMs(service, alignedStartMs);
-        if (!isSlotAllowed(alignedStartMs, endMs, service)) {
-          continue;
-        }
-        if (hasCollision(reservations, resource.key, alignedStartMs, endMs)) {
-          continue;
-        }
-        slots.push(buildSlot(service, resource, alignedStartMs));
-        if (slots.length >= Math.max(1, args.count)) {
-          break;
-        }
-      }
-    }
+    const slots = await findAvailableSlots(ctx, {
+      service,
+      resourceCandidates,
+      preferredStartMs: args.preferredStartMs,
+      count: args.count,
+    });
 
     return { slots };
   },
@@ -188,6 +189,7 @@ export const recordAvailability = mutation({
     reservationId: v.union(v.string(), v.null()),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const thread = await ensureThread(ctx, args.threadId, "availability");
     const publicContext = {
       ...thread.publicContext,
@@ -221,12 +223,135 @@ export const recordAvailability = mutation({
   },
 });
 
+export const joinWaitlist = mutation({
+  args: {
+    threadId: v.string(),
+    serviceKey: v.union(v.string(), v.null()),
+    resourceKey: v.union(v.string(), v.null()),
+    preferredStartMs: v.union(v.number(), v.null()),
+  },
+  handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
+    if (!domainConfig.features.waitlist) {
+      throw new Error("waitlist_disabled");
+    }
+
+    const resources = await publicResources(ctx);
+    const service = strictServiceByKey(args.serviceKey);
+    const resource = strictResourceByKey(args.resourceKey, service, resources);
+    const resourceCandidates =
+      args.resourceKey !== null
+        ? [resource]
+        : resourcesForService(service, resources);
+    const now = Date.now();
+    const startMs = firstSearchStart(args.preferredStartMs, service);
+    const endMs = serviceEndMs(service, startMs);
+    const existing = await ctx.db
+      .query("reservations")
+      .withIndex("by_thread", (q) => q.eq("threadId", args.threadId))
+      .collect()
+      .then((reservations) =>
+        reservations.find(
+          (reservation) =>
+            reservation.domainKey === domainConfig.domainKey &&
+            reservation.status === "waitlisted" &&
+            reservation.serviceKey === service.key &&
+            reservation.resourceKey === resource.key,
+        ),
+      );
+    if (existing) {
+      const publicContext = {
+        ...publicContextFromReservation(existing),
+        nextStep: "운영자 확인 가능한 대기 요청으로 접수할 수 있습니다.",
+      };
+      const thread = await ensureThread(ctx, args.threadId, "availability");
+      await ctx.db.patch(thread._id, {
+        activeAgent: "availability",
+        publicContext,
+        guardrailBanner: null,
+        suggestedSlots: [],
+        updatedAtMs: now,
+      });
+      return { publicContext };
+    }
+
+    const availableSlots = await findAvailableSlots(ctx, {
+      service,
+      resourceCandidates,
+      preferredStartMs: args.preferredStartMs,
+      count: 1,
+    });
+    if (availableSlots.length > 0) {
+      throw new Error("waitlist_availability_exists");
+    }
+
+    const reservationNumber = await generateUniqueReservationNumber(ctx, now);
+    const reservationId = await ctx.db.insert("reservations", {
+      domainKey: domainConfig.domainKey,
+      threadId: args.threadId,
+      reservationNumber,
+      displayName: null,
+      serviceKey: service.key,
+      serviceLabel: service.label,
+      resourceKey: resource.key,
+      resourceLabel: resource.label,
+      startMs,
+      endMs,
+      status: "waitlisted",
+      holdExpiresAtMs: null,
+      // Server-set, never from client args. The operator board reads `origin` —
+      // and nothing else — to tell its own sessions from a customer's row.
+      origin: "customer",
+      auditHistory: [
+        auditEvent(
+          "waitlist.joined",
+          "availability",
+          "Customer joined the waitlist.",
+          "운영자 확인 가능한 대기 요청으로 접수할 수 있습니다.",
+        ),
+      ],
+      createdAtMs: now,
+      updatedAtMs: now,
+    });
+    const reservation = await ctx.db.get(reservationId);
+    if (!reservation) {
+      throw new Error("waitlist_insert_failed");
+    }
+
+    const publicContext = {
+      ...publicContextFromReservation(reservation),
+      nextStep: "운영자 확인 가능한 대기 요청으로 접수할 수 있습니다.",
+    };
+    const thread = await ensureThread(ctx, args.threadId, "availability");
+    await ctx.db.patch(thread._id, {
+      activeAgent: "availability",
+      publicContext,
+      guardrailBanner: null,
+      suggestedSlots: [],
+      updatedAtMs: now,
+    });
+    await appendChatEvent(ctx, {
+      threadId: args.threadId,
+      type: "waitlist.joined",
+      role: "system",
+      agent: "availability",
+      message: "Waitlist request recorded.",
+      publicPayload: {
+        reservationId: publicContext.reservationId,
+      },
+    });
+
+    return { publicContext };
+  },
+});
+
 export const lookupReservation = mutation({
   args: {
     threadId: v.string(),
     reservationId: v.string(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const thread = await ensureThread(ctx, args.threadId, "reservation");
     const reservation = await resolveThreadReservation(
       ctx,
@@ -270,6 +395,7 @@ export const createHold = mutation({
     endMs: v.number(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const resources = await publicResources(ctx);
     const service = serviceByKey(args.serviceKey);
     const resource = resourceByKey(args.resourceKey, service, resources);
@@ -310,6 +436,9 @@ export const createHold = mutation({
       endMs: args.endMs,
       status: "held",
       holdExpiresAtMs,
+      // Server-set, never from client args. The operator board reads `origin` —
+      // and nothing else — to tell its own sessions from a customer's row.
+      origin: "customer",
       auditHistory: [
         auditEvent(
           "reservation.held",
@@ -362,6 +491,7 @@ export const confirmReservation = mutation({
     confirmed: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const thread = await ensureThread(ctx, args.threadId, "reservation");
     if (!args.confirmed) {
       return { publicContext: thread.publicContext };
@@ -448,6 +578,7 @@ export const cancelReservation = mutation({
     requestedAtMs: v.number(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const thread = await ensureThread(ctx, args.threadId, "reservation");
     const reservation = await resolveThreadReservation(
       ctx,
@@ -458,6 +589,7 @@ export const cancelReservation = mutation({
       throw new Error("reservation_not_found");
     }
 
+    const freesActiveSlot = isActiveReservation(reservation);
     const escalated = isInsideCancelWindow(
       reservation.startMs,
       args.requestedAtMs,
@@ -509,6 +641,14 @@ export const cancelReservation = mutation({
       threadId: args.threadId,
       publicContext,
     });
+    if (freesActiveSlot) {
+      await onSlotFreed(ctx, {
+        serviceKey: reservation.serviceKey,
+        resourceKey: reservation.resourceKey,
+        startMs: reservation.startMs,
+        endMs: reservation.endMs,
+      });
+    }
 
     return { publicContext, escalated };
   },
@@ -525,6 +665,7 @@ export const rescheduleReservation = mutation({
     requestedAtMs: v.number(),
   },
   handler: async (ctx, args) => {
+    await assertThreadAccess(ctx, args.threadId);
     const thread = await ensureThread(ctx, args.threadId, "reservation");
     const reservation = await resolveThreadReservation(
       ctx,
@@ -574,6 +715,13 @@ export const rescheduleReservation = mutation({
       throw new Error("slot_conflict");
     }
 
+    const freedSlot = {
+      serviceKey: reservation.serviceKey,
+      resourceKey: reservation.resourceKey,
+      startMs: reservation.startMs,
+      endMs: reservation.endMs,
+    };
+
     await ctx.db.patch(reservation._id, {
       serviceKey: service.key,
       serviceLabel: service.label,
@@ -622,6 +770,7 @@ export const rescheduleReservation = mutation({
       threadId: args.threadId,
       publicContext,
     });
+    await onSlotFreed(ctx, freedSlot);
 
     return { publicContext };
   },
@@ -713,6 +862,90 @@ async function publicResources(ctx: QueryCtx | MutationCtx) {
   return activeRows.length > 0 ? activeRows : domainConfig.resources;
 }
 
+async function findAvailableSlots(
+  ctx: QueryCtx | MutationCtx,
+  input: {
+    service: DomainService;
+    resourceCandidates: DomainResource[];
+    preferredStartMs: number | null;
+    count: number;
+  },
+) {
+  const reservations = await ctx.db
+    .query("reservations")
+    .withIndex("by_domain_status_time", (q) =>
+      q.eq("domainKey", domainConfig.domainKey),
+    )
+    .collect();
+  const slots: PublicSlot[] = [];
+  const startSearch = firstSearchStart(input.preferredStartMs, input.service);
+  const stepMs = slotStepMs(input.service);
+  const horizonMs = startSearch + 21 * 24 * 60 * 60 * 1000;
+
+  for (
+    let cursorMs = startSearch;
+    cursorMs < horizonMs && slots.length < Math.max(1, input.count);
+    cursorMs += stepMs
+  ) {
+    const alignedStartMs = alignToSlot(cursorMs, input.service);
+    for (const resource of input.resourceCandidates) {
+      const endMs = serviceEndMs(input.service, alignedStartMs);
+      if (!isSlotAllowed(alignedStartMs, endMs, input.service)) {
+        continue;
+      }
+      if (hasCollision(reservations, resource.key, alignedStartMs, endMs)) {
+        continue;
+      }
+      slots.push(buildSlot(input.service, resource, alignedStartMs));
+      if (slots.length >= Math.max(1, input.count)) {
+        break;
+      }
+    }
+  }
+
+  return slots;
+}
+
+function strictServiceByKey(serviceKey: string | null) {
+  if (serviceKey === null) {
+    return serviceByKey(null);
+  }
+
+  const service = domainConfig.services.find(
+    (candidate) => candidate.key === serviceKey,
+  );
+  if (!service) {
+    throw new Error("service_not_found");
+  }
+  return service;
+}
+
+function strictResourceByKey(
+  resourceKey: string | null,
+  service: DomainService,
+  seededResources: DomainResource[],
+) {
+  if (resourceKey === null) {
+    return resourceByKey(null, service, seededResources);
+  }
+
+  const resource =
+    seededResources.find(
+      (candidate) =>
+        candidate.key === resourceKey &&
+        candidate.kind === service.resourceKind,
+    ) ??
+    domainConfig.resources.find(
+      (candidate) =>
+        candidate.key === resourceKey &&
+        candidate.kind === service.resourceKind,
+    );
+  if (!resource) {
+    throw new Error("resource_not_found");
+  }
+  return resource;
+}
+
 async function appendChatEvent(
   ctx: MutationCtx,
   event: {
@@ -780,6 +1013,12 @@ async function expireReservation(
       reservationId: publicContextFromReservation(updated).reservationId,
     },
   });
+  await onSlotFreed(ctx, {
+    serviceKey: reservation.serviceKey,
+    resourceKey: reservation.resourceKey,
+    startMs: reservation.startMs,
+    endMs: reservation.endMs,
+  });
 }
 
 async function resolveThreadReservation(
@@ -813,7 +1052,10 @@ async function resolveThreadReservation(
   return reservation;
 }
 
-async function generateUniqueReservationNumber(
+// Exported so every writer of a reservation row — chat mutations here, operator
+// calendar CRUD in engine/adminBooking — mints numbers from the one
+// domain-derived prefix. A feature must not invent its own prefix.
+export async function generateUniqueReservationNumber(
   ctx: MutationCtx,
   createdAtMs: number,
 ) {

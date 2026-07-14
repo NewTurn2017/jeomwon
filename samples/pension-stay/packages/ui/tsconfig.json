@@ -1,5 +1,5 @@
 {
-  "extends": "@pension-stay/typescript/react-library.json",
+  "extends": "../../tooling/typescript/react-library.json",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {

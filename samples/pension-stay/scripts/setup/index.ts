@@ -6,6 +6,50 @@ import readline from "node:readline/promises";
 import { pathToFileURL } from "node:url";
 import { exportJWK, exportPKCS8, generateKeyPair } from "jose";
 
+// ── CLI styling (no deps; TTY / NO_COLOR aware) ───────────────────────────
+const USE_COLOR =
+  Boolean(process.stdout.isTTY) &&
+  !process.env.NO_COLOR &&
+  process.env.TERM !== "dumb";
+
+function paint(code: string, text: string): string {
+  return USE_COLOR ? `[${code}m${text}[0m` : text;
+}
+
+const style = {
+  bold: (s: string) => paint("1", s),
+  dim: (s: string) => paint("2", s),
+  red: (s: string) => paint("31", s),
+  green: (s: string) => paint("32", s),
+  yellow: (s: string) => paint("33", s),
+  blue: (s: string) => paint("34", s),
+  magenta: (s: string) => paint("35", s),
+  cyan: (s: string) => paint("36", s),
+  gray: (s: string) => paint("90", s),
+};
+
+const glyph = {
+  ok: style.green("✓"),
+  skip: style.gray("○"),
+  warn: style.yellow("▲"),
+  info: style.cyan("ℹ"),
+  step: style.magenta("▸"),
+  arrow: style.gray("→"),
+};
+
+const RULE = style.gray("─".repeat(46));
+let sectionCount = 0;
+
+const ui = {
+  ok: (msg: string) => console.log(`  ${glyph.ok} ${msg}`),
+  skip: (msg: string) => console.log(`  ${glyph.skip} ${style.gray(msg)}`),
+  warn: (msg: string) => console.log(`  ${glyph.warn} ${msg}`),
+  info: (msg: string) => console.log(`  ${glyph.info} ${msg}`),
+  hint: (msg: string) => console.log(`    ${style.gray(msg)}`),
+  kv: (key: string, value: string) =>
+    console.log(`  ${style.gray(key.padEnd(10))} ${style.bold(value)}`),
+};
+
 type ProjectType = "convex" | "envFile";
 
 type ProjectConfig = {
@@ -69,6 +113,7 @@ type SetupStubs = {
   convexSiteUrl?: string;
   domainFeatures?: {
     polar?: boolean;
+    customerAccounts?: boolean;
   };
   probes?: {
     openaiModels?: boolean;
@@ -112,6 +157,7 @@ const CORE_STEP_ORDER = [
   "convex-auth",
   "google-oauth",
   "dev-anonymous",
+  "admin-emails",
   "resend",
   "openai",
   "polar",
@@ -144,12 +190,33 @@ async function main() {
   };
 
   console.log("");
-  console.log(config.introMessage);
   console.log(
-    "Secret values are never printed. Convex env set output is hidden.",
+    `  ${style.magenta(style.bold("jeomwon"))} ${style.bold("setup")} ${style.gray("· 대화형 설정 마법사")}`,
   );
+  console.log(`  ${RULE}`);
+  console.log(
+    `  ${style.cyan("필수")}  ${style.bold("Convex")} ${style.gray("무료 계정 — 지금 연결합니다.")}`,
+  );
+  console.log(
+    `  ${style.gray("선택")}  ${style.gray("OpenAI · Resend · Google 로그인")}`,
+  );
+  console.log(
+    `        ${style.gray("지금 건너뛰어도 됩니다 — mock/capture 모드로 끝까지 동작하고,")}`,
+  );
+  console.log(
+    `        ${style.gray("나중에 ")}${style.cyan("bun setup")}${style.gray(" 을 다시 실행해 추가할 수 있습니다.")}`,
+  );
+  console.log(`  ${RULE}`);
+  console.log(
+    `  ${glyph.info} ${style.gray("비밀값은 저장·출력되지 않으며, 입력할 때 ")}${style.cyan("•")}${style.gray(" 로만 표시됩니다.")}`,
+  );
+  if (config.introMessage?.trim()) {
+    console.log(`  ${style.gray(config.introMessage.trim())}`);
+  }
   if (options.dryRun) {
-    console.log("DRY RUN: no external commands and no file writes will run.");
+    console.log(
+      `  ${glyph.warn} ${style.yellow("DRY RUN")} ${style.gray("— 외부 명령·파일 쓰기 없이 미리보기만 합니다.")}`,
+    );
   }
 
   try {
@@ -161,8 +228,18 @@ async function main() {
     await configureConvexAuth(ctx, deployment, siteUrl);
     await configureGoogleOAuth(ctx, deployment);
     await configureDevAnonymous(ctx);
+
+    if (domainFeatures.customerAccounts) {
+      await configureAdminEmails(ctx);
+    } else {
+      section("Operator allowlist");
+      console.log(
+        "domain.config.features.customerAccounts=false, skipping. Only operators sign in, so every signed-in account is an operator. To restrict the desk to named staff, set JEOMWON_ADMIN_EMAILS yourself: npx convex env set JEOMWON_ADMIN_EMAILS a@x.com,b@x.com",
+      );
+    }
+
     await configureResend(ctx);
-    await configureOpenAI(ctx);
+    await configureOpenAI(ctx, domainFeatures.customerAccounts);
 
     if (domainFeatures.polar) {
       await configurePolar(ctx, deployment);
@@ -305,14 +382,25 @@ function readJsonFile<T>(filePath: string): T {
 }
 
 function section(title: string) {
+  sectionCount += 1;
+  const label = style.magenta(style.bold(String(sectionCount).padStart(2, "0")));
   console.log("");
-  console.log(`== ${title} ==`);
+  console.log(`${glyph.step} ${label}  ${style.bold(title)}`);
+  console.log(`  ${RULE}`);
 }
 
-async function readDomainFeatures(ctx: RuntimeContext) {
+type DomainFeatures = {
+  polar: boolean;
+  customerAccounts: boolean;
+};
+
+async function readDomainFeatures(
+  ctx: RuntimeContext,
+): Promise<DomainFeatures> {
   if (ctx.stubs.domainFeatures) {
     return {
       polar: ctx.stubs.domainFeatures.polar === true,
+      customerAccounts: ctx.stubs.domainFeatures.customerAccounts === true,
     };
   }
 
@@ -322,11 +410,15 @@ async function readDomainFeatures(ctx: RuntimeContext) {
   );
   const moduleUrl = pathToFileURL(domainConfigPath).href;
   const imported = (await import(moduleUrl)) as {
-    domainConfig?: { features?: { polar?: boolean } };
+    domainConfig?: {
+      features?: { polar?: boolean; customerAccounts?: boolean };
+    };
   };
 
   return {
     polar: imported.domainConfig?.features?.polar === true,
+    customerAccounts:
+      imported.domainConfig?.features?.customerAccounts === true,
   };
 }
 
@@ -451,7 +543,7 @@ async function ensureConvexAuthenticated(ctx: RuntimeContext) {
 
   const configPath = path.join(os.homedir(), ".convex/config.json");
   if (fs.existsSync(configPath)) {
-    console.log("Convex CLI auth found.");
+    ui.ok(style.gray("Convex CLI 로그인 확인됨"));
     return;
   }
 
@@ -651,7 +743,7 @@ async function configureDevAnonymous(ctx: RuntimeContext) {
   });
 
   if (!enable) {
-    console.log("Skipped dev-only anonymous auth.");
+    ui.skip("dev 전용 익명 로그인 건너뜀");
     return;
   }
 
@@ -661,6 +753,74 @@ async function configureDevAnonymous(ctx: RuntimeContext) {
     force: true,
   });
   await setLocalEnv(ctx, "app", "AUTH_DEV_ANONYMOUS", "1");
+}
+
+// JEOMWON_ADMIN_EMAILS is a Convex deployment env var only — it is never written
+// to any .env.local and never prefixed NEXT_PUBLIC_, so it cannot reach the
+// browser. The backend guard (packages/backend/convex/admin.ts) reads it per call.
+// Only reached when features.customerAccounts is true. Customers and operators
+// then share one login, so the allowlist is the only thing separating them — an
+// empty one would hand every customer the dashboard. The backend refuses to guess
+// (admin_not_configured), so the wizard must not let a project ship without it.
+async function configureAdminEmails(ctx: RuntimeContext) {
+  const step = requireStep(ctx, "admin-emails");
+  section(step.title);
+
+  const variable = requireVariable(step, "JEOMWON_ADMIN_EMAILS");
+  console.log(
+    "Customers sign in to this deployment too, so the allowlist is what separates operators from customers.",
+  );
+
+  const configured = await isConvexEnvConfigured(ctx, "JEOMWON_ADMIN_EMAILS");
+  if (configured) {
+    console.log("JEOMWON_ADMIN_EMAILS is configured (value hidden).");
+    const overwrite = await promptConfirm(ctx, {
+      key: "overwrite:JEOMWON_ADMIN_EMAILS",
+      message: "Overwrite JEOMWON_ADMIN_EMAILS?",
+      defaultValue: false,
+    });
+    if (!overwrite) {
+      return;
+    }
+  }
+
+  const value = await promptText(ctx, {
+    key: "JEOMWON_ADMIN_EMAILS",
+    message: "Operator emails (comma-separated)",
+    defaultValue: variable.defaultValue ?? "",
+    secret: false,
+    required: true,
+  });
+  const emails = normalizeAdminEmails(value);
+
+  if (!emails) {
+    throw new Error(
+      "JEOMWON_ADMIN_EMAILS is required when domain.config.features.customerAccounts is true.",
+    );
+  }
+
+  await ensureConvexEnv(ctx, "JEOMWON_ADMIN_EMAILS", emails, {
+    secret: false,
+    force: true,
+  });
+}
+
+// Stored normalized (trimmed, lowercased, de-duplicated). The backend lowercases
+// both sides anyway, so this is for legibility in `convex env get`, not matching.
+function normalizeAdminEmails(value: string) {
+  const emails = value
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.length > 0);
+
+  const invalid = emails.filter((email) => !email.includes("@"));
+  if (invalid.length > 0) {
+    throw new Error(
+      `JEOMWON_ADMIN_EMAILS expects email addresses, got: ${invalid.join(", ")}`,
+    );
+  }
+
+  return [...new Set(emails)].join(",");
 }
 
 async function configureResend(ctx: RuntimeContext) {
@@ -687,7 +847,7 @@ async function configureResend(ctx: RuntimeContext) {
       defaultValue: false,
     });
     if (!configure) {
-      console.log("Resend skipped. Email lifecycle will run in capture mode.");
+      ui.skip("Resend 건너뜀 — 이메일은 capture 모드로 동작 (나중에 추가 가능)");
       return;
     }
   }
@@ -804,10 +964,21 @@ async function probeResend(
   console.log("Resend probe succeeded.");
 }
 
-async function configureOpenAI(ctx: RuntimeContext) {
+async function configureOpenAI(ctx: RuntimeContext, customerAccounts: boolean) {
   const step = requireStep(ctx, "openai");
   section(step.title);
   console.log(step.requiredMessage ?? "OpenAI can be skipped.");
+
+  // apps/web always hosts the anonymous /api/chat route, so the agent runtime env
+  // always lands there. apps/app hosts an authenticated /api/chat route only when
+  // features.customerAccounts is on (its route 404s otherwise), so its env is
+  // written only then — a flags-off pack's apps/app/.env.local is unchanged.
+  const setAgentEnv = async (name: string, value: string) => {
+    await setLocalEnv(ctx, "web", name, value);
+    if (customerAccounts) {
+      await setLocalEnv(ctx, "app", name, value);
+    }
+  };
 
   const existing = readLocalEnv(ctx, "web").get("OPENAI_API_KEY");
   if (existing) {
@@ -818,7 +989,7 @@ async function configureOpenAI(ctx: RuntimeContext) {
       defaultValue: false,
     });
     if (!overwrite) {
-      await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "openai");
+      await setAgentEnv("AGENT_RUNTIME", "openai");
       return;
     }
   } else {
@@ -828,8 +999,8 @@ async function configureOpenAI(ctx: RuntimeContext) {
       defaultValue: false,
     });
     if (!configure) {
-      await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "mock");
-      console.log("OpenAI skipped. AGENT_RUNTIME=mock will be used.");
+      await setAgentEnv("AGENT_RUNTIME", "mock");
+      ui.skip("OpenAI 건너뜀 — AGENT_RUNTIME=mock 사용 (나중에 추가 가능)");
       return;
     }
   }
@@ -839,13 +1010,13 @@ async function configureOpenAI(ctx: RuntimeContext) {
     requireVariable(step, "OPENAI_API_KEY"),
   );
   if (!apiKey) {
-    await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "mock");
+    await setAgentEnv("AGENT_RUNTIME", "mock");
     console.log("OpenAI deferred (유예됨). AGENT_RUNTIME=mock will be used.");
     return;
   }
   await probeOpenAI(ctx, apiKey);
-  await setLocalEnv(ctx, "web", "OPENAI_API_KEY", apiKey);
-  await setLocalEnv(ctx, "web", "AGENT_RUNTIME", "openai");
+  await setAgentEnv("OPENAI_API_KEY", apiKey);
+  await setAgentEnv("AGENT_RUNTIME", "openai");
 }
 
 async function probeOpenAI(ctx: RuntimeContext, apiKey: string) {
@@ -997,6 +1168,11 @@ async function getValueForVariable(
   });
 }
 
+// CONVEX_SITE_URL and CONVEX_CLOUD_URL are Convex built-in env vars: every
+// deployment auto-provides them and `convex env set` rejects them with
+// EnvVarNameForbidden (400). Never try to set them.
+const CONVEX_BUILT_IN_ENV = new Set(["CONVEX_SITE_URL", "CONVEX_CLOUD_URL"]);
+
 async function ensureConvexEnv(
   ctx: RuntimeContext,
   name: string,
@@ -1008,6 +1184,10 @@ async function ensureConvexEnv(
     force?: boolean;
   },
 ) {
+  if (CONVEX_BUILT_IN_ENV.has(name)) {
+    ui.skip(`${name} — Convex 빌트인(자동 제공), 건너뜀`);
+    return;
+  }
   if (options.secret) {
     ctx.knownSecrets.add(value);
   }
@@ -1049,7 +1229,7 @@ async function ensureConvexEnv(
     throw new Error(`Convex env ${name} was not readable after set.`);
   }
 
-  console.log(`${name} set and verified (value hidden).`);
+  ui.ok(`${name} ${style.gray("설정·검증됨 (값 숨김)")}`);
 }
 
 async function isConvexEnvConfigured(ctx: RuntimeContext, name: string) {
@@ -1168,27 +1348,44 @@ async function finalizeEnvFiles(ctx: RuntimeContext) {
 
 function printCompletion(ctx: RuntimeContext, deployment: ConvexDeployment) {
   console.log("");
-  console.log("Setup complete.");
-  console.log(`Convex: ${deployment.convexUrl}`);
+  console.log(`  ${glyph.ok} ${style.green(style.bold("설정 완료"))}`);
+  console.log(`  ${RULE}`);
+  ui.kv("Convex", deployment.convexUrl);
   printDeferredSummary(ctx);
-  console.log("Smoke QA: bun run qa");
-  console.log("Dashboard: bun dev:app -> http://localhost:3000");
-  console.log("Web chat: bun dev:web -> http://localhost:3001");
-  console.log("Use localhost. Do not use 127.0.0.1 with Next 16 dev.");
+  console.log(`  ${RULE}`);
+  console.log(`  ${style.bold("다음 단계")} ${style.gray("— 바로 써보기")}`);
+  console.log(
+    `  ${glyph.arrow} ${style.cyan("bun dev")}       ${style.gray("앱 실행 — 관리자 :3000 · 예약 챗 :3001")}`,
+  );
+  console.log(
+    `                ${style.gray("localhost 로 접속해 예약 챗을 바로 써보세요.")}`,
+  );
+  console.log("");
+  console.log(`  ${style.bold("검증")} ${style.gray("— 원할 때")}`);
+  console.log(
+    `  ${glyph.arrow} ${style.cyan("bun run qa")}    ${style.gray("스모크 QA — dev 배포 자동 준비 후 한 번에 실행")}`,
+  );
+  console.log(
+    `                ${style.gray("mock+capture 로 격리 실행하고, 끝나면 원래대로 되돌립니다.")}`,
+  );
+  console.log(`  ${RULE}`);
+  console.log(
+    `  ${style.gray("접속은 반드시 ")}${style.bold("localhost")}${style.gray(" — 127.0.0.1은 Next 16 dev에서 쓰지 마세요.")}`,
+  );
 }
 
 function printDeferredSummary(ctx: RuntimeContext) {
   if (ctx.deferredKeys.size === 0) {
-    console.log("Deferred/missing credential keys: none.");
+    ui.kv("Keys", style.green("모두 설정됨"));
     return;
   }
 
-  console.log("Deferred/missing credential keys (values hidden):");
+  ui.kv("Later", `${ctx.deferredKeys.size}개 키 미설정 ${style.gray("(값 숨김)")}`);
   for (const key of [...ctx.deferredKeys].sort()) {
-    console.log(`- ${key}`);
+    console.log(`    ${glyph.skip} ${style.gray(key)}`);
   }
   console.log(
-    "`bun setup` is idempotent; rerun it after preparing these values.",
+    `    ${style.gray("나중에 ")}${style.cyan("bun setup")}${style.gray(" 을 다시 실행하면 됩니다 — 이미 끝난 단계는 건너뜁니다.")}`,
   );
 }
 
@@ -1230,7 +1427,9 @@ async function promptConfirm(
   }
 
   const suffix = input.defaultValue ? "Y/n" : "y/N";
-  const answer = await promptLine(`${input.message} (${suffix}) `);
+  const answer = await promptLine(
+    `  ${glyph.step} ${input.message} ${style.gray(`(${suffix})`)} `,
+  );
   const normalized = answer.trim().toLowerCase();
   if (!normalized) {
     return input.defaultValue;
@@ -1266,10 +1465,11 @@ async function promptText(
     throw new Error(`Missing required non-interactive value: ${input.key}`);
   }
 
-  const suffix = input.defaultValue ? ` [${input.defaultValue}]` : "";
+  const suffix = input.defaultValue ? style.gray(` [${input.defaultValue}]`) : "";
+  const label = `  ${glyph.step} ${input.message}${suffix}${style.gray(": ")}`;
   const value = input.secret
-    ? await promptSecret(`${input.message}${suffix}: `)
-    : await promptLine(`${input.message}${suffix}: `);
+    ? await promptSecret(label)
+    : await promptLine(label);
   const finalValue = value.trim() || input.defaultValue;
 
   if (input.required && !finalValue) {
@@ -1277,6 +1477,9 @@ async function promptText(
   }
   if (input.secret && finalValue) {
     ctx.knownSecrets.add(finalValue);
+    ui.ok(
+      `${style.gray(input.key)} 입력됨 ${style.gray(`(${finalValue.length}자 · 값 숨김)`)}`,
+    );
   }
   return finalValue;
 }
@@ -1330,10 +1533,21 @@ async function promptSecret(message: string) {
         return;
       }
       if (chunk === "\u007f") {
-        value = value.slice(0, -1);
+        if (value.length > 0) {
+          value = value.slice(0, -1);
+          process.stdout.write("\b \b");
+        }
+        return;
+      }
+      // Ignore stray control / escape sequences (arrow keys, etc.).
+      if (chunk.charCodeAt(0) < 0x20) {
         return;
       }
       value += chunk;
+      const dots = "•".repeat(chunk.length);
+      process.stdout.write(
+        USE_COLOR ? paint("36", dots) : "*".repeat(chunk.length),
+      );
     };
 
     process.stdin.on("data", onData);

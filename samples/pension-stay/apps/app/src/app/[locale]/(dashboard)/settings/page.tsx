@@ -10,7 +10,6 @@ import type { ConvexUploadResponse } from "@pension-stay/ui/upload-input";
 import { UploadInput } from "@pension-stay/ui/upload-input";
 import { useDoubleCheck } from "@pension-stay/ui/utils";
 import { useForm } from "@tanstack/react-form";
-import { zodValidator } from "@tanstack/zod-form-adapter";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { Upload } from "lucide-react";
 import Image from "next/image";
@@ -47,7 +46,6 @@ export default function DashboardSettings() {
   };
 
   const usernameForm = useForm({
-    validatorAdapter: zodValidator(),
     defaultValues: {
       username: user?.username,
     },
@@ -63,19 +61,28 @@ export default function DashboardSettings() {
   return (
     <div className="flex h-full w-full flex-col gap-6">
       {/* Avatar */}
-      <div className="flex w-full flex-col items-start rounded-lg border border-border bg-card">
+      <section className="flex w-full flex-col items-start rounded-lg border border-border bg-card">
         <div className="flex w-full items-start justify-between rounded-lg p-6">
           <div className="flex flex-col gap-2">
-            <h2 className="text-xl font-medium text-primary">
+            <h2 className="font-semibold text-card-foreground text-xl">
               {t("avatar.title")}
             </h2>
-            <p className="text-sm font-normal text-primary/60">
+            <p className="text-muted-foreground text-sm">
               {t("avatar.description")}
             </p>
           </div>
+          <UploadInput
+            id="avatar_field"
+            type="file"
+            accept="image/*"
+            className="peer sr-only"
+            required
+            generateUploadUrl={generateUploadUrl}
+            onUploadComplete={handleUpdateUserImage}
+          />
           <label
             htmlFor="avatar_field"
-            className="group relative flex cursor-pointer overflow-hidden rounded-full transition active:scale-95"
+            className="group relative flex cursor-pointer overflow-hidden rounded-full transition active:scale-95 peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-card"
           >
             {user.avatarUrl ? (
               <Image
@@ -87,25 +94,15 @@ export default function DashboardSettings() {
                 height={80}
               />
             ) : (
-              <div className="h-20 w-20 rounded-full bg-gradient-to-br from-lime-400 from-10% via-cyan-300 to-blue-500" />
+              <div className="h-20 w-20 rounded-full border border-border bg-muted" />
             )}
             <div className="absolute z-10 hidden h-full w-full items-center justify-center bg-primary/40 group-hover:flex">
-              <Upload className="h-6 w-6 text-secondary" />
+              <Upload className="h-6 w-6 text-primary-foreground" />
             </div>
           </label>
-          <UploadInput
-            id="avatar_field"
-            type="file"
-            accept="image/*"
-            className="peer sr-only"
-            required
-            tabIndex={user ? -1 : 0}
-            generateUploadUrl={generateUploadUrl}
-            onUploadComplete={handleUpdateUserImage}
-          />
         </div>
-        <div className="flex min-h-14 w-full items-center justify-between rounded-lg rounded-t-none border-t border-border bg-secondary px-6 dark:bg-card">
-          <p className="text-sm font-normal text-primary/60">
+        <div className="flex min-h-14 w-full items-center justify-between rounded-lg rounded-t-none border-border border-t bg-muted px-6">
+          <p className="text-muted-foreground text-sm">
             {t("avatar.uploadHint")}
           </p>
           {user.avatarUrl && (
@@ -121,7 +118,7 @@ export default function DashboardSettings() {
             </Button>
           )}
         </div>
-      </div>
+      </section>
 
       {/* Username */}
       <form
@@ -134,25 +131,33 @@ export default function DashboardSettings() {
       >
         <div className="flex w-full flex-col gap-4 rounded-lg p-6">
           <div className="flex flex-col gap-2">
-            <h2 className="text-xl font-medium text-primary">Your Username</h2>
-            <p className="text-sm font-normal text-primary/60">
-              This is your username. It will be displayed on your profile.
+            <h2 className="font-semibold text-card-foreground text-xl">
+              {t("username.title")}
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              {t("username.description")}
             </p>
           </div>
           <usernameForm.Field
             name="username"
             validators={{
-              onSubmit: validators.username,
+              onSubmit: validateUsername,
             }}
           >
             {(field) => (
               <Input
-                placeholder="Username"
+                placeholder={t("username.placeholder")}
                 autoComplete="off"
                 required
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
+                aria-invalid={field.state.meta?.errors.length > 0 || undefined}
+                aria-describedby={
+                  field.state.meta?.errors.length > 0
+                    ? "settings-username-error"
+                    : undefined
+                }
                 className={`w-80 bg-transparent ${
                   field.state.meta?.errors.length > 0 &&
                   "border-destructive focus-visible:ring-destructive"
@@ -161,33 +166,37 @@ export default function DashboardSettings() {
             )}
           </usernameForm.Field>
           {usernameForm.state.fieldMeta.username?.errors.length > 0 && (
-            <p className="text-sm text-destructive dark:text-destructive-foreground">
+            <p
+              id="settings-username-error"
+              role="alert"
+              className="text-sm text-destructive dark:text-destructive-foreground"
+            >
               {usernameForm.state.fieldMeta.username?.errors.join(" ")}
             </p>
           )}
         </div>
-        <div className="flex min-h-14 w-full items-center justify-between rounded-lg rounded-t-none border-t border-border bg-secondary px-6 dark:bg-card">
-          <p className="text-sm font-normal text-primary/60">
-            Please use 32 characters at maximum.
+        <div className="flex min-h-14 w-full items-center justify-between rounded-lg rounded-t-none border-border border-t bg-muted px-6">
+          <p className="text-muted-foreground text-sm">
+            {t("username.maxLengthHint")}
           </p>
           <Button type="submit" size="sm">
-            Save
+            {t("username.saveButton")}
           </Button>
         </div>
       </form>
 
       {/* Delete Account */}
-      <div className="flex w-full flex-col items-start rounded-lg border border-destructive bg-card">
+      <section className="flex w-full flex-col items-start rounded-lg border border-destructive/40 bg-card">
         <div className="flex flex-col gap-2 p-6">
-          <h2 className="text-xl font-medium text-primary">
+          <h2 className="font-semibold text-card-foreground text-xl">
             {t("deleteAccount.title")}
           </h2>
-          <p className="text-sm font-normal text-primary/60">
+          <p className="text-muted-foreground text-sm">
             {t("deleteAccount.description")}
           </p>
         </div>
-        <div className="flex min-h-14 w-full items-center justify-between rounded-lg rounded-t-none border-t border-border bg-red-500/10 px-6 dark:bg-red-500/10">
-          <p className="text-sm font-normal text-primary/60">
+        <div className="flex min-h-14 w-full items-center justify-between rounded-lg rounded-t-none border-border border-t bg-destructive/10 px-6">
+          <p className="text-muted-foreground text-sm">
             {t("deleteAccount.warning")}
           </p>
           <Button
@@ -201,8 +210,19 @@ export default function DashboardSettings() {
               ? t("deleteAccount.confirmButton")
               : t("deleteAccount.deleteButton")}
           </Button>
+          <span aria-live="assertive" className="sr-only">
+            {doubleCheck ? t("deleteAccount.confirmPrompt") : ""}
+          </span>
         </div>
-      </div>
+      </section>
     </div>
   );
+}
+
+function validateUsername({ value }: { value: string | undefined }) {
+  const result = validators.username.safeParse(value);
+  if (result.success) {
+    return undefined;
+  }
+  return result.error.issues.map((issue) => issue.message).join(" ");
 }

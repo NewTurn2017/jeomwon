@@ -15,23 +15,26 @@ export function SettingsLayoutContainer({
 }) {
   const t = useScopedI18n("settings.sidebar");
   const pathname = usePathname();
-  const isSettingsPath = pathname === "/settings";
-  const isBillingPath = pathname === "/settings/billing";
+  const normalizedPath = pathname.replace(/^\/(ko|en)(?=\/|$)/, "") || "/";
+  const isSettingsPath = normalizedPath === "/settings";
+  const isBillingPath = normalizedPath === "/settings/billing";
 
   return (
-    <div className="flex h-full w-full px-6 py-8">
-      <div className="mx-auto flex h-full w-full max-w-screen-xl gap-12">
-        <div className="hidden w-full max-w-64 flex-col gap-0.5 lg:flex">
+    <div className="flex h-full w-full px-4 py-6 sm:px-6 lg:py-8">
+      <div className="mx-auto grid h-full w-full max-w-screen-xl gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <aside className="flex w-full gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
           <Link
             href="/settings"
             className={cn(
-              `${buttonVariants({ variant: "ghost" })} ${isSettingsPath && "bg-primary/5"}`,
+              buttonVariants({ variant: "ghost" }),
+              isSettingsPath && "bg-muted",
               "justify-start rounded-md",
             )}
           >
             <span
               className={cn(
-                `text-sm text-primary/80 ${isSettingsPath && "font-medium text-primary"}`,
+                "text-foreground text-sm",
+                isSettingsPath && "font-medium",
               )}
             >
               {t("general")}
@@ -41,19 +44,22 @@ export function SettingsLayoutContainer({
             <Link
               href="/settings/billing"
               className={cn(
-                `${buttonVariants({ variant: "ghost" })} ${isBillingPath && "bg-primary/5"} justify-start rounded-md`,
+                buttonVariants({ variant: "ghost" }),
+                isBillingPath && "bg-muted",
+                "justify-start rounded-md",
               )}
             >
               <span
                 className={cn(
-                  `text-sm text-primary/80 ${isBillingPath && "font-medium text-primary"}`,
+                  "text-foreground text-sm",
+                  isBillingPath && "font-medium",
                 )}
               >
                 {t("billing")}
               </span>
             </Link>
           )}
-        </div>
+        </aside>
         {children}
       </div>
     </div>

@@ -91,7 +91,7 @@ The ten invariants that survived real debugging are written down in `docs/plan.m
 
 ## Status
 
-Roadmap phases 0–7 are complete, plus a full UI redesign (starter branding removed end to end; the full live QA suite and browser walkthroughs of both apps verified after the redesign). The repo is public and skill-only installs (the scaffold's GitHub tarball fallback) work. Remaining backlog: a fresh end-to-end rehearsal and regenerating `samples/pension-stay`.
+Roadmap phases 0–7 are complete, plus a full UI redesign (starter branding removed end to end; the full live QA suite and browser walkthroughs of both apps verified after the redesign). The repo is public and skill-only installs (the scaffold's GitHub tarball fallback) work. `samples/pension-stay` is freshly regenerated from the current template via bootstrap.
 
 ## Contributing
 

@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>jeomwon — the open-source reservation SaaS kit guarded by an AI clerk</title>
+    <meta
+      name="description"
+      content="One domain interview gets you a customer booking chat, an admin dashboard, and lifecycle emails — an open-source SaaS kit that runs the moment you open it."
+    >
+    <meta name="author" content="WithGenie">
+    <meta name="theme-color" content="#FBF8F3">
+    <link rel="canonical" href="https://jeomwon.codewithgenie.com/en">
+    <link rel="alternate" hreflang="ko" href="https://jeomwon.codewithgenie.com">
+    <link rel="alternate" hreflang="en" href="https://jeomwon.codewithgenie.com/en">
+    <link rel="alternate" hreflang="x-default" href="https://jeomwon.codewithgenie.com">
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+    <link
+      rel="stylesheet"
+      crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css"
+    >
+    <link rel="stylesheet" href="../style.css">
+
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:site_name" content="jeomwon">
+    <meta property="og:title" content="jeomwon — the open-source reservation SaaS kit guarded by an AI clerk">
+    <meta
+      property="og:description"
+      content="One domain interview gets you a customer booking chat, an admin dashboard, and lifecycle emails — an open-source SaaS kit that runs the moment you open it."
+    >
+    <meta property="og:url" content="https://jeomwon.codewithgenie.com/en">
+    <meta property="og:image" content="https://jeomwon.codewithgenie.com/assets/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="jeomwon open-source reservation SaaS kit">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="jeomwon — the open-source reservation SaaS kit guarded by an AI clerk">
+    <meta
+      name="twitter:description"
+      content="One domain interview gets you a customer booking chat, an admin dashboard, and lifecycle emails — an open-source SaaS kit that runs the moment you open it."
+    >
+    <meta name="twitter:image" content="https://jeomwon.codewithgenie.com/assets/og.png">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
+    <header class="site-header">
+      <nav class="nav-shell" aria-label="Main menu">
+        <a class="brand" href="#top" aria-label="jeomwon home">
+          <svg class="brand-mark" viewBox="0 0 40 40" role="img" aria-label="jeomwon logo">
+            <rect width="40" height="40" rx="9" fill="#136586" />
+            <path d="M10 7h20c1 0 1.8.7 2.1 1.6l1.9 6.8V17c0 3.4-2.2 6-5 6s-5-2.6-5-6c0 3.4-2.2 6-5 6s-5-2.6-5-6c0 3.4-1.8 6-4.5 6S6 20.4 6 17v-1.6l1.9-6.8C8.2 7.7 9 7 10 7ZM10 20h7.8l-4.9 7.8c-.3.5-.9.7-1.4.4l-.8-.5L10 20Z" fill="currentColor" />
+          </svg>
+          <span>jeomwon</span>
+        </a>
+
+        <div class="nav-links">
+          <a href="#how">How it works</a>
+          <a href="#features">Features</a>
+          <a href="#quick-start">Quick start</a>
+          <a href="../" lang="ko" aria-label="한국어 페이지로 전환">한국어</a>
+        </div>
+
+        <a class="button button-dark button-compact" href="https://github.com/NewTurn2017/jeomwon">Start on GitHub</a>
+      </nav>
+    </header>
+
+    <main id="main-content">
+      <section class="hero" id="top" aria-labelledby="hero-title">
+        <div class="hero-shell">
+          <div class="hero-copy">
+            <h1 id="hero-title"><span>Put an AI clerk</span>
+              <span>at your front desk</span></h1>
+            <p class="hero-lede">One domain interview gets you a customer booking chat, an admin dashboard, and lifecycle emails — an open-source SaaS kit that runs the moment you open it.</p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="https://github.com/NewTurn2017/jeomwon">Start on GitHub</a>
+              <a class="button button-ghost" href="#quick-start">See the quick start</a>
+            </div>
+            <p class="trust-line">MIT License · Convex + Next.js 16 + bun</p>
+          </div>
+
+          <div class="hero-visual" role="group" aria-label="Chat demo where the clerk confirms a customer's haircut booking">
+            <article class="evidence-card" data-chat-step="evidence">
+              <div>
+                <p class="evidence-title">A new booking was confirmed</p>
+                <p class="evidence-meta">Minji Kim · Haircut · 3:00 PM</p>
+              </div>
+              <span class="status-pill">Confirmed</span>
+            </article>
+
+            <div class="chat-frame">
+              <div class="chat-header">
+                <div>
+                  <strong>Clerk</strong>
+                  <span>Booking assistant</span>
+                </div>
+                <span class="availability">Online</span>
+              </div>
+
+              <div class="chat-thread">
+                <div class="message-row customer" data-chat-step="customer-one">
+                  <p class="bubble">Can I book a haircut tomorrow at 3 PM?</p>
+                </div>
+
+                <div class="message-row clerk typing-row" data-chat-step="typing" aria-hidden="true">
+                  <div class="bubble typing-indicator">
+                    <span></span><span></span><span></span>
+                  </div>
+                </div>
+
+                <div class="message-row clerk" data-chat-step="clerk-one">
+                  <p class="bubble">Yes, 3:00 PM tomorrow is open. Tell me your name and I'll hold it for you.</p>
+                </div>
+
+                <div class="message-row customer" data-chat-step="customer-two">
+                  <p class="bubble">Minji Kim</p>
+                </div>
+
+                <div class="message-row clerk" data-chat-step="confirmation">
+                  <article class="confirmation-card">
+                    <span class="status-pill">Confirmed</span>
+                    <strong>Haircut · Tomorrow 3:00 PM · Minji Kim</strong>
+                    <p>You can cancel up to one day before</p>
+                  </article>
+                </div>
+              </div>
+
+              <div class="chat-composer" aria-hidden="true">
+                <span>Type a message</span>
+                <span class="send-button">
+                  <svg viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="m5 10 9-5-3 10-2-4-4-1Z" />
+                  </svg>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section how-section reveal-section" id="how" aria-labelledby="how-title">
+        <div class="container">
+          <h2 id="how-title">From one sentence to a SaaS, in three steps</h2>
+          <ol class="steps">
+            <li class="step">
+              <span class="step-number">01</span>
+              <h3>Describe your domain</h3>
+              <p>In Claude Code: "build a seat reservation system for my PC café." The skill interviews you into a single domain pack.</p>
+            </li>
+            <li class="step">
+              <span class="step-number">02</span>
+              <h3>One bootstrap command</h3>
+              <p>Scaffold, domain injection, and offline verification — one command does all of it.</p>
+              <code>bun skill/scripts/bootstrap.mjs my-shop domain-pack.json</code>
+            </li>
+            <li class="step">
+              <span class="step-number">03</span>
+              <h3>Proven, not promised</h3>
+              <p>bun setup wires your credentials, and an 11-gate live QA suite proves the behavior.</p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section features-section reveal-section" id="features" aria-label="Features">
+        <div class="container feature-rows">
+          <article class="feature-row feature-customer">
+            <div class="feature-image-wrap">
+              <img
+                src="../assets/storefront.jpg"
+                alt="Paper-craft style illustration of a neighborhood shop — a clerk and a customer talking in speech bubbles"
+                width="1440"
+                height="960"
+                loading="lazy"
+              >
+            </div>
+            <div class="feature-copy">
+              <h2>Customers just talk</h2>
+              <p>Booking, rescheduling, and cancelling all happen in a familiar messenger-style chat widget. Customers never see raw errors or internal enums.</p>
+            </div>
+          </article>
+
+          <article class="feature-row feature-owner">
+            <div class="feature-copy">
+              <h2>Owners just approve</h2>
+              <p>The dashboard is ordered by action: approve or keep in the escalation queue, then the reservation list, then the agent timeline. Convex realtime means no refresh button.</p>
+            </div>
+            <div class="dashboard-preview" role="group" aria-label="Escalation card where a change request can be approved or kept">
+              <div class="dashboard-topbar">
+                <strong>Escalation queue</strong>
+                <span>1 waiting</span>
+              </div>
+              <article class="escalation-card">
+                <span class="status-pill status-neutral">Escalated</span>
+                <p>Change request past the cancel window — Minji Kim · Haircut · tomorrow 3:00 PM</p>
+                <div class="escalation-actions">
+                  <button type="button" class="mini-button mini-button-primary">Approve</button>
+                  <button type="button" class="mini-button">Keep</button>
+                </div>
+              </article>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="stats-section reveal-section" aria-label="jeomwon's verification numbers">
+        <div class="container stats-grid">
+          <div class="stat">
+            <strong>11 gates</strong>
+            <p>Live QA proves everything from the happy path to the auth boundary</p>
+          </div>
+          <div class="stat">
+            <strong>10 invariants</strong>
+            <p>Survivors of real debugging, all enforced inside Convex mutations</p>
+          </div>
+          <div class="stat">
+            <strong>8 fields</strong>
+            <p>The customer-facing PublicContext exposes exactly 8 fields — nothing more</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section quick-start-section reveal-section" id="quick-start" aria-labelledby="quick-start-title">
+        <div class="narrow-container">
+          <h2 id="quick-start-title">Running in 5 minutes</h2>
+
+          <article class="code-panel">
+            <div class="code-panel-header">
+              <h3>With Claude Code</h3>
+              <button class="copy-button" type="button" data-copy-target="code-claude" aria-label="Copy the commands for starting with Claude Code">
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <rect x="7" y="7" width="9" height="9" rx="2" />
+                  <path d="M13 7V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h1" />
+                </svg>
+                <span>Copy</span>
+              </button>
+            </div>
+            <pre><code id="code-claude">git clone https://github.com/NewTurn2017/jeomwon.git &amp;&amp; cd jeomwon
+ln -sfn "$(pwd)/skill" ~/.claude/skills/jeomwon
+# In Claude Code: "build a seat reservation system for my PC café"</code></pre>
+          </article>
+
+          <article class="code-panel">
+            <div class="code-panel-header">
+              <h3>Without Claude Code</h3>
+              <button class="copy-button" type="button" data-copy-target="code-manual" aria-label="Copy the commands for starting without Claude Code">
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <rect x="7" y="7" width="9" height="9" rx="2" />
+                  <path d="M13 7V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h1" />
+                </svg>
+                <span>Copy</span>
+              </button>
+            </div>
+            <pre><code id="code-manual">cd template &amp;&amp; bun install
+bun setup   # wizard for Convex, OAuth, and email credentials
+bun dev     # web + app + backend, in parallel</code></pre>
+          </article>
+
+          <p class="code-caption">The details live in the README and skill/REFERENCE.md.</p>
+        </div>
+      </section>
+
+      <section class="final-cta reveal-section" aria-labelledby="cta-title">
+        <div class="narrow-container">
+          <h2 id="cta-title">Put an AI clerk in your shop tonight</h2>
+          <a class="button button-primary" href="https://github.com/NewTurn2017/jeomwon">Start on GitHub</a>
+          <p class="trust-line">MIT License · Convex + Next.js 16 + bun</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-shell">
+        <div class="footer-brand">
+          <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+            <rect width="40" height="40" rx="9" fill="#136586" />
+            <path d="M10 7h20c1 0 1.8.7 2.1 1.6l1.9 6.8V17c0 3.4-2.2 6-5 6s-5-2.6-5-6c0 3.4-2.2 6-5 6s-5-2.6-5-6c0 3.4-1.8 6-4.5 6S6 20.4 6 17v-1.6l1.9-6.8C8.2 7.7 9 7 10 7ZM10 20h7.8l-4.9 7.8c-.3.5-.9.7-1.4.4l-.8-.5L10 20Z" fill="currentColor" />
+          </svg>
+          <span class="footer-brand-copy">
+            <span>jeomwon (점원)</span>
+            <small>Built by WithGenie</small>
+          </span>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/NewTurn2017/jeomwon">GitHub</a>
+          <span>MIT License</span>
+          <span>© 2026 WithGenie</span>
+          <span>Convex + Next.js 16 + bun</span>
+        </div>
+      </div>
+    </footer>
+
+    <script src="../main.js" defer></script>
+  </body>
+</html>
