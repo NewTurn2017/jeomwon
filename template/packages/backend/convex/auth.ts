@@ -1,23 +1,29 @@
 import Google from "@auth/core/providers/google";
 import { Anonymous } from "@convex-dev/auth/providers/Anonymous";
 import { convexAuth } from "@convex-dev/auth/server";
+import { domainConfig } from "../domain.config";
+import {
+  anonymousLoginProviderPolicy,
+  productAnonymousProfile,
+} from "./authPolicy";
+import { adminEmailAllowlist } from "./engine/identity";
 
-// AUTH_DEV_ANONYMOUS is the deployment guard for this dev-only provider.
-// Never set it on production deployments; the setup wizard/docs must enforce
-// that operators only opt in on dev deployments.
-const enableDevAnonymous = process.env.AUTH_DEV_ANONYMOUS === "1";
+// Product anonymous login is fail-closed. The legacy web flow remains unchanged
+// while customer accounts are disabled, and the operator allowlist must already
+// be configured before this provider can be exposed.
+const enableProductAnonymous = anonymousLoginProviderPolicy({
+  customerAccounts: domainConfig.features.customerAccounts,
+  anonymousLoginEnv: process.env.AUTH_ANONYMOUS_LOGIN,
+  adminEmailAllowlist: adminEmailAllowlist(),
+});
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Google,
-    ...(enableDevAnonymous
+    ...(enableProductAnonymous
       ? [
           Anonymous({
-            profile: () => ({
-              isAnonymous: true,
-              name: "Dev Operator",
-              username: "dev-operator",
-            }),
+            profile: productAnonymousProfile,
           }),
         ]
       : []),

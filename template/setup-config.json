@@ -118,7 +118,7 @@
       "id": "google-oauth",
       "kind": "google-oauth",
       "title": "Google Authentication",
-      "description": "Google OAuth lets operators sign in to the dashboard app.",
+      "description": "Google OAuth lets customers and operators sign in to the app.",
       "instructions": "Create a Google Cloud project, configure the OAuth consent screen, then create an OAuth client.",
       "variables": [
         {
@@ -140,22 +140,6 @@
       ]
     },
     {
-      "id": "dev-anonymous",
-      "kind": "dev-anonymous",
-      "title": "Dev-only Anonymous Authentication",
-      "description": "Optional dev-only shortcut for browser QA. Never enable in production.",
-      "variables": [
-        {
-          "name": "AUTH_DEV_ANONYMOUS",
-          "projects": ["convex", "app"],
-          "details": "Set to 1 only on dev deployments and local app dev env.",
-          "defaultValue": "1",
-          "secret": false
-        }
-      ],
-      "required": false
-    },
-    {
       "id": "admin-emails",
       "kind": "admin-emails",
       "title": "Operator allowlist",
@@ -172,6 +156,22 @@
       ],
       "required": true,
       "requiredMessage": "At least one operator email is required. Setup reports configuration presence only and keeps values hidden."
+    },
+    {
+      "id": "anonymous-login",
+      "kind": "anonymous-login",
+      "title": "Product Anonymous Authentication",
+      "description": "Optional customer guest login. Default off; production requires explicit opt-in and a non-empty operator allowlist.",
+      "variables": [
+        {
+          "name": "AUTH_ANONYMOUS_LOGIN",
+          "projects": ["convex", "app"],
+          "details": "Setup writes the exact same value to the Convex deployment and apps/app server env. Values are never printed.",
+          "defaultValue": "0",
+          "secret": false
+        }
+      ],
+      "required": false
     },
     {
       "id": "resend",

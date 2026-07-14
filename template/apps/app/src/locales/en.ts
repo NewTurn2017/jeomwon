@@ -74,8 +74,10 @@ export default {
       disabledTitle: "Customer reservations are unavailable",
       disabledDescription:
         "This deployment does not currently provide the customer reservation screen. Please contact the operator.",
-      empty: "You have no reservations yet. Start a new booking in the chat below.",
-      bookViaChat: "To change a reservation or make a new one, use the chat below.",
+      empty:
+        "You have no reservations yet. Start a new booking in the chat below.",
+      bookViaChat:
+        "To change a reservation or make a new one, use the chat below.",
     },
   },
   admin: {
@@ -84,14 +86,17 @@ export default {
       "Monitor live reservations, escalations, and agent activity in one authenticated operator surface.",
   },
   login: {
-    title: "Operator sign-in",
-    description: "The operator dashboard is available only after sign-in.",
+    title: "Sign in",
+    description: "Sign in with Google or continue as a guest.",
     privacy:
-      "Sign-in details are used only for operator authentication and reservation management access.",
+      "Sign-in details are used only for account authentication and reservation access.",
     google: "Sign in with Google",
     alternative: "or",
-    devAnonymous: "Dev-only anonymous sign-in",
-    devOnly: "Visible only in this development deployment.",
+    anonymous: "Continue as a guest",
+    anonymousContinuityWarning:
+      "If this browser loses its sign-in data, you cannot access your previous reservations again. Use Google sign-in for continued access.",
+    anonymousConfigError:
+      "Guest sign-in is not configured consistently between the app and authentication provider. Contact the operator.",
     actionWorking: "Signing in",
     signInError: "Sign-in failed. Check the auth configuration and try again.",
   },

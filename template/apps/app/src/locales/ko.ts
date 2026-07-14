@@ -83,13 +83,16 @@ export default {
       "실시간 예약 상태, 에스컬레이션, 에이전트 활동을 한 화면에서 확인합니다.",
   },
   login: {
-    title: "운영자 로그인",
-    description: "운영 대시보드는 로그인 후에만 접근할 수 있습니다.",
-    privacy: "로그인 정보는 운영자 인증과 예약 관리 권한 확인에만 사용됩니다.",
+    title: "로그인",
+    description: "Google 계정으로 로그인하거나 비회원으로 시작하세요.",
+    privacy: "로그인 정보는 계정 인증과 예약 접근 권한 확인에만 사용됩니다.",
     google: "Google로 로그인",
     alternative: "또는",
-    devAnonymous: "개발용 익명 로그인",
-    devOnly: "이 개발 배포에서만 표시됩니다.",
+    anonymous: "비회원으로 시작",
+    anonymousContinuityWarning:
+      "이 브라우저의 로그인 정보가 사라지면 이전 예약에 다시 접근할 수 없습니다. 계속 이용하려면 Google 로그인을 사용하세요.",
+    anonymousConfigError:
+      "비회원 로그인이 앱과 인증 제공자에 동일하게 설정되지 않았습니다. 운영자에게 문의하세요.",
     actionWorking: "로그인 중",
     signInError: "로그인에 실패했습니다. 설정을 확인한 뒤 다시 시도하세요.",
   },

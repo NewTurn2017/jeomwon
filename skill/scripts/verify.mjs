@@ -27,7 +27,7 @@ const verifyEnv = {
 	NEXT_PUBLIC_APP_URL: "http://localhost:3000",
 	SITE_URL: "http://localhost:3001",
 	AGENT_RUNTIME: "mock",
-	AUTH_DEV_ANONYMOUS: "1",
+	AUTH_ANONYMOUS_LOGIN: "1",
 	...process.env,
 	TMPDIR: "/private/tmp",
 };

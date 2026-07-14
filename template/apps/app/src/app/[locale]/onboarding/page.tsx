@@ -35,7 +35,7 @@ export default function OnboardingUsername() {
     if (!user) {
       return;
     }
-    if (user?.username) {
+    if (user?.isAnonymous || user?.username) {
       router.push("/");
     }
   }, [router, user]);

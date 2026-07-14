@@ -9,10 +9,10 @@ import type { ReturnTo } from "@/lib/admin-routing";
 import { useScopedI18n } from "@/locales/client";
 
 export function GoogleSignin({
-  devAnonymousEnabled = false,
+  anonymousLoginEnabled = false,
   returnTo = "/",
 }: {
-  devAnonymousEnabled?: boolean;
+  anonymousLoginEnabled?: boolean;
   returnTo?: ReturnTo;
 }) {
   const t = useScopedI18n("login");
@@ -39,7 +39,9 @@ export function GoogleSignin({
         router.replace(returnTo);
       }
     } catch {
-      setErrorMessage(t("signInError"));
+      setErrorMessage(
+        provider === "anonymous" ? t("anonymousConfigError") : t("signInError"),
+      );
     } finally {
       setSigningInWith(null);
     }
@@ -64,7 +66,7 @@ export function GoogleSignin({
           {errorMessage}
         </p>
       ) : null}
-      {devAnonymousEnabled ? (
+      {anonymousLoginEnabled ? (
         <div className="mt-6 flex w-full flex-col items-center">
           <div className="flex w-full items-center gap-3">
             <span aria-hidden="true" className="h-px flex-1 bg-border" />
@@ -82,10 +84,10 @@ export function GoogleSignin({
           >
             {signingInWith === "anonymous"
               ? t("actionWorking")
-              : t("devAnonymous")}
+              : t("anonymous")}
           </Button>
           <p className="mt-2 text-center text-muted-foreground text-xs leading-5">
-            {t("devOnly")}
+            {t("anonymousContinuityWarning")}
           </p>
         </div>
       ) : null}

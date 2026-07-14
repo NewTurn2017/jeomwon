@@ -106,7 +106,7 @@ type CliOptions = {
 type SetupStubs = {
   values?: Record<string, string>;
   answers?: Record<string, boolean | string>;
-  existingConvexEnv?: Record<string, boolean>;
+  existingConvexEnv?: Record<string, boolean | string>;
   existingLocalEnv?: Record<string, Record<string, string>>;
   convexAuthenticated?: boolean;
   convexUrl?: string;
@@ -134,6 +134,7 @@ type RuntimeContext = {
   stubs: SetupStubs;
   projects: Map<string, ProjectConfig>;
   localEnvWrites: Map<string, Map<string, string>>;
+  convexEnvWrites: Map<string, string>;
   knownSecrets: Set<string>;
   deferredKeys: Set<string>;
 };
@@ -156,8 +157,8 @@ const CORE_STEP_ORDER = [
   "convex",
   "convex-auth",
   "google-oauth",
-  "dev-anonymous",
   "admin-emails",
+  "anonymous-login",
   "resend",
   "openai",
   "polar",
@@ -185,6 +186,7 @@ async function main() {
     stubs,
     projects: new Map(config.projects.map((project) => [project.id, project])),
     localEnvWrites: new Map(),
+    convexEnvWrites: new Map(),
     knownSecrets: new Set(),
     deferredKeys: new Set(),
   };
@@ -227,9 +229,8 @@ async function main() {
 
     await configureConvexAuth(ctx, deployment, siteUrl);
     await configureGoogleOAuth(ctx, deployment);
-    await configureDevAnonymous(ctx);
-
     await configureAdminEmails(ctx);
+    await configureAnonymousLogin(ctx, domainFeatures.customerAccounts);
 
     await configureResend(ctx);
     await configureOpenAI(ctx, domainFeatures.customerAccounts);
@@ -376,7 +377,9 @@ function readJsonFile<T>(filePath: string): T {
 
 function section(title: string) {
   sectionCount += 1;
-  const label = style.magenta(style.bold(String(sectionCount).padStart(2, "0")));
+  const label = style.magenta(
+    style.bold(String(sectionCount).padStart(2, "0")),
+  );
   console.log("");
   console.log(`${glyph.step} ${label}  ${style.bold(title)}`);
   console.log(`  ${RULE}`);
@@ -725,27 +728,107 @@ async function getDeferredGoogleOAuthVariables(
   return configure ? [] : missingVariables;
 }
 
-async function configureDevAnonymous(ctx: RuntimeContext) {
-  const step = requireStep(ctx, "dev-anonymous");
+async function configureAnonymousLogin(
+  ctx: RuntimeContext,
+  customerAccounts: boolean,
+) {
+  const step = requireStep(ctx, "anonymous-login");
   section(step.title);
-  console.log("Production deployments must never use AUTH_DEV_ANONYMOUS=1.");
-  const enable = await promptConfirm(ctx, {
-    key: "dev-anonymous:enable",
-    message: "Enable dev-only anonymous auth for this dev deployment?",
-    defaultValue: false,
-  });
+  const providerBefore = await readConvexEnvValue(ctx, "AUTH_ANONYMOUS_LOGIN");
+  const appBefore = readLocalEnv(ctx, "app").get("AUTH_ANONYMOUS_LOGIN");
+  assertAnonymousLoginSynchronized(providerBefore, appBefore);
 
-  if (!enable) {
-    ui.skip("dev 전용 익명 로그인 건너뜀");
+  if (!customerAccounts) {
+    console.log(
+      "domain.config.features.customerAccounts=false, keeping product anonymous login off.",
+    );
+    if (isAnonymousLoginOn(providerBefore) || isAnonymousLoginOn(appBefore)) {
+      throw new Error("anonymous_login_requires_customer_accounts");
+    }
     return;
   }
 
-  await ensureConvexEnv(ctx, "AUTH_DEV_ANONYMOUS", "1", {
+  const enable = await promptConfirm(ctx, {
+    key: "anonymous-login:enable",
+    message: "Enable product anonymous login for this deployment?",
+    defaultValue: false,
+  });
+
+  if (enable) {
+    const production = await promptConfirm(ctx, {
+      key: "anonymous-login:production-deployment",
+      message: "Is this a production deployment?",
+      defaultValue: false,
+    });
+    if (production) {
+      await requireProductionAnonymousOptIn(ctx);
+    }
+  }
+
+  const nextValue = enable ? "1" : "0";
+  await ensureConvexEnv(ctx, "AUTH_ANONYMOUS_LOGIN", nextValue, {
     secret: false,
-    overwritePromptKey: "overwrite:AUTH_DEV_ANONYMOUS",
+    overwritePromptKey: "overwrite:AUTH_ANONYMOUS_LOGIN",
     force: true,
   });
-  await setLocalEnv(ctx, "app", "AUTH_DEV_ANONYMOUS", "1");
+  await setLocalEnv(ctx, "app", "AUTH_ANONYMOUS_LOGIN", nextValue);
+  await verifyAnonymousLoginPostflight(ctx, customerAccounts);
+}
+
+async function requireProductionAnonymousOptIn(ctx: RuntimeContext) {
+  const key = "anonymous-login:production-opt-in";
+  const expected = "ENABLE_PRODUCTION_ANONYMOUS_LOGIN";
+  const stub = ctx.stubs.answers?.[key];
+  let response = "";
+
+  if (typeof stub === "string") {
+    response = stub;
+    console.log("Production anonymous login opt-in response received (stub).");
+  } else if (!ctx.options.nonInteractive) {
+    response = await promptLine(
+      `Type ${expected} to enable product anonymous login in production: `,
+    );
+  }
+
+  if (response !== expected) {
+    throw new Error(
+      "explicit production opt-in is required for anonymous login",
+    );
+  }
+}
+
+function isAnonymousLoginOn(value: string | undefined) {
+  return value === "1";
+}
+
+function assertAnonymousLoginSynchronized(
+  providerValue: string | undefined,
+  appValue: string | undefined,
+) {
+  if (isAnonymousLoginOn(providerValue) !== isAnonymousLoginOn(appValue)) {
+    throw new Error("anonymous_login_config_mismatch");
+  }
+}
+
+async function verifyAnonymousLoginPostflight(
+  ctx: RuntimeContext,
+  customerAccounts: boolean,
+) {
+  const providerValue = await readConvexEnvValue(ctx, "AUTH_ANONYMOUS_LOGIN");
+  const appValue = readLocalEnv(ctx, "app").get("AUTH_ANONYMOUS_LOGIN");
+  assertAnonymousLoginSynchronized(providerValue, appValue);
+
+  if (isAnonymousLoginOn(providerValue)) {
+    if (!customerAccounts) {
+      throw new Error("anonymous_login_requires_customer_accounts");
+    }
+    const allowlist = await readConvexEnvValue(ctx, "JEOMWON_ADMIN_EMAILS");
+    requireValidAdminEmails(allowlist);
+  }
+
+  console.log(
+    "Anonymous login postflight passed (Convex/app synchronized; values hidden).",
+  );
 }
 
 // JEOMWON_ADMIN_EMAILS is a Convex deployment env var only — it is never written
@@ -771,6 +854,11 @@ async function configureAdminEmails(ctx: RuntimeContext) {
       defaultValue: false,
     });
     if (!overwrite) {
+      const existingValue = await readConvexEnvValue(
+        ctx,
+        "JEOMWON_ADMIN_EMAILS",
+      );
+      requireValidAdminEmails(existingValue);
       return;
     }
   }
@@ -782,11 +870,7 @@ async function configureAdminEmails(ctx: RuntimeContext) {
     secret: true,
     required: true,
   });
-  const emails = normalizeAdminEmails(value);
-
-  if (!emails) {
-    throw new Error("JEOMWON_ADMIN_EMAILS is required.");
-  }
+  const emails = requireValidAdminEmails(value);
 
   await ensureConvexEnv(ctx, "JEOMWON_ADMIN_EMAILS", emails, {
     secret: true,
@@ -808,6 +892,14 @@ function normalizeAdminEmails(value: string) {
   }
 
   return [...new Set(emails)].join(",");
+}
+
+function requireValidAdminEmails(value: string | undefined) {
+  const emails = normalizeAdminEmails(value ?? "");
+  if (!emails) {
+    throw new Error("JEOMWON_ADMIN_EMAILS is required.");
+  }
+  return emails;
 }
 
 async function configureResend(ctx: RuntimeContext) {
@@ -834,7 +926,9 @@ async function configureResend(ctx: RuntimeContext) {
       defaultValue: false,
     });
     if (!configure) {
-      ui.skip("Resend 건너뜀 — 이메일은 capture 모드로 동작 (나중에 추가 가능)");
+      ui.skip(
+        "Resend 건너뜀 — 이메일은 capture 모드로 동작 (나중에 추가 가능)",
+      );
       return;
     }
   }
@@ -1194,6 +1288,7 @@ async function ensureConvexEnv(
   }
 
   if (ctx.options.dryRun) {
+    ctx.convexEnvWrites.set(name, value);
     console.log(`DRY RUN: would set Convex env ${name} (value hidden).`);
     return;
   }
@@ -1216,16 +1311,40 @@ async function ensureConvexEnv(
     throw new Error(`Convex env ${name} was not readable after set.`);
   }
 
+  ctx.convexEnvWrites.set(name, value);
+
   ui.ok(`${name} ${style.gray("설정·검증됨 (값 숨김)")}`);
 }
 
 async function isConvexEnvConfigured(ctx: RuntimeContext, name: string) {
+  if (ctx.convexEnvWrites.has(name)) {
+    return true;
+  }
   if (ctx.options.dryRun) {
-    return ctx.stubs.existingConvexEnv?.[name] === true;
+    const value = ctx.stubs.existingConvexEnv?.[name];
+    return value === true || (typeof value === "string" && value.length > 0);
   }
 
   const result = await runCommand(ctx, "npx", ["convex", "env", "get", name]);
   return result.code === 0;
+}
+
+async function readConvexEnvValue(ctx: RuntimeContext, name: string) {
+  const pending = ctx.convexEnvWrites.get(name);
+  if (pending !== undefined) {
+    return pending;
+  }
+
+  if (ctx.options.dryRun) {
+    const stub = ctx.stubs.existingConvexEnv?.[name];
+    if (typeof stub === "string") {
+      return stub.trim();
+    }
+    return stub === true ? "<configured>" : undefined;
+  }
+
+  const result = await runCommand(ctx, "npx", ["convex", "env", "get", name]);
+  return result.code === 0 ? result.stdout.trim() : undefined;
 }
 
 async function setLocalEnv(
@@ -1367,7 +1486,10 @@ function printDeferredSummary(ctx: RuntimeContext) {
     return;
   }
 
-  ui.kv("Later", `${ctx.deferredKeys.size}개 키 미설정 ${style.gray("(값 숨김)")}`);
+  ui.kv(
+    "Later",
+    `${ctx.deferredKeys.size}개 키 미설정 ${style.gray("(값 숨김)")}`,
+  );
   for (const key of [...ctx.deferredKeys].sort()) {
     console.log(`    ${glyph.skip} ${style.gray(key)}`);
   }
@@ -1452,7 +1574,9 @@ async function promptText(
     throw new Error(`Missing required non-interactive value: ${input.key}`);
   }
 
-  const suffix = input.defaultValue ? style.gray(` [${input.defaultValue}]`) : "";
+  const suffix = input.defaultValue
+    ? style.gray(` [${input.defaultValue}]`)
+    : "";
   const label = `  ${glyph.step} ${input.message}${suffix}${style.gray(": ")}`;
   const value = input.secret
     ? await promptSecret(label)
