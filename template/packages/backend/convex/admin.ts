@@ -404,7 +404,7 @@ async function appendOperatorAudit(
 }
 
 /**
- * Operator guard. Conditionally fail-closed.
+ * Operator guard. Always fail-closed.
  *
  * The rule itself now lives in `engine/identity.isOperator`, because the chat
  * boundary needs the same question answered without throwing: `admin:*` reaches
@@ -412,15 +412,9 @@ async function appendOperatorAudit(
  * into a CUSTOMER's thread, and the thread guard there has to recognize them.
  * Two copies of an authorization rule are two chances to drift, so there is one.
  *
- * - Allowlist set: the signed-in user's email must be on it. An account with no
- *   email (the dev anonymous provider) can never match, which is intended.
- * - Allowlist empty, `customerAccounts` false: accept any signed-in user. Only
- *   operators can sign in to such a deployment, so presence is still proof of
- *   role. This is the pre-allowlist behavior, kept exactly so existing generated
- *   apps do not lock their operators out on upgrade.
- * - Allowlist empty, `customerAccounts` true: deny. Customers can sign in to this
- *   deployment, so "any signed-in user is an operator" would hand every customer
- *   the dashboard. There is no safe default here, so refuse to guess.
+ * - Missing allowlist: `admin_not_configured` on every feature configuration.
+ * - Anonymous, missing-email, and non-matching identities: `admin_forbidden`.
+ * - Only a normalized exact non-anonymous email match is accepted.
  */
 async function ensureAdmin(ctx: QueryCtx | MutationCtx) {
   const userId = await getAuthUserId(ctx);
@@ -428,10 +422,7 @@ async function ensureAdmin(ctx: QueryCtx | MutationCtx) {
     throw new Error("admin_auth_required");
   }
 
-  if (
-    adminEmailAllowlist().length === 0 &&
-    domainConfig.features.customerAccounts
-  ) {
+  if (adminEmailAllowlist().length === 0) {
     throw new Error("admin_not_configured");
   }
 

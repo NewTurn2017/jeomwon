@@ -71,9 +71,17 @@ export default {
     customer: {
       title: "My Reservations",
       description: "Your confirmed reservations and upcoming schedule.",
+      disabledTitle: "Customer reservations are unavailable",
+      disabledDescription:
+        "This deployment does not currently provide the customer reservation screen. Please contact the operator.",
       empty: "You have no reservations yet. Start a new booking in the chat below.",
       bookViaChat: "To change a reservation or make a new one, use the chat below.",
     },
+  },
+  admin: {
+    title: "Reservation Operations",
+    description:
+      "Monitor live reservations, escalations, and agent activity in one authenticated operator surface.",
   },
   login: {
     title: "Operator sign-in",
@@ -89,6 +97,7 @@ export default {
   },
   navigation: {
     dashboard: "Dashboard",
+    admin: "Admin",
     settings: "Settings",
     billing: "Billing",
     account: "Operator Account",

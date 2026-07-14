@@ -160,18 +160,18 @@
       "kind": "admin-emails",
       "title": "Operator allowlist",
       "description": "JEOMWON_ADMIN_EMAILS decides which signed-in accounts may open the admin dashboard.",
-      "instructions": "Required when domain.config.features.customerAccounts is true, because customers and operators then share one login. Optional otherwise.",
+      "instructions": "Required for every deployment. Operator access always fails closed when the allowlist is missing or empty.",
       "variables": [
         {
           "name": "JEOMWON_ADMIN_EMAILS",
           "projects": ["convex"],
           "details": "Comma-separated operator emails, matched case-insensitively against the signed-in account. Convex deployment env only — never exposed to the browser.",
-          "required": false,
-          "secret": false
+          "required": true,
+          "secret": true
         }
       ],
-      "required": false,
-      "requiredMessage": "Leaving the allowlist empty keeps today's behavior: every signed-in account is an operator."
+      "required": true,
+      "requiredMessage": "At least one operator email is required. Setup reports configuration presence only and keeps values hidden."
     },
     {
       "id": "resend",

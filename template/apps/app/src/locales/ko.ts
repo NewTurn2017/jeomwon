@@ -70,9 +70,17 @@ export default {
     customer: {
       title: "내 예약",
       description: "확정된 예약과 다가오는 일정을 확인합니다.",
+      disabledTitle: "고객 예약 화면 준비 중",
+      disabledDescription:
+        "현재 이 배포에서는 고객 예약 화면을 이용할 수 없습니다. 운영자에게 문의해 주세요.",
       empty: "아직 예약이 없습니다. 아래 채팅으로 새 예약을 시작해 보세요.",
       bookViaChat: "예약 변경이나 새 예약은 아래 채팅으로 문의하세요.",
     },
+  },
+  admin: {
+    title: "예약 관제",
+    description:
+      "실시간 예약 상태, 에스컬레이션, 에이전트 활동을 한 화면에서 확인합니다.",
   },
   login: {
     title: "운영자 로그인",
@@ -87,6 +95,7 @@ export default {
   },
   navigation: {
     dashboard: "대시보드",
+    admin: "관리자",
     settings: "설정",
     billing: "결제",
     account: "운영자 계정",

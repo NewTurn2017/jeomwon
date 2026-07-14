@@ -229,14 +229,7 @@ async function main() {
     await configureGoogleOAuth(ctx, deployment);
     await configureDevAnonymous(ctx);
 
-    if (domainFeatures.customerAccounts) {
-      await configureAdminEmails(ctx);
-    } else {
-      section("Operator allowlist");
-      console.log(
-        "domain.config.features.customerAccounts=false, skipping. Only operators sign in, so every signed-in account is an operator. To restrict the desk to named staff, set JEOMWON_ADMIN_EMAILS yourself: npx convex env set JEOMWON_ADMIN_EMAILS a@x.com,b@x.com",
-      );
-    }
+    await configureAdminEmails(ctx);
 
     await configureResend(ctx);
     await configureOpenAI(ctx, domainFeatures.customerAccounts);
@@ -758,17 +751,15 @@ async function configureDevAnonymous(ctx: RuntimeContext) {
 // JEOMWON_ADMIN_EMAILS is a Convex deployment env var only — it is never written
 // to any .env.local and never prefixed NEXT_PUBLIC_, so it cannot reach the
 // browser. The backend guard (packages/backend/convex/admin.ts) reads it per call.
-// Only reached when features.customerAccounts is true. Customers and operators
-// then share one login, so the allowlist is the only thing separating them — an
-// empty one would hand every customer the dashboard. The backend refuses to guess
-// (admin_not_configured), so the wizard must not let a project ship without it.
+// The backend always refuses to infer operator status from sign-in alone. The
+// wizard therefore requires the allowlist for every feature configuration.
 async function configureAdminEmails(ctx: RuntimeContext) {
   const step = requireStep(ctx, "admin-emails");
   section(step.title);
 
   const variable = requireVariable(step, "JEOMWON_ADMIN_EMAILS");
   console.log(
-    "Customers sign in to this deployment too, so the allowlist is what separates operators from customers.",
+    "Only allowlisted, non-anonymous accounts can access operator functions. Values remain hidden.",
   );
 
   const configured = await isConvexEnvConfigured(ctx, "JEOMWON_ADMIN_EMAILS");
@@ -788,19 +779,17 @@ async function configureAdminEmails(ctx: RuntimeContext) {
     key: "JEOMWON_ADMIN_EMAILS",
     message: "Operator emails (comma-separated)",
     defaultValue: variable.defaultValue ?? "",
-    secret: false,
+    secret: true,
     required: true,
   });
   const emails = normalizeAdminEmails(value);
 
   if (!emails) {
-    throw new Error(
-      "JEOMWON_ADMIN_EMAILS is required when domain.config.features.customerAccounts is true.",
-    );
+    throw new Error("JEOMWON_ADMIN_EMAILS is required.");
   }
 
   await ensureConvexEnv(ctx, "JEOMWON_ADMIN_EMAILS", emails, {
-    secret: false,
+    secret: true,
     force: true,
   });
 }
@@ -815,9 +804,7 @@ function normalizeAdminEmails(value: string) {
 
   const invalid = emails.filter((email) => !email.includes("@"));
   if (invalid.length > 0) {
-    throw new Error(
-      `JEOMWON_ADMIN_EMAILS expects email addresses, got: ${invalid.join(", ")}`,
-    );
+    throw new Error("JEOMWON_ADMIN_EMAILS expects email addresses.");
   }
 
   return [...new Set(emails)].join(",");
