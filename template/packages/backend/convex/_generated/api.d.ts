@@ -11,6 +11,7 @@
 import type * as admin from "../admin.js";
 import type * as agentTools from "../agentTools.js";
 import type * as auth from "../auth.js";
+import type * as authPolicy from "../authPolicy.js";
 import type * as chat from "../chat.js";
 import type * as crons from "../crons.js";
 import type * as demoReset from "../demoReset.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   agentTools: typeof agentTools;
   auth: typeof auth;
+  authPolicy: typeof authPolicy;
   chat: typeof chat;
   crons: typeof crons;
   demoReset: typeof demoReset;
