@@ -113,6 +113,10 @@ export default {
     description:
       "실시간 예약 상태, 에스컬레이션, 에이전트 활동을 한 화면에서 확인합니다.",
   },
+  notFound: {
+    title: "페이지를 찾을 수 없습니다",
+    description: "요청하신 페이지가 없거나 접근 권한이 없습니다.",
+  },
   login: {
     title: "로그인",
     description: "Google 계정으로 로그인하거나 비회원으로 시작하세요.",

@@ -117,6 +117,11 @@ export default {
     description:
       "Monitor live reservations, escalations, and agent activity in one authenticated operator surface.",
   },
+  notFound: {
+    title: "Page not found",
+    description:
+      "The page you requested does not exist or you do not have access to it.",
+  },
   login: {
     title: "Sign in",
     description: "Sign in with Google or continue as a guest.",
