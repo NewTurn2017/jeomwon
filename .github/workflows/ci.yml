@@ -1,6 +1,7 @@
-# Kit-repo CI: the offline, deterministic gates (typecheck / lint / unit tests).
-# The live 11-gate QA suite needs a dev Convex deployment and stays a local
-# maintainer gate (`cd template && bun run qa`); see README "QA 게이트".
+# Kit-repo CI: offline deterministic template + fresh generator gates.
+# The authenticated-app live 11-gate suite needs a dev Convex deployment and
+# stays a maintainer gate (`cd template && bun run qa`); see README "QA 게이트".
+# Google operator success CRUD is a separate approval-owned smoke, not gate 10.
 name: CI
 
 on:
@@ -24,3 +25,4 @@ jobs:
       - run: bun run typecheck
       - run: bun run lint
       - run: bun test
+      - run: cd .. && bun test skill/scripts/generator-contract.test.ts

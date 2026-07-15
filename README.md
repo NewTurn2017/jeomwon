@@ -61,19 +61,21 @@ bun dev          # web + app + backend 병렬 실행
 
 ## QA 게이트
 
-각 트리에 11게이트 QA 스위트가 들어 있습니다(해피 패스, 취소 기한 에스컬레이션, 쓰기 가드, 관련성 가드, 스키마 422, 프라이버시 grep, 홀드 만료, 메일 캡처, 대기자 접수·알림, 운영자 캘린더 CRUD, 고객 계정). `bun run qa`가 Convex 준비, 웹 서버 기동, 11게이트 실행, 정리까지 스스로 처리합니다 — 서버를 미리 띄울 필요가 없습니다.
+각 트리에 인증 앱 대상 11게이트 QA 스위트가 들어 있습니다(해피 패스, 취소 기한 에스컬레이션, 쓰기 가드, 관련성 가드, 스키마 422, 프라이버시 grep, 홀드 만료, 메일 캡처, 대기자 접수·알림, 운영자 전용 경계 차단, 고객 계정). `bun run qa`가 Convex 준비, `apps/app` mock 런타임 기동, 독립 로그인 A/B 컨텍스트의 11게이트 실행, 정리까지 스스로 처리합니다 — 앱 서버를 미리 띄울 필요가 없습니다.
 
 ```bash
 cd template
 bun run qa
 ```
 
-- 웹 서버는 기본 포트 `3999`로 뜹니다(`JEOMWON_QA_PORT`로 변경). 여러 프로젝트의 QA를 **동시에 돌리지 마세요** — 정리 단계에서 해당 포트를 점유한 프로세스를 종료합니다.
+- 인증 앱은 기본 포트 `3999`로 뜹니다(`JEOMWON_QA_PORT`로 변경). 시작 전 포트가 점유되어 있으면 Convex 변경이나 프로세스 기동 없이 실패하며, 정리 단계는 이 QA가 만든 전용 프로세스 그룹만 종료합니다.
+- 로컬 Chromium이 아직 없으면 최초 1회 `cd template && bunx playwright install chromium`으로 QA 브라우저를 준비하세요.
 - 홀드 만료 게이트의 대기 시간은 `JEOMWON_TEST_HOLD_MS`(기본 `1500`)로 조절합니다.
 - 안전장치: `dev:` 배포가 아니면 실행을 거부합니다. QA가 해당 도메인의 예약·챗 데이터를 초기화하기 때문입니다.
 - 대기자 게이트(9)는 `features.waitlist`가 꺼져 있으면 결정론적으로 SKIP됩니다.
+- 게이트 10은 미인증 `/admin` redirect와 인증 고객 `/admin` 404를 항상 검증합니다. `features.operatorCalendarCrud=false`이면 CRUD 경계 하위 사례만 이유와 함께 SKIP하고, `true`이면 예약된 비일치 `.invalid` allowlist 아래에서 미인증·인증 비운영자의 create/update/delete 차단을 PASS로 증명합니다. 실제 Google 운영자 로그인과 성공 CRUD는 정확한 11게이트에 포함되지 않는 별도 maintainer-owned 라이브 smoke이며, 사용자 승인 전에는 BLOCKED입니다.
 
-웹 서버를 이미 띄워둔 상태에서 게이트만 돌리려면 `bun run qa:run`을 쓰고 `JEOMWON_QA_BASE_URL`을 직접 지정하세요. Next dev 접속은 반드시 `localhost`로 해야 합니다(`127.0.0.1` 불가).
+인증 앱을 이미 띄워둔 상태에서 게이트만 돌리려면 `bun run qa:run`을 쓰고 `JEOMWON_QA_BASE_URL`을 직접 지정하세요. Next dev 접속은 반드시 `localhost`로 해야 합니다(`127.0.0.1` 불가).
 
 ## 설정
 

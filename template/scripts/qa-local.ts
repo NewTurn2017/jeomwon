@@ -1,120 +1,186 @@
 #!/usr/bin/env bun
 // One-command local QA gate.
-// Prepares the dev Convex deployment, boots the web app in mock runtime,
+// Prepares the dev Convex deployment, boots the authenticated app in mock runtime,
 // runs the full scenario-gate suite, then tears everything back down.
 // Safe by design: refuses to run against anything but a `dev:` deployment,
 // forces email capture via JEOMWON_QA_RESET (never sends real mail), and
-// always unsets the QA env + stops the server on exit.
-import { type ChildProcess, spawn, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+// always restores the temporary QA env + stops the app on exit.
+import { spawn, spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
+import { validateQaRuntimeArtifacts } from "./qa-artifact-contract";
+import { configureTemporaryConvexEnvironment } from "./qa-convex-env-lifecycle";
+import {
+  bold,
+  fail,
+  gray,
+  green,
+  ok,
+  red,
+  reportCleanupFailures,
+  step,
+} from "./qa-local-console";
+import type { OwnedQaProcess } from "./qa-port-lifecycle";
+import {
+  ownQaProcess,
+  QaPortLifecycleError,
+  runAfterQaPortPreflight,
+  terminateOwnedQaProcess,
+  waitForOwnedQaAppReady,
+} from "./qa-port-lifecycle";
+import type { QaConvexTarget } from "./qa-runtime-contract";
+import {
+  convexDevArgs,
+  convexEnvArgs,
+  QaRuntimeContractError,
+  resolveQaConvexTarget,
+  restoreConvexEnvironment,
+  sanitizeConvexChildEnv,
+  validateQaAppConvexUrl,
+} from "./qa-runtime-contract";
 
 const root = process.cwd();
 const backendDir = join(root, "packages/backend");
-const webDir = join(root, "apps/web");
+const appDir = join(root, "apps/app");
+const appEnvFile = join(appDir, ".env.local");
+const convexEnvFile = join(backendDir, ".env.local");
 const port = Number(process.env.JEOMWON_QA_PORT ?? "3999");
 const baseUrl = `http://localhost:${port}`;
 const holdMs = process.env.JEOMWON_TEST_HOLD_MS ?? "1500";
-const QA_ENV = ["JEOMWON_QA_RESET", "JEOMWON_TEST_HOLD_MS"];
-
-const COLOR = Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;
-const paint = (code: string, s: string) =>
-  COLOR ? `\x1b[${code}m${s}\x1b[0m` : s;
-const bold = (s: string) => paint("1", s);
-const gray = (s: string) => paint("90", s);
-const green = (s: string) => paint("32", s);
-const red = (s: string) => paint("31", s);
-
-const TOTAL = 4;
-const step = (n: number, msg: string) =>
-  console.log(`\n${paint("35", "▸")} ${bold(`${n}/${TOTAL}`)}  ${msg}`);
-const ok = (msg: string) => console.log(`  ${green("✓")} ${msg}`);
-function fail(msg: string): never {
-  console.error(`  ${red("✗")} ${msg}`);
-  process.exit(1);
+const qaArtifactDir = join(
+  root,
+  "qa-artifacts",
+  `jeomwon-${new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-")}`,
+);
+const DEFAULT_QA_ADMIN_EMAIL = "jeomwon-qa-nonoperator@reserved.invalid";
+type TempConvexEnv = {
+  readonly AUTH_ANONYMOUS_LOGIN: string;
+  readonly JEOMWON_ADMIN_EMAILS: string;
+  readonly JEOMWON_QA_RESET: string;
+  readonly JEOMWON_TEST_HOLD_MS: string;
+};
+const TEMP_CONVEX_ENV_NAMES = [
+  "AUTH_ANONYMOUS_LOGIN",
+  "JEOMWON_ADMIN_EMAILS",
+  "JEOMWON_QA_RESET",
+  "JEOMWON_TEST_HOLD_MS",
+] as const;
+function temporaryConvexEnv(): TempConvexEnv {
+  return {
+    AUTH_ANONYMOUS_LOGIN: "1",
+    JEOMWON_ADMIN_EMAILS: DEFAULT_QA_ADMIN_EMAIL,
+    JEOMWON_QA_RESET: "1",
+    JEOMWON_TEST_HOLD_MS: holdMs,
+  };
 }
 
-function convex(args: string[], inherit = false) {
-  return spawnSync("npx", ["convex", ...args], {
+function convexEnv(target: QaConvexTarget, args: readonly string[]) {
+  return spawnSync("npx", convexEnvArgs(target, args), {
     cwd: backendDir,
-    stdio: inherit ? "inherit" : ["ignore", "pipe", "pipe"],
+    env: sanitizeConvexChildEnv(process.env),
+    stdio: ["ignore", "pipe", "pipe"],
     encoding: "utf8",
   });
 }
 
-let webChild: ChildProcess | undefined;
+let previousConvexEnv = new Map<string, string | null>();
+let configuredConvexEnv: readonly string[] = [];
+let appProcess: OwnedQaProcess | undefined;
 let tornDown = false;
-function teardown() {
-  if (tornDown) return;
+let teardownFailures: readonly string[] = [];
+let qaTarget: QaConvexTarget | undefined;
+function teardown(): readonly string[] {
+  if (tornDown) return teardownFailures;
   tornDown = true;
-  if (webChild && !webChild.killed) {
-    try {
-      webChild.kill("SIGTERM");
-    } catch {}
+  const cleanupFailures: string[] = [];
+  if (appProcess && !terminateOwnedQaProcess(appProcess)) {
+    cleanupFailures.push("app:terminate");
   }
-  spawnSync(
-    "bash",
-    ["-lc", `lsof -ti tcp:${port} | xargs kill 2>/dev/null || true`],
-    { stdio: "ignore" },
-  );
-  for (const name of QA_ENV) convex(["env", "remove", name]);
+  if (qaTarget !== undefined) {
+    const target = qaTarget;
+    cleanupFailures.push(
+      ...restoreConvexEnvironment(
+        configuredConvexEnv,
+        previousConvexEnv,
+        (args) => convexEnv(target, args),
+      ),
+    );
+  }
+  teardownFailures = cleanupFailures;
+  return teardownFailures;
 }
-process.on("exit", teardown);
+process.on("exit", () => {
+  if (!tornDown) {
+    const failures = teardown();
+    reportCleanupFailures(failures);
+    if (failures.length > 0) process.exitCode = 1;
+  }
+});
 process.on("SIGINT", () => {
-  teardown();
-  process.exit(130);
+  const failures = teardown();
+  reportCleanupFailures(failures);
+  process.exit(failures.length > 0 ? 1 : 130);
+});
+process.on("SIGTERM", () => {
+  const failures = teardown();
+  reportCleanupFailures(failures);
+  process.exit(failures.length > 0 ? 1 : 143);
 });
 
-async function waitForReady(url: string, timeoutMs: number) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
-      if (res.status > 0) return;
-    } catch {}
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  fail(`웹 서버가 ${timeoutMs / 1000}s 안에 준비되지 않았습니다 (${url}).`);
-}
-
-function resolveDeployment(): string {
-  const envLocal = join(backendDir, ".env.local");
-  if (!existsSync(envLocal)) {
-    fail("packages/backend/.env.local 없음 — 먼저 bun setup 을 실행하세요.");
-  }
-  const raw = readFileSync(envLocal, "utf8").match(/^CONVEX_DEPLOYMENT=(.+)$/m);
-  const deployment = (raw?.[1] ?? "").split("#")[0]?.trim() ?? "";
-  if (!deployment) fail("CONVEX_DEPLOYMENT 를 .env.local 에서 찾지 못했습니다.");
-  if (!deployment.startsWith("dev:")) {
-    fail(`안전 차단: QA는 dev 배포에서만 돕니다. 현재: ${deployment}`);
-  }
-  return deployment;
-}
-
 async function main(): Promise<number> {
-  const deployment = resolveDeployment();
-  console.log(`${bold("jeomwon")} QA ${gray(`· ${deployment} · mock+capture`)}`);
+  return await runAfterQaPortPreflight(port, runQaWorkflow);
+}
 
-  step(1, "Convex 함수 배포 + QA env 설정");
-  if (convex(["dev", "--once"], true).status !== 0) fail("convex dev --once 실패");
-  if (convex(["env", "set", "--", "JEOMWON_QA_RESET", "1"]).status !== 0) {
-    fail("JEOMWON_QA_RESET 설정 실패");
-  }
-  if (convex(["env", "set", "--", "JEOMWON_TEST_HOLD_MS", holdMs]).status !== 0) {
-    fail("JEOMWON_TEST_HOLD_MS 설정 실패");
-  }
-  ok(`dev 배포 준비 완료 ${gray("(리셋+빠른 홀드 만료, 종료 시 해제)")}`);
+async function runQaWorkflow(): Promise<number> {
+  const target = resolveQaConvexTarget(convexEnvFile);
+  validateQaAppConvexUrl(target, appEnvFile);
+  const tempConvexEnv = temporaryConvexEnv();
+  qaTarget = target;
+  console.log(`${bold("jeomwon")} QA ${gray("· verified dev · mock+capture")}`);
 
-  step(2, `웹 서버 기동 ${gray(`(mock 런타임 · ${baseUrl})`)}`);
-  webChild = spawn("bun", ["next", "dev", "-p", String(port)], {
-    cwd: webDir,
-    env: { ...process.env, AGENT_RUNTIME: "mock" },
+  step(1, "Convex 임시 auth/QA env 설정 + 함수 배포");
+  const configured = configureTemporaryConvexEnvironment(
+    TEMP_CONVEX_ENV_NAMES,
+    tempConvexEnv,
+    (args) => convexEnv(target, args),
+  );
+  configuredConvexEnv = configured.configuredNames;
+  previousConvexEnv = new Map(configured.previousValues);
+  const convexDev = spawnSync("npx", convexDevArgs(target), {
+    cwd: backendDir,
+    env: sanitizeConvexChildEnv(process.env),
+    stdio: ["ignore", "pipe", "pipe"],
+    encoding: "utf8",
+  });
+  if (convexDev.status !== 0) {
+    fail("convex dev --once 실패");
+  }
+  ok(
+    `dev 배포 준비 완료 ${gray("(익명 로그인+리셋+빠른 홀드, 종료 시 복원)")}`,
+  );
+
+  step(2, `인증 앱 기동 ${gray(`(mock 런타임 · ${baseUrl})`)}`);
+  const readyNonce = randomUUID();
+  const appChild = spawn("bun", ["next", "dev", "-p", String(port)], {
+    cwd: appDir,
+    detached: true,
+    env: {
+      ...sanitizeConvexChildEnv(process.env),
+      AGENT_RUNTIME: "mock",
+      AUTH_ANONYMOUS_LOGIN: "1",
+      JEOMWON_QA_BROWSER: "1",
+      JEOMWON_QA_READY_NONCE: readyNonce,
+      NEXT_PUBLIC_CONVEX_URL: target.convexUrl,
+    },
     stdio: "ignore",
   });
-  webChild.on("exit", (code) => {
-    if (!tornDown && code && code !== 0) fail(`웹 서버가 종료됨 (code ${code}).`);
+  appProcess = ownQaProcess(appChild);
+  appChild.on("exit", (code) => {
+    if (!tornDown && code && code !== 0) {
+      fail(`앱 서버가 종료됨 (code ${code}).`);
+    }
   });
-  await waitForReady(baseUrl, 90_000);
+  await waitForOwnedQaAppReady(baseUrl, readyNonce, appProcess, 90_000);
   ok(`웹 서버 준비 완료 ${gray(baseUrl)}`);
 
   step(3, "스모크 QA 게이트 실행");
@@ -122,19 +188,39 @@ async function main(): Promise<number> {
     cwd: root,
     stdio: "inherit",
     env: {
-      ...process.env,
+      ...sanitizeConvexChildEnv(process.env),
       JEOMWON_QA_BASE_URL: baseUrl,
+      JEOMWON_QA_ARTIFACT_DIR: qaArtifactDir,
       JEOMWON_TEST_HOLD_MS: holdMs,
+      CONVEX_URL: target.convexUrl,
+      NEXT_PUBLIC_CONVEX_URL: target.convexUrl,
     },
   });
 
-  step(4, "정리 — 서버 종료 · QA env 해제");
-  teardown();
-  ok("정리 완료");
+  step(4, "정리 — 앱 종료 · 임시 Convex env 복원");
+  const cleanupFailures = teardown();
+  if (cleanupFailures.length === 0) {
+    ok("정리 완료");
+  } else {
+    reportCleanupFailures(cleanupFailures);
+  }
 
-  const code = qa.status ?? 1;
+  const qaCode = qa.status ?? 1;
+  const artifacts =
+    qaCode === 0
+      ? validateQaRuntimeArtifacts(qaArtifactDir)
+      : { ok: false as const, issues: ["qa-child:nonzero"] };
+  if (!artifacts.ok) {
+    console.error(
+      `  ${red("✗")} QA 증거 검증 실패 (${artifacts.issues.join(", ")})`,
+    );
+  }
+  const code =
+    qaCode === 0 && cleanupFailures.length === 0 && artifacts.ok ? 0 : 1;
   if (code === 0) {
-    console.log(`\n  ${green("✓")} ${bold("QA 통과")} ${gray("— 모든 게이트")}`);
+    console.log(
+      `\n  ${green("✓")} ${bold("QA 통과")} ${gray("— 모든 게이트")}`,
+    );
   } else {
     console.log(
       `\n  ${red("✗")} ${bold("QA 실패")} ${gray(`(exit ${code})`)} — 위 로그 확인`,
@@ -146,6 +232,12 @@ async function main(): Promise<number> {
 main()
   .then((code) => process.exit(code))
   .catch((error) => {
-    console.error(error);
+    console.error(
+      error instanceof QaRuntimeContractError
+        ? error.message
+        : error instanceof QaPortLifecycleError
+          ? error.message
+          : "QA runner failed before completion.",
+    );
     process.exit(1);
   });

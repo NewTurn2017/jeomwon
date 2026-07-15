@@ -3,6 +3,7 @@
   "globalDependencies": ["**/.env"],
   "globalPassThroughEnv": [
     "JEOMWON_QA_BASE_URL",
+    "JEOMWON_QA_ARTIFACT_DIR",
     "JEOMWON_QA_PORT",
     "JEOMWON_SETUP_STUBS",
     "JEOMWON_SETUP_STUB_FILE",
