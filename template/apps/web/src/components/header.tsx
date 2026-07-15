@@ -1,7 +1,8 @@
 import { domainConfig } from "@jeomwon/backend/domain.config";
-import { MessageCircle } from "lucide-react";
+import { buttonVariants } from "@jeomwon/ui/button";
+import { LogIn } from "lucide-react";
 import Link from "next/link";
-import { ChatCtaButton } from "./chat-cta-button";
+import { appLoginUrl } from "@/env";
 
 export function Header() {
   return (
@@ -17,10 +18,13 @@ export function Header() {
           >
             서비스
           </a>
-          <ChatCtaButton className="h-10 gap-2 px-4">
-            <MessageCircle aria-hidden="true" className="h-4 w-4" />
-            예약 문의
-          </ChatCtaButton>
+          <a
+            className={buttonVariants({ className: "h-10 gap-2 px-4" })}
+            href={appLoginUrl}
+          >
+            <LogIn aria-hidden="true" className="h-4 w-4" />
+            예약 시작
+          </a>
         </nav>
       </div>
     </header>
