@@ -29,7 +29,7 @@ const verifyEnv = {
 	AGENT_RUNTIME: "mock",
 	AUTH_ANONYMOUS_LOGIN: "1",
 	...process.env,
-	TMPDIR: "/private/tmp",
+	TMPDIR: "/tmp",
 };
 
 const steps = [
@@ -52,7 +52,7 @@ if (forceQa || process.env.JEOMWON_QA_BASE_URL) {
 	await runStep({ name: "qa", command: "bun", args: ["run", "qa"] }, targetDir);
 } else {
 	console.log(
-		"SKIP qa: set JEOMWON_QA_BASE_URL=http://localhost:3001 after Convex/web are running, or pass --qa.",
+		"SKIP qa: set JEOMWON_QA_BASE_URL=http://localhost:3000 after Convex and the authenticated app are running, or pass --qa.",
 	);
 }
 

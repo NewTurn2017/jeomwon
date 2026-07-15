@@ -51,7 +51,8 @@ Each example is a complete domain pack JSON object accepted by `scripts/inject.m
   "notificationEmail": "ops@example.com",
   "features": {
     "email": true,
-    "polar": false
+    "polar": false,
+    "customerAccounts": true
   },
   "copy": {
     "chatTitle": "헤어 예약 도우미",
@@ -119,7 +120,8 @@ Each example is a complete domain pack JSON object accepted by `scripts/inject.m
   "notificationEmail": "ops@example.com",
   "features": {
     "email": false,
-    "polar": true
+    "polar": true,
+    "customerAccounts": true
   },
   "copy": {
     "chatTitle": "PC 좌석 도우미",
@@ -195,7 +197,8 @@ Each example is a complete domain pack JSON object accepted by `scripts/inject.m
   "notificationEmail": "library-ops@example.com",
   "features": {
     "email": true,
-    "polar": false
+    "polar": false,
+    "customerAccounts": true
   },
   "copy": {
     "chatTitle": "도서관 예약 도우미",
@@ -274,7 +277,8 @@ Each example is a complete domain pack JSON object accepted by `scripts/inject.m
   "notificationEmail": "stay-ops@example.com",
   "features": {
     "email": true,
-    "polar": false
+    "polar": false,
+    "customerAccounts": true
   },
   "copy": {
     "chatTitle": "펜션 예약 도우미",
@@ -349,7 +353,8 @@ Each example is a complete domain pack JSON object accepted by `scripts/inject.m
   "notificationEmail": "ops@example.com",
   "features": {
     "email": true,
-    "polar": false
+    "polar": false,
+    "customerAccounts": true
   },
   "copy": {
     "chatTitle": "예약 도우미",
@@ -431,7 +436,8 @@ Promoted from the showcase pack `04-studycafe/domain-pack.json` in the separate 
   "notificationEmail": "ops@moleep.example",
   "features": {
     "email": true,
-    "polar": false
+    "polar": false,
+    "customerAccounts": true
   },
   "copy": {
     "chatTitle": "스터디카페 예약 도우미",
@@ -508,7 +514,8 @@ Promoted from the showcase pack `05-futsal-court/domain-pack.json` in the separa
   "notificationEmail": "ops@kickoffpark.example",
   "features": {
     "email": true,
-    "polar": true
+    "polar": true,
+    "customerAccounts": true
   },
   "copy": {
     "chatTitle": "풋살장 예약 도우미",
@@ -598,7 +605,8 @@ Promoted from the showcase pack `06-webinar-live/domain-pack.json` in the separa
   "notificationEmail": "ops@liveon.example",
   "features": {
     "email": true,
-    "polar": false
+    "polar": false,
+    "customerAccounts": true
   },
   "copy": {
     "chatTitle": "웨비나 참가 도우미",
@@ -679,7 +687,8 @@ New kit-authored pack that fills the `unit × minutes:30 × calendar` and `unit 
   "notificationEmail": "equipment-ops@example.com",
   "features": {
     "email": true,
-    "polar": false
+    "polar": false,
+    "customerAccounts": true
   },
   "copy": {
     "chatTitle": "장비 대여 도우미",

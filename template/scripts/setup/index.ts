@@ -113,7 +113,6 @@ type SetupStubs = {
   convexSiteUrl?: string;
   domainFeatures?: {
     polar?: boolean;
-    customerAccounts?: boolean;
   };
   probes?: {
     openaiModels?: boolean;
@@ -230,10 +229,10 @@ async function main() {
     await configureConvexAuth(ctx, deployment, siteUrl);
     await configureGoogleOAuth(ctx, deployment);
     await configureAdminEmails(ctx);
-    await configureAnonymousLogin(ctx, domainFeatures.customerAccounts);
+    await configureAnonymousLogin(ctx);
 
     await configureResend(ctx);
-    await configureOpenAI(ctx, domainFeatures.customerAccounts);
+    await configureOpenAI(ctx);
 
     if (domainFeatures.polar) {
       await configurePolar(ctx, deployment);
@@ -387,7 +386,6 @@ function section(title: string) {
 
 type DomainFeatures = {
   polar: boolean;
-  customerAccounts: boolean;
 };
 
 async function readDomainFeatures(
@@ -396,7 +394,6 @@ async function readDomainFeatures(
   if (ctx.stubs.domainFeatures) {
     return {
       polar: ctx.stubs.domainFeatures.polar === true,
-      customerAccounts: ctx.stubs.domainFeatures.customerAccounts === true,
     };
   }
 
@@ -407,14 +404,12 @@ async function readDomainFeatures(
   const moduleUrl = pathToFileURL(domainConfigPath).href;
   const imported = (await import(moduleUrl)) as {
     domainConfig?: {
-      features?: { polar?: boolean; customerAccounts?: boolean };
+      features?: { polar?: boolean };
     };
   };
 
   return {
     polar: imported.domainConfig?.features?.polar === true,
-    customerAccounts:
-      imported.domainConfig?.features?.customerAccounts === true,
   };
 }
 
@@ -479,7 +474,6 @@ async function configureConvex(ctx: RuntimeContext): Promise<ConvexDeployment> {
   const existingUrl =
     explicitUrl ??
     readLocalEnv(ctx, "backend").get("CONVEX_URL") ??
-    readLocalEnv(ctx, "web").get("NEXT_PUBLIC_CONVEX_URL") ??
     readLocalEnv(ctx, "app").get("NEXT_PUBLIC_CONVEX_URL");
 
   let convexUrl = existingUrl;
@@ -516,7 +510,6 @@ async function configureConvex(ctx: RuntimeContext): Promise<ConvexDeployment> {
     ctx.stubs.convexSiteUrl ?? deriveConvexSiteUrl(validateUrl(convexUrl));
 
   await setLocalEnv(ctx, "backend", "CONVEX_URL", convexUrl);
-  await setLocalEnv(ctx, "web", "NEXT_PUBLIC_CONVEX_URL", convexUrl);
   await setLocalEnv(ctx, "app", "NEXT_PUBLIC_CONVEX_URL", convexUrl);
   await ensureConvexEnv(ctx, "CONVEX_SITE_URL", convexSiteUrl, {
     secret: false,
@@ -669,9 +662,7 @@ async function configureGoogleOAuth(
   console.log(
     `Redirect URI: ${deployment.convexSiteUrl}/api/auth/callback/google`,
   );
-  console.log(
-    "JavaScript origins: http://localhost:3000, http://localhost:3001",
-  );
+  console.log("JavaScript origin: http://localhost:3000");
 
   const variables = [
     requireVariable(step, "AUTH_GOOGLE_ID"),
@@ -728,25 +719,12 @@ async function getDeferredGoogleOAuthVariables(
   return configure ? [] : missingVariables;
 }
 
-async function configureAnonymousLogin(
-  ctx: RuntimeContext,
-  customerAccounts: boolean,
-) {
+async function configureAnonymousLogin(ctx: RuntimeContext) {
   const step = requireStep(ctx, "anonymous-login");
   section(step.title);
   const providerBefore = await readConvexEnvValue(ctx, "AUTH_ANONYMOUS_LOGIN");
   const appBefore = readLocalEnv(ctx, "app").get("AUTH_ANONYMOUS_LOGIN");
   assertAnonymousLoginSynchronized(providerBefore, appBefore);
-
-  if (!customerAccounts) {
-    console.log(
-      "domain.config.features.customerAccounts=false, keeping product anonymous login off.",
-    );
-    if (isAnonymousLoginOn(providerBefore) || isAnonymousLoginOn(appBefore)) {
-      throw new Error("anonymous_login_requires_customer_accounts");
-    }
-    return;
-  }
 
   const enable = await promptConfirm(ctx, {
     key: "anonymous-login:enable",
@@ -772,7 +750,7 @@ async function configureAnonymousLogin(
     force: true,
   });
   await setLocalEnv(ctx, "app", "AUTH_ANONYMOUS_LOGIN", nextValue);
-  await verifyAnonymousLoginPostflight(ctx, customerAccounts);
+  await verifyAnonymousLoginPostflight(ctx);
 }
 
 async function requireProductionAnonymousOptIn(ctx: RuntimeContext) {
@@ -810,18 +788,12 @@ function assertAnonymousLoginSynchronized(
   }
 }
 
-async function verifyAnonymousLoginPostflight(
-  ctx: RuntimeContext,
-  customerAccounts: boolean,
-) {
+async function verifyAnonymousLoginPostflight(ctx: RuntimeContext) {
   const providerValue = await readConvexEnvValue(ctx, "AUTH_ANONYMOUS_LOGIN");
   const appValue = readLocalEnv(ctx, "app").get("AUTH_ANONYMOUS_LOGIN");
   assertAnonymousLoginSynchronized(providerValue, appValue);
 
   if (isAnonymousLoginOn(providerValue)) {
-    if (!customerAccounts) {
-      throw new Error("anonymous_login_requires_customer_accounts");
-    }
     const allowlist = await readConvexEnvValue(ctx, "JEOMWON_ADMIN_EMAILS");
     requireValidAdminEmails(allowlist);
   }
@@ -1045,25 +1017,19 @@ async function probeResend(
   console.log("Resend probe succeeded.");
 }
 
-async function configureOpenAI(ctx: RuntimeContext, customerAccounts: boolean) {
+async function configureOpenAI(ctx: RuntimeContext) {
   const step = requireStep(ctx, "openai");
   section(step.title);
   console.log(step.requiredMessage ?? "OpenAI can be skipped.");
 
-  // apps/web always hosts the anonymous /api/chat route, so the agent runtime env
-  // always lands there. apps/app hosts an authenticated /api/chat route only when
-  // features.customerAccounts is on (its route 404s otherwise), so its env is
-  // written only then — a flags-off pack's apps/app/.env.local is unchanged.
+  // The authenticated app is the only agent runtime owner.
   const setAgentEnv = async (name: string, value: string) => {
-    await setLocalEnv(ctx, "web", name, value);
-    if (customerAccounts) {
-      await setLocalEnv(ctx, "app", name, value);
-    }
+    await setLocalEnv(ctx, "app", name, value);
   };
 
-  const existing = readLocalEnv(ctx, "web").get("OPENAI_API_KEY");
+  const existing = readLocalEnv(ctx, "app").get("OPENAI_API_KEY");
   if (existing) {
-    console.log("OPENAI_API_KEY is configured in apps/web/.env.local.");
+    console.log("OPENAI_API_KEY is configured in apps/app/.env.local.");
     const overwrite = await promptConfirm(ctx, {
       key: "overwrite:OPENAI_API_KEY",
       message: "Overwrite OPENAI_API_KEY?",
@@ -1461,10 +1427,10 @@ function printCompletion(ctx: RuntimeContext, deployment: ConvexDeployment) {
   console.log(`  ${RULE}`);
   console.log(`  ${style.bold("다음 단계")} ${style.gray("— 바로 써보기")}`);
   console.log(
-    `  ${glyph.arrow} ${style.cyan("bun dev")}       ${style.gray("앱 실행 — 관리자 :3000 · 예약 챗 :3001")}`,
+    `  ${glyph.arrow} ${style.cyan("bun dev")}       ${style.gray("앱 실행 — 인증 고객 앱 :3000 · 정적 마케팅 웹 :3001")}`,
   );
   console.log(
-    `                ${style.gray("localhost 로 접속해 예약 챗을 바로 써보세요.")}`,
+    `                ${style.gray("localhost:3000에서 로그인해 예약·챗을 사용하세요. :3001은 안내와 앱 CTA만 제공합니다.")}`,
   );
   console.log("");
   console.log(`  ${style.bold("검증")} ${style.gray("— 원할 때")}`);

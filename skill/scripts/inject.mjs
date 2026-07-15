@@ -32,13 +32,9 @@ const TOP_LEVEL_KEYS = [
 	"features",
 	"copy",
 ];
-// Kit-core feature flags whose code ships in `template/`. Each is optional in the
-// pack for backward compatibility and defaults to `false`.
-const OPTIONAL_FEATURE_KEYS = [
-	"waitlist",
-	"customerAccounts",
-	"operatorCalendarCrud",
-];
+// Optional kit-core features default off. customerAccounts is a compatibility
+// literal handled separately: omission materializes true and false is rejected.
+const OPTIONAL_FEATURE_KEYS = ["waitlist", "operatorCalendarCrud"];
 const COPY_KEYS = [
 	"chatTitle",
 	"chatGreeting",
@@ -89,27 +85,24 @@ const pack = await readJson(packPath);
 validateDomainPack(pack);
 
 const domainConfigPath = join(targetDir, "packages/backend/domain.config.ts");
-const seedPath = join(targetDir, "packages/backend/convex/jeomwonSeed.ts");
 const emailSamplePath = join(
 	targetDir,
 	"packages/email/src/reservation-sample.ts",
 );
 
 await writeProjectFile(domainConfigPath, renderDomainConfig(pack));
-await writeProjectFile(seedPath, renderSeedMutation());
 if (existsSync(emailSamplePath)) {
 	await writeProjectFile(emailSamplePath, renderReservationSample(pack));
 }
 
 formatGeneratedFiles(
-	[domainConfigPath, seedPath, emailSamplePath].filter((path) =>
+	[domainConfigPath, emailSamplePath].filter((path) =>
 		existsSync(path),
 	),
 );
 
 console.log(`Injected domain pack: ${pack.domainKey}`);
 console.log(`Wrote ${domainConfigPath}`);
-console.log(`Wrote ${seedPath}`);
 if (existsSync(emailSamplePath)) {
 	console.log(`Wrote ${emailSamplePath}`);
 }
@@ -321,6 +314,9 @@ function validatePolicies(policies) {
 function validateFeatures(features, adminWidget) {
 	assertRecord(features, "features");
 	const keys = ["email", "polar"];
+	if (features.customerAccounts !== undefined) {
+		keys.push("customerAccounts");
+	}
 	for (const key of OPTIONAL_FEATURE_KEYS) {
 		if (features[key] !== undefined) {
 			keys.push(key);
@@ -333,9 +329,17 @@ function validateFeatures(features, adminWidget) {
 	if (typeof features.polar !== "boolean") {
 		fail("features.polar must be boolean");
 	}
-	// Materialize the default: the emitted DomainConfig type declares these flags
-	// non-optional, so an absent pack key must become `false` in the written config
-	// or the generated project fails typecheck.
+	if (features.customerAccounts === undefined) {
+		features.customerAccounts = true;
+	} else if (features.customerAccounts === false) {
+		fail(
+			"features.customerAccounts=false is no longer supported; omit it or set true",
+		);
+	} else if (features.customerAccounts !== true) {
+		fail("features.customerAccounts must be true");
+	}
+	// Materialize optional defaults because emitted DomainConfig fields are
+	// non-optional even when the pack omits them.
 	for (const key of OPTIONAL_FEATURE_KEYS) {
 		if (features[key] === undefined) {
 			features[key] = false;
@@ -457,7 +461,7 @@ export type DomainConfig = {
     email: boolean;
     polar: boolean;
     waitlist: boolean;
-    customerAccounts: boolean;
+    customerAccounts: true;
     operatorCalendarCrud: boolean;
   };
   copy: DomainCopy;
@@ -507,62 +511,6 @@ function parseClockMinutes(clock: string) {
     .split(":")
     .map((part) => Number.parseInt(part, 10));
   return hour! * 60 + minute!;
-}`;
-}
-
-function renderSeedMutation() {
-	// Must stay byte-compatible with template/packages/backend/convex/jeomwonSeed.ts:
-	// demoReset.ts imports `seedDomainResources` from this generated file, so a
-	// drift here breaks typecheck in every newly injected project.
-	return `import { v } from "convex/values";
-import { domainConfig } from "../domain.config";
-import type { MutationCtx } from "./_generated/server";
-import { mutation } from "./_generated/server";
-
-export const seed = mutation({
-  args: {},
-  returns: v.object({
-    resources: v.number(),
-  }),
-  handler: async (ctx) => {
-    return { resources: await seedDomainResources(ctx) };
-  },
-});
-
-export async function seedDomainResources(ctx: MutationCtx) {
-  const now = Date.now();
-  let touched = 0;
-
-  for (const resource of domainConfig.resources) {
-    const existing = await ctx.db
-      .query("resources")
-      .withIndex("by_domain_key", (q) =>
-        q.eq("domainKey", domainConfig.domainKey).eq("key", resource.key),
-      )
-      .unique();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        label: resource.label,
-        kind: resource.kind,
-        active: true,
-        updatedAtMs: now,
-      });
-    } else {
-      await ctx.db.insert("resources", {
-        domainKey: domainConfig.domainKey,
-        key: resource.key,
-        label: resource.label,
-        kind: resource.kind,
-        active: true,
-        createdAtMs: now,
-        updatedAtMs: now,
-      });
-    }
-    touched += 1;
-  }
-
-  return touched;
 }`;
 }
 

@@ -73,18 +73,35 @@ function runSetup(stubs: Stubs) {
 }
 
 describe("anonymous login setup matrix", () => {
-  test("feature false ignores an enable request and keeps the product flag off", () => {
+  test("customer account compatibility input cannot gate anonymous login setup", () => {
     const stubs = baseStubs(false);
     stubs.answers = { ...stubs.answers, "anonymous-login:enable": true };
 
     const result = runSetup(stubs);
 
     expect(result.status).toBe(0);
-    expect(result.output).toMatch("customerAccounts=false");
     expect(result.output.includes("AUTH_DEV_ANONYMOUS")).toBe(false);
     expect(
       result.output.includes("would set Convex env AUTH_ANONYMOUS_LOGIN"),
-    ).toBe(false);
+    ).toBe(true);
+    const appAgentWrites = result.output
+      .split("\n")
+      .filter(
+        (line) =>
+          line.includes("AGENT_RUNTIME") &&
+          line.includes("apps/app/.env.local"),
+      );
+    const webRuntimeWrites = result.output
+      .split("\n")
+      .filter(
+        (line) =>
+          (line.includes("AGENT_RUNTIME") ||
+            line.includes("OPENAI_API_KEY") ||
+            line.includes("NEXT_PUBLIC_CONVEX_URL")) &&
+          line.includes("apps/web/.env.local"),
+      );
+    expect(appAgentWrites.length).toBe(1);
+    expect(webRuntimeWrites.length).toBe(0);
   });
 
   test("feature-on non-production enables Convex and app together", () => {
