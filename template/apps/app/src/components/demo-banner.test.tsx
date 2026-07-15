@@ -3,16 +3,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { DemoBanner } from "./demo-banner";
 
 describe("DemoBanner", () => {
-  test("renders the accessible hourly reset notice when enabled", () => {
+  test("renders an accessible hourly-reset status when enabled", () => {
     // Given / When
     const markup = renderToStaticMarkup(<DemoBanner enabled />);
 
     // Then
-    expect(markup).toMatch('role="status"');
-    expect(markup).toMatch('aria-label="데모 안내"');
-    expect(markup).toMatch(
-      "체험용 데모입니다 · 데이터는 매시간 초기화됩니다",
-    );
+    expect(markup).toContain('role="status"');
+    expect(markup).toContain('aria-live="polite"');
+    expect(markup).toContain('data-demo-banner="hourly-reset"');
   });
 
   test("renders nothing when disabled", () => {
