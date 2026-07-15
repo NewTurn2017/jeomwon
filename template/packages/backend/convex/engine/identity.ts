@@ -1,5 +1,4 @@
 // Who is asking, and which thread are they allowed to touch.
-// (`features.customerAccounts`.)
 //
 // ── The hole this closes ─────────────────────────────────────────────────────
 // `chat:publicState` and every `agentTools:*` mutation are PUBLIC Convex
@@ -20,10 +19,7 @@
 // merely compared against it. `threadId` becomes a routing key, never an
 // authorization signal — the same rule `engine/adminBooking` applies to `origin`.
 //
-// With `features.customerAccounts` off, every guard here is a no-op and the
-// anonymous flow behaves exactly as it did before this file existed.
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { domainConfig } from "../../domain.config";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
@@ -40,12 +36,6 @@ type AuthCtx = QueryCtx | MutationCtx;
  */
 export function customerThreadId(userId: Id<"users">) {
   return `user:${userId}`;
-}
-
-export function assertCustomerAccountsEnabled() {
-  if (!domainConfig.features.customerAccounts) {
-    throw new Error("customer_accounts_disabled");
-  }
 }
 
 // The operator allowlist lives in the Convex deployment env, not in the pack:
@@ -112,9 +102,8 @@ export async function isOperator(ctx: AuthCtx, userId: Id<"users">) {
 /**
  * Which thread is this caller allowed to act on?
  *
- * Flag off: whatever they asked for — today's anonymous behavior, unchanged.
- * Flag on: their OWN derived thread. The argument is optional precisely because
- * the server does not need it; when present it is checked, not trusted.
+ * The argument is optional because the server derives the caller's own thread;
+ * when present it is checked, not trusted.
  *
  * Operators do not get a public-thread exception. Admin customer actions call
  * the deep lifecycle helper only after `ensureAdmin`, with an explicit actor and
@@ -124,19 +113,6 @@ export async function resolveCustomerThreadId(
   ctx: AuthCtx,
   requestedThreadId: string | null | undefined,
 ) {
-  if (!domainConfig.features.customerAccounts) {
-    // Only a MISSING thread is an error here — `publicState` made the argument
-    // optional, and with the flag off there is no identity to derive one from.
-    // An *empty* string is passed through untouched rather than rejected: the
-    // validator has always accepted it, so rejecting it now would be a behavior
-    // change on the anonymous path, which must stay identical.
-    if (requestedThreadId === undefined || requestedThreadId === null) {
-      throw new Error("thread_id_required");
-    }
-
-    return requestedThreadId;
-  }
-
   const userId = await getAuthUserId(ctx);
   if (!userId) {
     // Fail CLOSED. If the chat path cannot forward the caller's token to Convex,
@@ -160,13 +136,6 @@ export async function resolveCustomerThreadId(
  * handed is the caller's own.
  */
 export async function assertThreadAccess(ctx: AuthCtx, threadId: string) {
-  if (!domainConfig.features.customerAccounts) {
-    // A pure no-op, not even a validity check: with the flag off these mutations
-    // must behave exactly as they did before this guard existed. No auth lookup,
-    // no extra throw, no new failure mode for the nine embedded packs.
-    return;
-  }
-
   // These mutations act on `threadId` itself, so it is not enough that the caller
   // is ALLOWED some thread — the thread they handed us must BE that thread.
   // resolveCustomerThreadId is deliberately lenient (a falsy id resolves to the

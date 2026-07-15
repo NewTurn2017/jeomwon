@@ -1,5 +1,4 @@
 type AnonymousLoginAvailabilityInput = {
-  customerAccounts: boolean;
   appEnv: string | undefined;
 };
 
@@ -9,10 +8,9 @@ type OnboardingUser = {
 };
 
 export function anonymousLoginAvailable({
-  customerAccounts,
   appEnv,
 }: AnonymousLoginAvailabilityInput) {
-  return customerAccounts && appEnv === "1";
+  return appEnv === "1";
 }
 
 export function needsOnboarding(user: OnboardingUser | undefined) {

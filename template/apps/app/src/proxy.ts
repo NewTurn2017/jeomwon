@@ -3,12 +3,15 @@ import {
   createRouteMatcher,
   nextjsMiddlewareRedirect,
 } from "@convex-dev/auth/nextjs/server";
+import { api } from "@jeomwon/backend/convex/_generated/api";
 import { domainConfig } from "@jeomwon/backend/domain.config";
+import { fetchQuery } from "convex/nextjs";
 import { createI18nMiddleware } from "next-international/middleware";
 import { NextResponse } from "next/server";
 import {
   adminLoginRedirectUrl,
   authenticatedLoginRedirectUrl,
+  loadViewerRole,
 } from "@/lib/admin-routing";
 
 const domainLocale = (
@@ -52,6 +55,24 @@ const proxy = convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
     isSignIn,
     isAuthenticated,
   });
+
+  // An authenticated non-operator must get a real HTTP 404 at /admin, not just
+  // the visual not-found page. The route's page-level notFound() renders inside
+  // the already-committed dashboard layout, so Next keeps the 200 status; only a
+  // routing miss produces a true 404. Resolve the role here (same canonical
+  // viewerRole query the page uses) and, for non-operators, rewrite to a path
+  // with no route so Next serves not-found.tsx with a 404 status.
+  if (request.nextUrl.pathname === "/admin") {
+    const token = await convexAuth.getToken();
+    const viewerRole = await loadViewerRole(() =>
+      fetchQuery(api.admin.viewerRole, {}, { token }),
+    );
+    if (viewerRole !== "operator") {
+      const notFoundUrl = request.nextUrl.clone();
+      notFoundUrl.pathname = `/${domainLocale}/_admin-not-found`;
+      return NextResponse.rewrite(notFoundUrl);
+    }
+  }
 
   if (request.cookies.get("Next-Locale")?.value !== domainLocale) {
     request.cookies.delete("Next-Locale");

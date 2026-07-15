@@ -26,10 +26,7 @@ test("admin bypasses onboarding while root and settings retain their public URLs
     "utf8",
   );
   await readFile(`${dashboardRoot}/(onboarded)/page.tsx`, "utf8");
-  await readFile(
-    `${dashboardRoot}/(onboarded)/settings/page.tsx`,
-    "utf8",
-  );
+  await readFile(`${dashboardRoot}/(onboarded)/settings/page.tsx`, "utf8");
 
   expect(onboardedLayout).toMatch('redirect("/onboarding")');
   expect(adminSource).toMatch("viewerRole");
@@ -38,18 +35,17 @@ test("admin bypasses onboarding while root and settings retain their public URLs
   expect(adminSource.includes("preloadQuery")).toBe(false);
 });
 
-test("root mounts the admin dashboard only for the operator surface", async () => {
+test("root mounts only the customer manager", async () => {
   // Given
   const rootPage = `${dashboardRoot}/(onboarded)/page.tsx`;
 
   // When
   const rootSource = await readFile(rootPage, "utf8");
-  const adminMountCount = rootSource.match(/<AdminDashboard \/>/g)?.length ?? 0;
+  const customerMountCount =
+    rootSource.match(/<CustomerReservationManager \/>/g)?.length ?? 0;
 
   // Then
-  expect(rootSource).toMatch(
-    /rootDashboardSurface\(\s*role,\s*domainConfig\.features\.customerAccounts,?\s*\)/,
-  );
-  expect(rootSource).toMatch('surface === "operator"');
-  expect(adminMountCount).toBe(1);
+  expect(rootSource.includes("AdminDashboard")).toBe(false);
+  expect(rootSource.includes("viewerRole")).toBe(false);
+  expect(customerMountCount).toBe(1);
 });

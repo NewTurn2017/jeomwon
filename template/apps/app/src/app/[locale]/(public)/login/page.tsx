@@ -20,7 +20,6 @@ export default async function Page({
 }) {
   const t = await getScopedI18n("login");
   const anonymousLoginEnabled = anonymousLoginAvailable({
-    customerAccounts: domainConfig.features.customerAccounts,
     appEnv: process.env.AUTH_ANONYMOUS_LOGIN,
   });
   const returnTo = normalizeReturnTo((await searchParams).returnTo);

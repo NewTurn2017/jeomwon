@@ -33,7 +33,7 @@ export function customerFixture() {
   };
 }
 
-export function setCustomerAccountsFeature(enabled: boolean) {
+export function setCustomerAccountsFeature(enabled: true) {
   const previous = domainConfig.features.customerAccounts;
   domainConfig.features.customerAccounts = enabled;
   return () => {

@@ -1,8 +1,8 @@
 export default {
   metadata: {
-    title: "Jeomwon · Reservation Operations",
+    title: "Jeomwon · My Reservations",
     description:
-      "AI reservation operations dashboard for live reservations, escalations, and agent activity in one authenticated operator surface.",
+      "Create and manage your reservations with help from the Jeomwon AI assistant.",
   },
   dashboard: {
     title: "Reservation Operations",
@@ -71,9 +71,6 @@ export default {
     customer: {
       title: "My Reservations",
       description: "Your confirmed reservations and upcoming schedule.",
-      disabledTitle: "Customer reservations are unavailable",
-      disabledDescription:
-        "This deployment does not currently provide the customer reservation screen. Please contact the operator.",
       empty:
         "You have no reservations yet. Start a new booking in the chat below.",
       bookViaChat:
@@ -120,6 +117,11 @@ export default {
     description:
       "Monitor live reservations, escalations, and agent activity in one authenticated operator surface.",
   },
+  notFound: {
+    title: "Page not found",
+    description:
+      "The page you requested does not exist or you do not have access to it.",
+  },
   login: {
     title: "Sign in",
     description: "Sign in with Google or continue as a guest.",
@@ -136,11 +138,11 @@ export default {
     signInError: "Sign-in failed. Check the auth configuration and try again.",
   },
   navigation: {
-    dashboard: "Dashboard",
+    reservations: "My Reservations",
     admin: "Admin",
     settings: "Settings",
     billing: "Billing",
-    account: "Operator Account",
+    account: "My Account",
     free: "Free",
     upgradePro: "Upgrade to PRO",
     theme: "Theme",
@@ -154,9 +156,9 @@ export default {
   },
   onboarding: {
     eyebrow: "Initial setup",
-    title: "Set your operator name",
+    title: "Set your display name",
     description:
-      "This name appears in the operations surface and audit history. You can change it later in settings.",
+      "This name appears on your reservations and account. You can change it later in settings.",
     usernameLabel: "Username",
     usernamePlaceholder: "e.g. jeomwon-owner",
     continueButton: "Get started",
@@ -172,8 +174,7 @@ export default {
     },
     username: {
       title: "Username",
-      description:
-        "This name appears on your operator profile and internal records.",
+      description: "This name appears on your reservations and account.",
       placeholder: "Username",
       maxLengthHint: "Use 32 characters at maximum.",
       saveButton: "Save",
@@ -181,7 +182,7 @@ export default {
     deleteAccount: {
       title: "Delete Account",
       description:
-        "Permanently delete your Jeomwon operator account and its related reservation data.",
+        "Permanently delete your Jeomwon account and its related reservation data.",
       warning: "This action cannot be undone, proceed with caution.",
       deleteButton: "Delete Account",
       confirmButton: "Are you sure?",

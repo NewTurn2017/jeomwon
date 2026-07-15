@@ -1,14 +1,10 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import type { Page } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
 import { parse as parseDotenv } from "dotenv";
-import { domainConfig } from "../packages/backend/domain.config";
-import type {
-  PublicContext,
-  PublicSlot,
-} from "../packages/backend/src/agent-contract";
 import {
   alignToSlot,
   isSlotAllowed,
@@ -16,13 +12,29 @@ import {
   slotStepMs,
 } from "../packages/backend/convex/engine/availability";
 import { isInsideCancelWindow } from "../packages/backend/convex/engine/policy";
+import { domainConfig } from "../packages/backend/domain.config";
+import type { QaCanonicalFailureCode } from "../packages/backend/src/qa-browser-contract";
+import {
+  launchQaBrowser,
+  pageCanonicalCall,
+  pageRequestJson,
+  pageRequestRoute,
+  writeBrowserActions,
+} from "./qa-browser";
+import type { QaGateId } from "./qa-contract";
+import { QA_GATE_CONTRACT } from "./qa-contract";
+import {
+  convexRunArgs,
+  resolveQaConvexTarget,
+  sanitizeConvexChildEnv,
+} from "./qa-runtime-contract";
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 type JsonRecord = { [key: string]: JsonValue };
 
 type QaResult = {
-  id: number;
+  id: QaGateId;
   name: string;
   status: "PASS" | "FAIL" | "SKIP";
   output: string[];
@@ -36,18 +48,19 @@ type QaResetResult = {
 type QaSeedResult = {
   resources: number;
 };
-type ConvexHttpAdminClient = ConvexHttpClient & {
-  setAdminAuth(token: string): void;
-};
-
 const root = process.cwd();
+const backendDir = path.join(root, "packages/backend");
+const qaConvexTarget = resolveQaConvexTarget(
+  path.join(backendDir, ".env.local"),
+);
 const localEnv = readLocalEnvFiles([
-  path.join(root, "apps/web/.env.local"),
   path.join(root, "apps/app/.env.local"),
   path.join(root, "packages/backend/.env.local"),
 ]);
-const baseUrl = process.env.JEOMWON_QA_BASE_URL ?? "http://localhost:3001";
-const artifactDir = path.join(root, "qa-artifacts", `jeomwon-${stamp()}`);
+const baseUrl = process.env.JEOMWON_QA_BASE_URL ?? "http://localhost:3000";
+const artifactDir =
+  process.env.JEOMWON_QA_ARTIFACT_DIR ??
+  path.join(root, "qa-artifacts", `jeomwon-${stamp()}`);
 const forbiddenPublicMarkers = [
   "operatorMemo",
   "privateDecision",
@@ -61,67 +74,9 @@ const qaServiceLabel = qaService?.label ?? "예약";
 const qaSlotSelectionMessage = slotSelectionRequest();
 const insideCancelRequest = availabilityRequest(deriveInsideCancelOffset());
 const outsideCancelRequest = availabilityRequest(deriveOutsideCancelOffset());
-const qaResetMutation = makeFunctionReference<
-  "mutation",
-  { domainKey: string },
-  QaResetResult
->("qaReset:resetDomain");
-const qaSeedMutation = makeFunctionReference<
-  "mutation",
-  Record<string, never>,
-  QaSeedResult
->("jeomwonSeed:seed");
-const searchAvailabilityQuery = makeFunctionReference<
-  "query",
-  {
-    threadId: string;
-    serviceKey: string | null;
-    resourceKey: string | null;
-    preferredStartMs: number | null;
-    count: number;
-  },
-  { slots: PublicSlot[] }
->("agentTools:searchAvailability");
-const joinWaitlistMutation = makeFunctionReference<
-  "mutation",
-  {
-    threadId: string;
-    serviceKey: string | null;
-    resourceKey: string | null;
-    preferredStartMs: number | null;
-  },
-  { publicContext: PublicContext }
->("agentTools:joinWaitlist");
-const createHoldMutation = makeFunctionReference<
-  "mutation",
-  {
-    threadId: string;
-    displayName: string | null;
-    serviceKey: string;
-    resourceKey: string;
-    startMs: number;
-    endMs: number;
-  },
-  { publicContext: PublicContext; holdExpiresAtMs: number }
->("agentTools:createHold");
-const confirmReservationMutation = makeFunctionReference<
-  "mutation",
-  { threadId: string; reservationId: string; confirmed: boolean },
-  { publicContext: PublicContext }
->("agentTools:confirmReservation");
-const cancelReservationMutation = makeFunctionReference<
-  "mutation",
-  { threadId: string; reservationId: string; requestedAtMs: number },
-  { publicContext: PublicContext; escalated: boolean }
->("agentTools:cancelReservation");
-const lookupReservationMutation = makeFunctionReference<
-  "mutation",
-  { threadId: string; reservationId: string },
-  { publicContext: PublicContext }
->("agentTools:lookupReservation");
-// Operator calendar CRUD (features.operatorCalendarCrud). The response types are
-// intentionally `unknown`: gate 10 only proves these mutations fail closed at the
-// admin auth boundary, so it never reads a success payload.
+// Gate 10 uses these uncredentialed references for the always-on unauthenticated
+// boundary. Authenticated customer-denial probes use the page's dev-only
+// canonical bridge so browser identity remains the authorization seam.
 const createSessionMutation = makeFunctionReference<
   "mutation",
   {
@@ -150,54 +105,114 @@ const deleteSessionMutation = makeFunctionReference<
   { reservationId: string },
   unknown
 >("admin:deleteSession");
-// Customer accounts (features.customerAccounts). Gate 11 proves both the
-// authenticated-read surface and the chat path fail closed without an identity.
+// Gate 11 uses these references only for the always-on unauthenticated boundary;
+// both browser identities use the canonical authenticated page bridge below.
 const customerSnapshotQuery = makeFunctionReference<
   "query",
   Record<string, never>,
   unknown
 >("customerReservations:snapshot");
-const publicStateQuery = makeFunctionReference<
-  "query",
-  { threadId?: string },
+const customerCreateHoldMutation = makeFunctionReference<
+  "mutation",
+  { serviceKey: string; resourceKey: string; startMs: number },
   unknown
->("chat:publicState");
+>("customerReservations:createHold");
+const customerConfirmReservationMutation = makeFunctionReference<
+  "mutation",
+  { reservationId: string },
+  unknown
+>("customerReservations:confirmReservation");
+const customerCancelReservationMutation = makeFunctionReference<
+  "mutation",
+  { reservationId: string },
+  unknown
+>("customerReservations:cancelReservation");
+const customerRescheduleReservationMutation = makeFunctionReference<
+  "mutation",
+  {
+    reservationId: string;
+    serviceKey: string;
+    resourceKey: string;
+    startMs: number;
+  },
+  unknown
+>("customerReservations:rescheduleReservation");
 const convexCliTimeoutMs = 60_000;
 
 fs.mkdirSync(artifactDir, { recursive: true });
 
 const results: QaResult[] = [];
 let qaResetSummary: { reset: QaResetResult; seed: QaSeedResult } | null = null;
+let pageA: Page | null = null;
+let pageB: Page | null = null;
+let unauthenticatedAdminRoute: Awaited<
+  ReturnType<typeof pageRequestRoute>
+> | null = null;
+let threadA: string | null = null;
+let threadB: string | null = null;
 
 void main();
 
 async function main() {
+  let runnerFailure: string | null = null;
+  let cleanup = { browser: "not-started", contexts: "not-started" };
+  let browserActions: Awaited<ReturnType<typeof launchQaBrowser>>["actions"] =
+    [];
+  let browser: Awaited<ReturnType<typeof launchQaBrowser>>["browser"] | null =
+    null;
   try {
     await resetQaDeployment();
-    results.push(await qaHappyPath());
-    results.push(await qaCancelWindow());
-    results.push(await qaConfirmationGuardrail());
-    results.push(await qaRelevanceGuardrail());
-    results.push(await qaMalformedInput());
-    results.push(await qaPrivacy());
-    results.push(await qaHoldExpiry());
-    results.push(await qaEmailCaptureGate());
-    results.push(await qaWaitlistGate());
-    results.push(await qaOperatorCalendarCrudGate());
-    results.push(await qaCustomerAccountsGate());
-  } catch (error) {
-    results.push({
-      id: 99,
-      name: "runner",
-      status: "FAIL",
-      output: [error instanceof Error ? error.message : "Unknown QA failure"],
-    });
+    const harness = await launchQaBrowser(baseUrl, artifactDir);
+    browser = harness.browser;
+    const { contextA, contextB } = harness;
+    pageA = harness.pageA;
+    pageB = harness.pageB;
+    unauthenticatedAdminRoute = harness.unauthenticatedAdminRoute;
+    browserActions = harness.actions;
+    assert(contextA !== contextB, "QA identities must use isolated contexts");
+    threadA = await readAuthenticatedThreadId(pageA);
+    threadB = await readAuthenticatedThreadId(pageB);
+    assert(threadA !== threadB, "QA identities resolved to the same thread");
+    results.push(await runIsolatedGate(qaHappyPath));
+    results.push(await runIsolatedGate(qaCancelWindow));
+    results.push(await runIsolatedGate(qaConfirmationGuardrail));
+    results.push(await runIsolatedGate(qaRelevanceGuardrail));
+    results.push(await runIsolatedGate(qaMalformedInput));
+    results.push(await runIsolatedGate(qaPrivacy));
+    results.push(await runIsolatedGate(qaHoldExpiry));
+    results.push(await runIsolatedGate(qaEmailCaptureGate));
+    results.push(await runIsolatedGate(qaWaitlistGate));
+    results.push(await runIsolatedGate(qaOperatorCalendarCrudGate));
+    results.push(await runIsolatedGate(qaCustomerAccountsGate));
+    assertExactGateResults(results);
+    finalizeGateArtifacts(results);
+  } catch {
+    runnerFailure = "qa_runner_failed";
+  } finally {
+    if (browser !== null) {
+      await browser.close();
+      cleanup = { browser: "closed", contexts: "closed" };
+    }
+    writeBrowserActions(artifactDir, browserActions);
+    writeJson("cleanup.json", cleanup);
   }
 
   writeJson("manifest.json", {
     baseUrl,
     artifactDir,
     qaReset: qaResetSummary,
+    runner:
+      runnerFailure === null
+        ? { status: "PASS" }
+        : {
+            status: "FAIL",
+            code: runnerFailure,
+          },
+    gateContract: QA_GATE_CONTRACT,
+    browserArtifacts: {
+      actions: "browser-actions.json",
+      cleanup: "cleanup.json",
+    },
     results,
   });
 
@@ -209,67 +224,47 @@ async function main() {
   }
   console.log(`ARTIFACT_DIR ${artifactDir}`);
 
-  if (results.some((result) => result.status === "FAIL")) {
+  if (runnerFailure !== null) {
+    console.error("FAIL QA-RUNNER qa_runner_failed");
+  }
+  if (
+    runnerFailure !== null ||
+    results.some((result) => result.status === "FAIL")
+  ) {
     process.exitCode = 1;
   }
 }
 
-async function resetQaDeployment() {
-  const adminToken =
-    resolveQaEnv("CONVEX_DEPLOY_KEY") ??
-    resolveQaEnv("CONVEX_ADMIN_KEY") ??
-    resolveQaEnv("CONVEX_SELF_HOSTED_ADMIN_KEY");
-  if (!adminToken) {
-    await resetQaDeploymentWithConvexCli();
-    return;
-  }
-
-  const convexUrl =
-    resolveQaEnv("NEXT_PUBLIC_CONVEX_URL") ?? resolveQaEnv("CONVEX_URL");
-  if (!convexUrl) {
-    throw new Error(
-      [
-        "QA reset requires a Convex URL when using deploy key auth.",
-        "Set NEXT_PUBLIC_CONVEX_URL or CONVEX_URL, or keep it in apps/web/.env.local or packages/backend/.env.local.",
-      ].join(" "),
-    );
-  }
-
-  await resetQaDeploymentWithAdminKey(convexUrl, adminToken);
+async function runIsolatedGate(run: () => Promise<QaResult>) {
+  await resetQaDeployment();
+  return await run();
 }
 
-async function resetQaDeploymentWithAdminKey(
-  convexUrl: string,
-  adminToken: string,
-) {
-  const client = new ConvexHttpClient(convexUrl, { logger: false });
-  if (!hasConvexAdminAuth(client)) {
-    throw new Error(
-      "The installed ConvexHttpClient runtime does not expose setAdminAuth, so QA reset cannot call the internal mutation.",
-    );
-  }
-  client.setAdminAuth(adminToken);
+async function readAuthenticatedThreadId(page: Page) {
+  const response = await requestJson("/api/chat", {}, page);
+  assert(
+    response.status === 200,
+    "authenticated chat state did not return 200",
+  );
+  const threadId = readPath(response.body, ["threadId"]);
+  assert(
+    typeof threadId === "string" && threadId.length > 0,
+    "authenticated chat state did not expose its derived thread",
+  );
+  return threadId;
+}
 
-  try {
-    const reset = await client.mutation(
-      qaResetMutation,
-      { domainKey: domainConfig.domainKey },
-      { skipQueue: true },
-    );
-    const seed = await client.mutation(qaSeedMutation, {}, { skipQueue: true });
-    qaResetSummary = { reset, seed };
-    console.log(
-      `QA reset ${reset.domainKey}: reservations=${reset.reservations}, chatThreads=${reset.chatThreads}, chatEvents=${reset.chatEvents}, resources=${seed.resources}`,
-    );
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "unknown error";
-    throw new Error(
-      [
-        `QA reset failed before scenario execution: ${detail}`,
-        "Confirm the Convex deployment has JEOMWON_QA_RESET=1 and the local CONVEX_DEPLOY_KEY targets that same dev deployment.",
-      ].join(" "),
-    );
-  }
+function assertExactGateResults(gateResults: readonly QaResult[]) {
+  const actual = gateResults.map(({ id, name }) => ({ id, name }));
+  const expected = QA_GATE_CONTRACT.map(({ id, name }) => ({ id, name }));
+  assert(
+    JSON.stringify(actual) === JSON.stringify(expected),
+    "QA manifest must contain each gate ID and name exactly once in order",
+  );
+}
+
+async function resetQaDeployment() {
+  await resetQaDeploymentWithConvexCli();
 }
 
 async function resetQaDeploymentWithConvexCli() {
@@ -282,15 +277,8 @@ async function resetQaDeploymentWithConvexCli() {
     console.log(
       `QA reset ${reset.domainKey}: reservations=${reset.reservations}, chatThreads=${reset.chatThreads}, chatEvents=${reset.chatEvents}, resources=${seed.resources}`,
     );
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "unknown error";
-    throw new Error(
-      [
-        `QA reset failed before scenario execution: ${detail}`,
-        "No Convex deploy/admin key env was found, so the runner used CLI auth via `npx convex run` from packages/backend.",
-        "Run `npx convex login` for the target account and confirm the dev deployment has JEOMWON_QA_RESET=1.",
-      ].join(" "),
-    );
+  } catch {
+    throw new Error("qa_reset_failed");
   }
 }
 
@@ -298,15 +286,18 @@ async function runConvexCli<T>(
   functionName: string,
   args: JsonRecord,
 ): Promise<T> {
-  const backendDir = path.join(root, "packages/backend");
   const encodedArgs = JSON.stringify(args);
 
   return await new Promise<T>((resolve, reject) => {
-    const child = spawn("npx", ["convex", "run", functionName, encodedArgs], {
-      cwd: backendDir,
-      env: process.env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const child = spawn(
+      "npx",
+      convexRunArgs(qaConvexTarget, functionName, encodedArgs),
+      {
+        cwd: backendDir,
+        env: sanitizeConvexChildEnv(process.env),
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
 
     let stdout = "";
     let stderr = "";
@@ -359,7 +350,11 @@ async function runConvexCli<T>(
       try {
         resolve(parseConvexCliJson<T>(stdout, functionName));
       } catch (error) {
-        reject(error);
+        reject(
+          error instanceof Error
+            ? error
+            : new TypeError("Convex CLI JSON parser threw a non-Error value"),
+        );
       }
     });
   });
@@ -375,7 +370,9 @@ function parseConvexCliJson<T>(stdout: string, functionName: string): T {
   for (const candidate of candidates) {
     try {
       return JSON.parse(candidate) as T;
-    } catch {}
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+    }
   }
 
   throw new Error(
@@ -401,7 +398,9 @@ function extractLastJsonObject(value: string) {
     try {
       JSON.parse(candidate);
       return candidate;
-    } catch {}
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+    }
   }
 
   return null;
@@ -446,12 +445,6 @@ function redactSecrets(value: string) {
   }
 
   return redacted;
-}
-
-function hasConvexAdminAuth(
-  client: ConvexHttpClient,
-): client is ConvexHttpAdminClient {
-  return "setAdminAuth" in client && typeof client.setAdminAuth === "function";
 }
 
 async function qaHappyPath(): Promise<QaResult> {
@@ -502,6 +495,10 @@ async function qaHappyPath(): Promise<QaResult> {
 
 async function qaCancelWindow(): Promise<QaResult> {
   if (!insideCancelFeasible()) {
+    writeJson("02-cancel-window.json", {
+      status: "SKIP",
+      reason: "inside cancel-window slot is physically unavailable",
+    });
     return {
       id: 2,
       name: "cancelWindow 위반",
@@ -632,16 +629,19 @@ async function qaMalformedInput(): Promise<QaResult> {
 }
 
 async function qaPrivacy(): Promise<QaResult> {
-  const sourcePath = path.join(
-    root,
-    "apps/web/src/components/customer-chat-widget.tsx",
+  const publicSourcePaths = [
+    "apps/app/src/components/customer-chat-widget.tsx",
+    "packages/agents/src/index.ts",
+    "packages/backend/convex/customerReservations.ts",
+  ];
+  const publicSources = publicSourcePaths.map((sourcePath) =>
+    fs.readFileSync(path.join(root, sourcePath), "utf8"),
   );
-  const source = fs.readFileSync(sourcePath, "utf8");
   const responseFiles = fs
     .readdirSync(artifactDir)
     .filter((file) => file.endsWith(".json"))
     .map((file) => fs.readFileSync(path.join(artifactDir, file), "utf8"));
-  const haystack = [source, ...responseFiles].join("\n");
+  const haystack = [...publicSources, ...responseFiles].join("\n");
   const leaked = forbiddenPublicMarkers.filter((marker) =>
     haystack.includes(marker),
   );
@@ -650,6 +650,7 @@ async function qaPrivacy(): Promise<QaResult> {
   );
   writeJson("06-privacy-grep.json", {
     forbiddenPublicMarkers,
+    publicSourcePaths,
     leaked,
     rawReservationIdLeaks,
   });
@@ -684,19 +685,37 @@ async function qaHoldExpiry(): Promise<QaResult> {
     readPath(hold, ["publicContext", "status"]) === "held",
     "expiry gate did not create held reservation",
   );
+  const reservationId = readPath(hold, ["publicContext", "reservationId"]);
+  assert(
+    typeof reservationId === "string",
+    "expiry gate hold has no reservation ID",
+  );
 
   const waitMs =
     Number.parseInt(process.env.JEOMWON_TEST_HOLD_MS ?? "2500", 10) + 1500;
   await new Promise((resolve) => setTimeout(resolve, waitMs));
-  const state = await requestJson(
-    `/api/chat?thread_id=${encodeURIComponent(threadId)}`,
+  const authenticatedThreadId = threadIdForPage(qaPageA());
+  const expiredSnapshot = await requestJson(
+    `/api/chat?thread_id=${encodeURIComponent(authenticatedThreadId)}`,
   );
-  writeJson("07-hold-expiry.json", state);
-  assertRecord(state.body, "expiry state response");
+  assertRecord(expiredSnapshot.body, "expiry state response");
   assert(
-    readPath(state.body, ["publicContext", "status"]) === "expired",
+    readPath(expiredSnapshot.body, ["publicContext", "status"]) === "expired",
     "hold did not expire; run Convex dev with JEOMWON_TEST_HOLD_MS set low",
   );
+  const expiredConfirmation = await pageCanonicalCall(qaPageA(), {
+    operation: "confirmReservation",
+    args: { reservationId },
+  });
+  const expiredConfirmationCode = canonicalFailureCode(
+    expiredConfirmation,
+    "expired hold confirmation",
+    "reservation_not_actionable",
+  );
+  writeJson("07-hold-expiry.json", {
+    expiredSnapshot,
+    expiredConfirmation: { code: expiredConfirmationCode },
+  });
 
   return {
     id: 7,
@@ -704,7 +723,8 @@ async function qaHoldExpiry(): Promise<QaResult> {
     status: "PASS",
     output: [
       `waitMs: ${waitMs}`,
-      `status: ${readPath(state.body, ["publicContext", "status"])}`,
+      `status: ${readPath(expiredSnapshot.body, ["publicContext", "status"])}`,
+      `confirm: ${expiredConfirmationCode}`,
     ],
   };
 }
@@ -797,6 +817,10 @@ async function qaEmailCaptureGate(): Promise<QaResult> {
 
 async function qaWaitlistGate(): Promise<QaResult> {
   if (!domainConfig.features.waitlist) {
+    writeJson("09-waitlist.json", {
+      status: "SKIP",
+      reason: "features.waitlist=false",
+    });
     return {
       id: 9,
       name: "대기자 접수·알림",
@@ -807,38 +831,32 @@ async function qaWaitlistGate(): Promise<QaResult> {
     };
   }
 
-  const convexUrl =
-    resolveQaEnv("NEXT_PUBLIC_CONVEX_URL") ?? resolveQaEnv("CONVEX_URL");
-  if (!convexUrl) {
-    throw new Error(
-      "waitlist QA requires NEXT_PUBLIC_CONVEX_URL or CONVEX_URL for direct saturation mutations",
-    );
-  }
-
-  const client = new ConvexHttpClient(convexUrl, { logger: false });
   const resource = qaWaitlistResource();
-  const saturated = await saturateWaitlistResource(client, resource.key);
-  const zeroSlots = await client.query(searchAvailabilityQuery, {
-    threadId: `qa-waitlist-zero-${Date.now()}`,
-    serviceKey: qaService?.key ?? null,
-    resourceKey: resource.key,
-    preferredStartMs: null,
-    count: 1,
-  });
+  const saturated = await saturateWaitlistThroughApp(resource.label);
+  const ownerWaitlist = saturated.waitlist;
+  const ownerWaitlistId = readPath(ownerWaitlist, [
+    "publicContext",
+    "reservationId",
+  ]);
   assert(
-    zeroSlots.slots.length === 0,
-    `waitlist saturation left ${zeroSlots.slots.length} available slot(s)`,
+    typeof ownerWaitlistId === "string",
+    "saturation did not produce the owner waitlist row",
   );
 
-  const waitlistThreadId = `qa-waitlist-${Date.now()}`;
-  const joined = await postChat(
-    waitlistThreadId,
-    waitlistJoinRequest(resource.label),
+  const ownerWaitlistCancelled = await postChat(
+    "qa-waitlist-owner",
+    `${ownerWaitlistId} 취소해줘`,
   );
-  assertRecord(joined, "waitlist join response");
   assert(
-    readPath(joined, ["publicContext", "status"]) === "waitlisted",
-    "waitlist join did not expose waitlisted status",
+    readPath(ownerWaitlistCancelled, ["publicContext", "status"]) ===
+      "cancelled",
+    "owner waitlist row did not cancel before identity B joined",
+  );
+
+  const joined = await postChat(
+    "qa-waitlist-b",
+    waitlistJoinRequest(resource.label),
+    qaPageB(),
   );
   const waitlistReservationId = readPath(joined, [
     "publicContext",
@@ -850,8 +868,9 @@ async function qaWaitlistGate(): Promise<QaResult> {
     "waitlist join did not expose a public reservation number",
   );
   const duplicateJoined = await postChat(
-    waitlistThreadId,
+    "qa-waitlist-b",
     waitlistJoinRequest(resource.label),
+    qaPageB(),
   );
   assertRecord(duplicateJoined, "duplicate waitlist join response");
   assert(
@@ -859,93 +878,26 @@ async function qaWaitlistGate(): Promise<QaResult> {
       waitlistReservationId,
     "duplicate waitlist join did not reuse the existing waitlist row",
   );
-  const lookup = await client.mutation(lookupReservationMutation, {
-    threadId: waitlistThreadId,
-    reservationId: waitlistReservationId,
-  });
-  assert(
-    lookup.publicContext.status === "waitlisted",
-    "waitlist row lookup did not return status waitlisted",
+  await postChat(
+    "qa-waitlist-owner",
+    `${saturated.firstReservationId} 취소해줘`,
   );
-
-  const invalidKeyRejected = await expectMutationRejects(
-    () =>
-      client.mutation(joinWaitlistMutation, {
-        threadId: `qa-waitlist-invalid-${Date.now()}`,
-        serviceKey: "__missing_service__",
-        resourceKey: resource.key,
-        preferredStartMs: null,
-      }),
-    "not_found",
-  );
-  const availableResource =
-    domainConfig.resources.find(
-      (candidate) => candidate.key !== resource.key,
-    ) ?? null;
-  let availabilityExistsRejected = "SKIP";
-  if (availableResource !== null) {
-    availabilityExistsRejected = (await expectMutationRejects(
-      () =>
-        client.mutation(joinWaitlistMutation, {
-          threadId: `qa-waitlist-available-${Date.now()}`,
-          serviceKey: qaService?.key ?? null,
-          resourceKey: availableResource.key,
-          preferredStartMs: null,
-        }),
-      "availability_exists",
-    ))
-      ? "PASS"
-      : "FAIL";
-    assert(
-      availabilityExistsRejected === "PASS",
-      "waitlist join did not reject a resource with available slots",
-    );
-  }
-
-  const secondWaitlistThreadId = `qa-waitlist-second-${Date.now()}`;
-  const secondJoined = await postChat(
-    secondWaitlistThreadId,
-    waitlistJoinRequest(resource.label),
-  );
-  assertRecord(secondJoined, "second waitlist join response");
-  const secondWaitlistReservationId = readPath(secondJoined, [
-    "publicContext",
-    "reservationId",
-  ]);
-  assert(
-    typeof secondWaitlistReservationId === "string" &&
-      isPublicReservationNumber(secondWaitlistReservationId),
-    "second waitlist join did not expose a public reservation number",
-  );
-  await client.mutation(cancelReservationMutation, {
-    threadId: waitlistThreadId,
-    reservationId: waitlistReservationId,
-    requestedAtMs: Date.now(),
-  });
-  await assertNoWaitlistSlotOpened(secondWaitlistThreadId);
-
-  await client.mutation(cancelReservationMutation, {
-    threadId: saturated.first.threadId,
-    reservationId: saturated.first.reservationId,
-    requestedAtMs: Date.now(),
-  });
-  const slotOpened = await waitForWaitlistSlotOpened(secondWaitlistThreadId);
+  const slotOpened = await waitForWaitlistSlotOpened(qaPageB());
   const email = await waitForEmailCapture(
-    secondWaitlistThreadId,
+    threadIdForPage(qaPageB()),
     "reservation.waitlist_opened",
+    qaPageB(),
   );
 
   writeJson("09-waitlist.json", {
     resource,
-    saturatedCount: saturated.count,
+    saturatedCount: saturated.reservationCount,
     waitlistReservationId,
     duplicateWaitlistReservationId: readPath(duplicateJoined, [
       "publicContext",
       "reservationId",
     ]),
-    secondWaitlistReservationId,
-    invalidKeyRejected,
-    availabilityExistsRejected,
+    ownerWaitlistId,
     slotOpened,
     email,
   });
@@ -956,49 +908,58 @@ async function qaWaitlistGate(): Promise<QaResult> {
     status: "PASS",
     output: [
       `resource: ${resource.key}`,
-      `saturatedReservations: ${saturated.count}`,
-      `waitlistStatus: ${lookup.publicContext.status}`,
+      `saturatedReservations: ${saturated.reservationCount}`,
+      "waitlistStatus: waitlisted",
       `duplicateReservationReused: ${waitlistReservationId}`,
-      `invalidKeyRejected: ${invalidKeyRejected}`,
-      `availabilityExistsRejected: ${availabilityExistsRejected}`,
       `chatEvent: ${slotOpened.type}`,
       `emailTemplate: ${email.template}`,
     ],
   };
 }
 
-// Operator calendar CRUD (features.operatorCalendarCrud). Deterministic SKIP when
-// the flag is off, so the template default and the nine anonymous packs still
-// pass. When on, it locks the ADMIN AUTH BOUNDARY only: a bare ConvexHttpClient
-// carries no identity, and the runner's admin key is deployment auth rather than
-// a logged-in operator (getAuthUserId is null for it), so there is no way to mint
-// a real operator here. ensureAdmin therefore fails closed with
-// admin_auth_required before any row is written — that is the assertion. The full
-// authenticated create/edit/cancel round-trip is proved in the browser gate,
-// where a signed-in operator identity exists. A live signIn / AUTH_DEV_ANONYMOUS
-// path is intentionally NOT wired: it would make this gate non-deterministic and
-// break the default run.
 async function qaOperatorCalendarCrudGate(): Promise<QaResult> {
+  assert(
+    unauthenticatedAdminRoute !== null &&
+      unauthenticatedAdminRoute.kind === "redirect",
+    "unauthenticated /admin did not deny access with a redirect",
+  );
+  const authenticatedCustomerAdminRoute = await pageRequestRoute(
+    qaPageA(),
+    "/admin",
+  );
+  assert(
+    authenticatedCustomerAdminRoute.kind === "response" &&
+      authenticatedCustomerAdminRoute.status === 404,
+    "authenticated customer /admin did not return 404",
+  );
+
   if (!domainConfig.features.operatorCalendarCrud) {
+    const operatorCrudBoundarySubcase = {
+      status: "SKIP",
+      reason: "features.operatorCalendarCrud=false",
+    } as const;
+    writeJson("10-operator-calendar-crud.json", {
+      unauthenticatedAdminRoute,
+      authenticatedCustomerAdminRoute,
+      operatorCrudBoundarySubcase,
+      operatorSuccessSmoke: "BLOCKED_MAINTAINER_GOOGLE_IDENTITY",
+    });
     return {
       id: 10,
       name: "운영자 캘린더 CRUD",
-      status: "SKIP",
+      status: "PASS",
       output: [
-        "features.operatorCalendarCrud=false — 운영자 캘린더 CRUD 게이트는 결정론적으로 생략.",
+        "미인증 /admin: redirect로 차단",
+        "인증 고객 /admin: HTTP 404로 차단",
+        "operator CRUD 경계 하위 사례: SKIP (features.operatorCalendarCrud=false)",
+        "Google 운영자 성공 CRUD: 별도 maintainer-owned BLOCKED smoke",
       ],
     };
   }
 
-  const convexUrl =
-    resolveQaEnv("NEXT_PUBLIC_CONVEX_URL") ?? resolveQaEnv("CONVEX_URL");
-  if (!convexUrl) {
-    throw new Error(
-      "operatorCalendarCrud QA requires NEXT_PUBLIC_CONVEX_URL or CONVEX_URL to prove the admin auth boundary",
-    );
-  }
-
-  const client = new ConvexHttpClient(convexUrl, { logger: false });
+  const client = new ConvexHttpClient(qaConvexTarget.convexUrl, {
+    logger: false,
+  });
   const service = qaService ?? domainConfig.services[0];
   assert(service !== undefined, "operatorCalendarCrud QA requires a service");
   const resource =
@@ -1006,8 +967,6 @@ async function qaOperatorCalendarCrudGate(): Promise<QaResult> {
       (candidate) => candidate.kind === service.resourceKind,
     ) ?? domainConfig.resources[0];
   assert(resource !== undefined, "operatorCalendarCrud QA requires a resource");
-  // Never actually read: ensureAdmin throws before resolveSlot runs. Any
-  // well-typed placeholder is fine because the boundary rejects first.
   const placeholder = { dateKey: "2099-01-01", startTime: "10:00" };
 
   const createRejected = await expectMutationRejects(
@@ -1055,12 +1014,70 @@ async function qaOperatorCalendarCrudGate(): Promise<QaResult> {
     "unauthenticated deleteSession was not rejected with admin_auth_required",
   );
 
+  const authenticatedCustomerCreate = await pageCanonicalCall(qaPageA(), {
+    operation: "adminCreateSession",
+    args: {
+      title: "QA 익명 경계",
+      serviceKey: service.key,
+      resourceKey: resource.key,
+      dateKey: placeholder.dateKey,
+      startTime: placeholder.startTime,
+    },
+  });
+  const authenticatedCustomerCreateRejected = canonicalFailureCode(
+    authenticatedCustomerCreate,
+    "authenticated customer createSession",
+    "admin_forbidden",
+  );
+  const authenticatedCustomerUpdate = await pageCanonicalCall(qaPageA(), {
+    operation: "adminUpdateSession",
+    args: {
+      reservationId: "QA-000000-QABND0",
+      title: "QA 익명 경계",
+      serviceKey: service.key,
+      resourceKey: resource.key,
+      dateKey: placeholder.dateKey,
+      startTime: placeholder.startTime,
+    },
+  });
+  const authenticatedCustomerUpdateRejected = canonicalFailureCode(
+    authenticatedCustomerUpdate,
+    "authenticated customer updateSession",
+    "admin_forbidden",
+  );
+  const authenticatedCustomerDelete = await pageCanonicalCall(qaPageA(), {
+    operation: "adminDeleteSession",
+    args: { reservationId: "QA-000000-QABND0" },
+  });
+  const authenticatedCustomerDeleteRejected = canonicalFailureCode(
+    authenticatedCustomerDelete,
+    "authenticated customer deleteSession",
+    "admin_forbidden",
+  );
+
+  const operatorCrudBoundarySubcase = {
+    status: "PASS",
+    unauthenticated: {
+      createRejected,
+      updateRejected,
+      deleteRejected,
+    },
+    authenticatedNonoperator: {
+      createRejected: authenticatedCustomerCreateRejected,
+      updateRejected: authenticatedCustomerUpdateRejected,
+      deleteRejected: authenticatedCustomerDeleteRejected,
+    },
+  } as const;
+
   writeJson("10-operator-calendar-crud.json", {
     service: service.key,
     resource: resource.key,
-    createRejected,
-    updateRejected,
-    deleteRejected,
+    unauthenticatedAdminRoute,
+    authenticatedCustomerAdminRoute,
+    operatorCrudBoundarySubcase,
+    deterministicIdentity: "authenticated-reserved-nonoperator",
+    operatorAllowlistMode: "reserved-nonmatching-invalid",
+    operatorSuccessSmoke: "BLOCKED_MAINTAINER_GOOGLE_IDENTITY",
   });
 
   return {
@@ -1069,39 +1086,31 @@ async function qaOperatorCalendarCrudGate(): Promise<QaResult> {
     status: "PASS",
     output: [
       "auth 경계: 미인증 create/update/deleteSession 모두 admin_auth_required로 차단",
-      "전체 CRUD round-trip은 로그인 운영자 신원이 필요해 브라우저 게이트에서 검증",
+      "인증 고객 경계: create/update/deleteSession 모두 admin_forbidden으로 차단",
+      "미인증 /admin: redirect로 차단",
+      "인증 고객 /admin: HTTP 404로 차단",
+      "operator CRUD 경계 하위 사례: PASS",
+      "Google 운영자 성공 CRUD: 별도 maintainer-owned BLOCKED smoke",
     ],
   };
 }
 
-// Customer accounts (features.customerAccounts). Deterministic SKIP when the flag
-// is off. When on, both customer surfaces must fail closed without a logged-in
-// identity: customerSnapshot derives the thread from the authenticated user (no
-// threadId to forge), and the chat path (publicState) refuses a foreign thread it
-// cannot resolve to a caller. Same identity constraint as gate 10 — the runner's
-// admin key is not a customer login — so this locks the boundary and leaves the
-// authenticated own-reservations read to the browser gate.
 async function qaCustomerAccountsGate(): Promise<QaResult> {
-  if (!domainConfig.features.customerAccounts) {
-    return {
-      id: 11,
-      name: "고객 계정 경계",
-      status: "SKIP",
-      output: [
-        "features.customerAccounts=false — 고객 계정 경계 게이트는 결정론적으로 생략.",
-      ],
-    };
-  }
+  assert(
+    domainConfig.features.customerAccounts,
+    "customerAccounts must be enabled for the baseline QA contract",
+  );
 
-  const convexUrl =
-    resolveQaEnv("NEXT_PUBLIC_CONVEX_URL") ?? resolveQaEnv("CONVEX_URL");
-  if (!convexUrl) {
-    throw new Error(
-      "customerAccounts QA requires NEXT_PUBLIC_CONVEX_URL or CONVEX_URL to prove the customer auth boundary",
-    );
-  }
-
-  const client = new ConvexHttpClient(convexUrl, { logger: false });
+  const client = new ConvexHttpClient(qaConvexTarget.convexUrl, {
+    logger: false,
+  });
+  const service = qaService ?? domainConfig.services[0];
+  assert(service !== undefined, "customer account QA requires a service");
+  const resource =
+    domainConfig.resources.find(
+      (candidate) => candidate.kind === service.resourceKind,
+    ) ?? domainConfig.resources[0];
+  assert(resource !== undefined, "customer account QA requires a resource");
 
   const snapshotRejected = await expectMutationRejects(
     () => client.query(customerSnapshotQuery, {}),
@@ -1112,18 +1121,245 @@ async function qaCustomerAccountsGate(): Promise<QaResult> {
     "unauthenticated customerSnapshot was not rejected with auth_required",
   );
 
-  const foreignThreadRejected = await expectMutationRejects(
-    () => client.query(publicStateQuery, { threadId: "user:__foreign__" }),
-    "auth_required",
-  );
+  const unauthenticatedWrites = await Promise.all([
+    expectMutationRejects(
+      () =>
+        client.mutation(customerCreateHoldMutation, {
+          serviceKey: service.key,
+          resourceKey: resource.key,
+          startMs: Date.now() + DAY_MS,
+        }),
+      "auth_required",
+    ),
+    expectMutationRejects(
+      () =>
+        client.mutation(customerConfirmReservationMutation, {
+          reservationId: "QA-000000-QABND0",
+        }),
+      "auth_required",
+    ),
+    expectMutationRejects(
+      () =>
+        client.mutation(customerCancelReservationMutation, {
+          reservationId: "QA-000000-QABND0",
+        }),
+      "auth_required",
+    ),
+    expectMutationRejects(
+      () =>
+        client.mutation(customerRescheduleReservationMutation, {
+          reservationId: "QA-000000-QABND0",
+          serviceKey: service.key,
+          resourceKey: resource.key,
+          startMs: Date.now() + 2 * DAY_MS,
+        }),
+      "auth_required",
+    ),
+  ]);
   assert(
-    foreignThreadRejected,
-    "unauthenticated chat publicState did not fail closed on a foreign thread",
+    unauthenticatedWrites.every(Boolean),
+    "one or more unauthenticated customer writes did not reject auth_required",
   );
+
+  const initialAvailability = await canonicalSuccessValue(
+    qaPageA(),
+    {
+      operation: "availableSlots",
+      args: {
+        serviceKey: service.key,
+        resourceKey: resource.key,
+        preferredStartMs: nextAllowedSlotStart(Date.now() + DAY_MS),
+        count: 3,
+      },
+    },
+    "identity A initial availability",
+  );
+  const initialSlot = firstCanonicalSlot(initialAvailability, "initial slot");
+  const created = await canonicalSuccessValue(
+    qaPageA(),
+    {
+      operation: "createHold",
+      args: {
+        serviceKey: initialSlot.serviceKey,
+        resourceKey: initialSlot.resourceKey,
+        startMs: initialSlot.startMs,
+      },
+    },
+    "identity A createHold",
+  );
+  const ownerReservationId = readPath(created, [
+    "publicContext",
+    "reservationId",
+  ]);
+  assert(
+    typeof ownerReservationId === "string",
+    "identity A confirmation has no reservation ID",
+  );
+  const confirmed = await canonicalSuccessValue(
+    qaPageA(),
+    {
+      operation: "confirmReservation",
+      args: { reservationId: ownerReservationId },
+    },
+    "identity A confirmReservation",
+  );
+  const rescheduleAvailability = await canonicalSuccessValue(
+    qaPageA(),
+    {
+      operation: "availableSlots",
+      args: {
+        serviceKey: service.key,
+        resourceKey: resource.key,
+        preferredStartMs: initialSlot.startMs + DAY_MS,
+        count: 3,
+      },
+    },
+    "identity A reschedule availability",
+  );
+  const rescheduleSlot = firstCanonicalSlot(
+    rescheduleAvailability,
+    "reschedule slot",
+  );
+  const ownerThread = threadIdForPage(qaPageA());
+  const crossOwnerRead = await requestJson(
+    `/api/chat?thread_id=${encodeURIComponent(ownerThread)}`,
+    {},
+    qaPageB(),
+  );
+  const crossOwnerCreateHold = await pageCanonicalCall(qaPageB(), {
+    operation: "createHold",
+    args: {
+      serviceKey: initialSlot.serviceKey,
+      resourceKey: initialSlot.resourceKey,
+      startMs: initialSlot.startMs,
+    },
+  });
+  const crossOwnerCreateHoldCode = canonicalFailureCode(
+    crossOwnerCreateHold,
+    "identity B createHold at A occupied slot",
+    "slot_conflict",
+  );
+  const crossOwnerCreateHoldRejected =
+    crossOwnerCreateHoldCode === "slot_conflict";
+  const crossOwnerConfirm = await pageCanonicalCall(qaPageB(), {
+    operation: "confirmReservation",
+    args: { reservationId: ownerReservationId },
+  });
+  const crossOwnerCancel = await pageCanonicalCall(qaPageB(), {
+    operation: "cancelReservation",
+    args: { reservationId: ownerReservationId },
+  });
+  const crossOwnerReschedule = await pageCanonicalCall(qaPageB(), {
+    operation: "rescheduleReservation",
+    args: {
+      reservationId: ownerReservationId,
+      serviceKey: rescheduleSlot.serviceKey,
+      resourceKey: rescheduleSlot.resourceKey,
+      startMs: rescheduleSlot.startMs,
+    },
+  });
+  const lifecycleResults = [
+    ["confirm", crossOwnerConfirm],
+    ["cancel", crossOwnerCancel],
+    ["reschedule", crossOwnerReschedule],
+  ] as const;
+  const crossOwnerLifecycleCodes = lifecycleResults.map(([operation, result]) =>
+    canonicalFailureCode(
+      result,
+      `identity B ${operation} A reservation`,
+      "reservation_not_found",
+    ),
+  );
+  const crossOwnerLifecycleRejected = crossOwnerLifecycleCodes.every(
+    (code) => code === "reservation_not_found",
+  );
+  assertErrorOmitsSensitiveData(
+    crossOwnerRead.body,
+    "identity B foreign-thread response",
+    [ownerReservationId, ownerThread],
+  );
+  for (const [operation, result] of lifecycleResults) {
+    assertErrorOmitsSensitiveData(result, `identity B ${operation} error`, [
+      ownerReservationId,
+      ownerThread,
+    ]);
+  }
+
+  const identityBSnapshot = await canonicalSuccessValue(
+    qaPageB(),
+    { operation: "snapshot", args: {} },
+    "identity B snapshot",
+  );
+  const identityBSnapshotRows = readPath(identityBSnapshot, ["reservations"]);
+  assert(
+    Array.isArray(identityBSnapshotRows) && identityBSnapshotRows.length === 0,
+    "identity B snapshot exposed reservation rows from identity A",
+  );
+  assertErrorOmitsSensitiveData(identityBSnapshot, "identity B snapshot", [
+    ownerReservationId,
+    ownerThread,
+  ]);
+  const crossOwnerRejected =
+    crossOwnerRead.status >= 400 &&
+    crossOwnerCreateHoldRejected &&
+    crossOwnerLifecycleRejected;
+  assert(crossOwnerRejected, "identity B accessed identity A reservation");
+
+  const rescheduled = await canonicalSuccessValue(
+    qaPageA(),
+    {
+      operation: "rescheduleReservation",
+      args: {
+        reservationId: ownerReservationId,
+        serviceKey: rescheduleSlot.serviceKey,
+        resourceKey: rescheduleSlot.resourceKey,
+        startMs: rescheduleSlot.startMs,
+      },
+    },
+    "identity A rescheduleReservation",
+  );
+  const cancelled = await canonicalSuccessValue(
+    qaPageA(),
+    {
+      operation: "cancelReservation",
+      args: { reservationId: ownerReservationId },
+    },
+    "identity A cancelReservation",
+  );
+  const snapshot = await canonicalSuccessValue(
+    qaPageA(),
+    { operation: "snapshot", args: {} },
+    "identity A snapshot",
+  );
+  const snapshotRows = readPath(snapshot, ["reservations"]);
+  assert(
+    Array.isArray(snapshotRows),
+    "identity A snapshot has no reservations",
+  );
+  const ownerRow = snapshotRows.find(
+    (row) => isRecord(row) && row.id === ownerReservationId,
+  );
+  assertRecord(ownerRow, "identity A snapshot owner row");
+  const ownCrudSucceeded =
+    readPath(created, ["publicContext", "status"]) === "held" &&
+    readPath(confirmed, ["publicContext", "status"]) === "confirmed" &&
+    readPath(rescheduled, ["publicContext", "status"]) === "rescheduled" &&
+    ["cancelled", "escalated"].includes(
+      String(readPath(cancelled, ["publicContext", "status"])),
+    ) &&
+    ["cancelled", "escalated"].includes(String(ownerRow.status));
+  assert(ownCrudSucceeded, "identity A canonical own CRUD did not complete");
 
   writeJson("11-customer-accounts.json", {
     snapshotRejected,
-    foreignThreadRejected,
+    unauthenticatedWrites,
+    crossOwnerReadStatus: crossOwnerRead.status,
+    crossOwnerCreateHoldCode,
+    crossOwnerLifecycleCodes,
+    identityBSnapshot,
+    crossOwnerRejected,
+    ownCrudSucceeded,
+    ownCrud: { created, confirmed, rescheduled, cancelled, snapshot },
   });
 
   return {
@@ -1132,9 +1368,62 @@ async function qaCustomerAccountsGate(): Promise<QaResult> {
     status: "PASS",
     output: [
       "auth 경계: 미인증 customerSnapshot은 auth_required로 차단",
-      "chat publicState는 미인증 상태에서 타인 thread를 auth_required로 차단(fail closed)",
-      "본인 예약 조회 round-trip은 로그인 신원이 필요해 브라우저 게이트에서 검증",
+      "미인증 create/confirm/cancel/reschedule 모두 auth_required로 차단",
+      "B가 A thread 및 canonical reservation writes를 사용할 수 없음",
+      "A 본인 canonical create/confirm/reschedule/cancel/snapshot 성공",
     ],
+  };
+}
+
+async function canonicalSuccessValue(
+  page: Page,
+  call: Parameters<typeof pageCanonicalCall>[1],
+  label: string,
+) {
+  const result = await pageCanonicalCall(page, call);
+  assert(result.kind === "success", `${label} failed`);
+  return result.value;
+}
+
+function canonicalFailureCode(
+  result: Awaited<ReturnType<typeof pageCanonicalCall>>,
+  label: string,
+  expectedCode: QaCanonicalFailureCode,
+): string {
+  assert(result.kind === "failure", `${label} unexpectedly succeeded`);
+  assert(
+    result.error === expectedCode,
+    `${label} did not reject with ${expectedCode}`,
+  );
+  return expectedCode;
+}
+
+function assertErrorOmitsSensitiveData(
+  value: unknown,
+  label: string,
+  sensitiveValues: readonly string[],
+): void {
+  const serialized = JSON.stringify(value);
+  for (const sensitiveValue of sensitiveValues) {
+    assert(
+      !serialized.includes(sensitiveValue),
+      `${label} exposed identity A reservation data`,
+    );
+  }
+}
+
+function firstCanonicalSlot(value: unknown, label: string) {
+  const slots = readPath(value, ["slots"]);
+  assert(Array.isArray(slots), `${label} response has no slots`);
+  const slot = slots[0];
+  assertRecord(slot, label);
+  assert(typeof slot.serviceKey === "string", `${label} has no serviceKey`);
+  assert(typeof slot.resourceKey === "string", `${label} has no resourceKey`);
+  assert(typeof slot.startMs === "number", `${label} has no startMs`);
+  return {
+    serviceKey: slot.serviceKey,
+    resourceKey: slot.resourceKey,
+    startMs: slot.startMs,
   };
 }
 
@@ -1160,12 +1449,17 @@ async function runConfirmTriad(
   const maxAttempts = 2;
   let result: ConfirmTriad | null = null;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const threadId =
+    const scenarioId =
       attempt === 1 ? threadIdBase : `${threadIdBase}-retry${attempt}`;
-    const availability = await postChat(threadId, availabilityMessage);
-    const hold = await postChat(threadId, qaSlotSelectionMessage);
-    const confirmed = await postChat(threadId, "확인합니다");
-    result = { threadId, availability, hold, confirmed };
+    const availability = await postChat(scenarioId, availabilityMessage);
+    const hold = await postChat(scenarioId, qaSlotSelectionMessage);
+    const confirmed = await postChat(scenarioId, "확인합니다");
+    result = {
+      threadId: threadIdForPage(qaPageA()),
+      availability,
+      hold,
+      confirmed,
+    };
     const status = readPath(confirmed, ["publicContext", "status"]);
     if (status === "confirmed") {
       return result;
@@ -1210,66 +1504,53 @@ function qaWaitlistResource() {
   return resource;
 }
 
-async function saturateWaitlistResource(
-  client: ConvexHttpClient,
-  resourceKey: string,
-) {
-  const confirmed: { threadId: string; reservationId: string }[] = [];
+async function saturateWaitlistThroughApp(resourceLabel: string) {
+  let firstReservationId: string | null = null;
+  let reservationCount = 0;
   for (let attempt = 0; attempt < 120; attempt += 1) {
-    const availability = await client.query(searchAvailabilityQuery, {
-      threadId: `qa-waitlist-scan-${Date.now()}-${attempt}`,
-      serviceKey: qaService?.key ?? null,
-      resourceKey,
-      preferredStartMs: null,
-      count: 10,
-    });
-    if (availability.slots.length === 0) {
-      const first = confirmed[0];
+    const availability = await postChat(
+      `qa-waitlist-fill-${attempt}`,
+      waitlistJoinRequest(resourceLabel),
+    );
+    if (readPath(availability, ["publicContext", "status"]) === "waitlisted") {
       assert(
-        first !== undefined,
+        firstReservationId !== null,
         "waitlist saturation created no reservations",
       );
-      return { count: confirmed.length, first };
+      return { firstReservationId, reservationCount, waitlist: availability };
     }
 
-    for (const [index, slot] of availability.slots.entries()) {
-      const threadId = `qa-waitlist-fill-${Date.now()}-${attempt}-${index}`;
-      const hold = await client.mutation(createHoldMutation, {
-        threadId,
-        displayName: null,
-        serviceKey: slot.serviceKey,
-        resourceKey: slot.resourceKey,
-        startMs: slot.startMs,
-        endMs: slot.endMs,
-      });
-      const reservationId = hold.publicContext.reservationId;
-      assert(
-        typeof reservationId === "string",
-        "waitlist saturation hold did not return reservationId",
-      );
-      const confirmedReservation = await client.mutation(
-        confirmReservationMutation,
-        {
-          threadId,
-          reservationId,
-          confirmed: true,
-        },
-      );
-      assert(
-        confirmedReservation.publicContext.status === "confirmed",
-        "waitlist saturation did not confirm reservation",
-      );
-      confirmed.push({ threadId, reservationId });
-    }
+    const hold = await postChat(
+      `qa-waitlist-fill-${attempt}`,
+      qaSlotSelectionMessage,
+    );
+    const reservationId = readPath(hold, ["publicContext", "reservationId"]);
+    assert(
+      typeof reservationId === "string",
+      "waitlist hold has no reservation ID",
+    );
+    const confirmed = await postChat(
+      `qa-waitlist-fill-${attempt}`,
+      "확인합니다",
+    );
+    assert(
+      readPath(confirmed, ["publicContext", "status"]) === "confirmed",
+      "waitlist saturation reservation did not confirm",
+    );
+    firstReservationId ??= reservationId;
+    reservationCount += 1;
   }
 
   throw new Error("waitlist saturation exceeded 120 search iterations");
 }
 
-async function waitForWaitlistSlotOpened(threadId: string) {
+async function waitForWaitlistSlotOpened(page: Page) {
+  const threadId = threadIdForPage(page);
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const state = await requestJson(
       `/api/chat?thread_id=${encodeURIComponent(threadId)}`,
+      {},
+      page,
     );
     assertRecord(state.body, "waitlist slot-opened state response");
     const messages = readPath(state.body, ["messages"]);
@@ -1293,27 +1574,6 @@ async function waitForWaitlistSlotOpened(threadId: string) {
   throw new Error("waitlist.slotOpened not observed");
 }
 
-async function assertNoWaitlistSlotOpened(threadId: string) {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const state = await requestJson(
-      `/api/chat?thread_id=${encodeURIComponent(threadId)}`,
-    );
-    assertRecord(state.body, "waitlist no-slot-opened state response");
-    const messages = readPath(state.body, ["messages"]);
-    if (Array.isArray(messages)) {
-      const event = messages.find(
-        (message) =>
-          isRecord(message) && message.type === "waitlist.slotOpened",
-      );
-      assert(
-        event === undefined,
-        "waitlisted row cancellation emitted waitlist.slotOpened",
-      );
-    }
-    await delay(250);
-  }
-}
-
 async function expectMutationRejects(
   runMutation: () => Promise<unknown>,
   expectedMessage: string,
@@ -1330,10 +1590,17 @@ async function expectMutationRejects(
   return false;
 }
 
-async function waitForEmailCapture(threadId: string, template: string) {
+async function waitForEmailCapture(
+  threadId: string,
+  template: string,
+  page = qaPageA(),
+) {
+  const authenticatedThreadId = threadIdForPage(page);
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const state = await requestJson(
-      `/api/chat?thread_id=${encodeURIComponent(threadId)}`,
+      `/api/chat?thread_id=${encodeURIComponent(authenticatedThreadId)}`,
+      {},
+      page,
     );
     assertRecord(state.body, "email capture state response");
     const evidence = findEmailCapture(state.body, threadId, template);
@@ -1388,28 +1655,59 @@ function findEmailCapture(
   return null;
 }
 
-async function postChat(threadId: string, message: string) {
-  const response = await requestJson("/api/chat", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      thread_id: threadId,
-      message,
-    }),
-  });
+async function postChat(threadId: string, message: string, page = qaPageA()) {
+  const authenticatedThreadId = threadIdForPage(page);
+  void threadId;
+  const response = await requestJson(
+    "/api/chat",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        thread_id: authenticatedThreadId,
+        message,
+      }),
+    },
+    page,
+  );
   if (response.status !== 200) {
     throw new Error(`POST /api/chat failed with HTTP ${response.status}`);
   }
   return response.body;
 }
 
-async function requestJson(pathname: string, init?: RequestInit) {
-  const response = await fetch(`${baseUrl}${pathname}`, init);
-  const body: unknown = await response.json();
-  return {
-    status: response.status,
-    body,
-  };
+async function requestJson(
+  pathname: string,
+  init: {
+    readonly method?: string;
+    readonly headers?: Readonly<Record<string, string>>;
+    readonly body?: string;
+  } = {},
+  page = qaPageA(),
+) {
+  return await pageRequestJson(page, { pathname, ...init });
+}
+
+function qaPageA() {
+  assert(pageA !== null, "QA browser identity A is not authenticated");
+  return pageA;
+}
+
+function qaPageB() {
+  assert(pageB !== null, "QA browser identity B is not authenticated");
+  return pageB;
+}
+
+function threadIdForPage(page: Page) {
+  if (page === qaPageA()) {
+    assert(threadA !== null, "QA identity A thread is not resolved");
+    return threadA;
+  }
+  if (page === qaPageB()) {
+    assert(threadB !== null, "QA identity B thread is not resolved");
+    return threadB;
+  }
+  throw new Error("Unknown QA browser identity");
 }
 
 function writeJson(fileName: string, value: unknown) {
@@ -1417,6 +1715,23 @@ function writeJson(fileName: string, value: unknown) {
     path.join(artifactDir, fileName),
     `${JSON.stringify(value, null, 2)}\n`,
   );
+}
+
+function finalizeGateArtifacts(gateResults: readonly QaResult[]): void {
+  for (const result of gateResults) {
+    const gate = QA_GATE_CONTRACT.find(({ id }) => id === result.id);
+    assert(gate !== undefined, `QA gate artifact missing for ${result.id}`);
+    writeJson(gate.artifact, {
+      id: result.id,
+      name: result.name,
+      status: result.status,
+      evidence: readJsonArtifact(gate.artifact),
+    });
+  }
+}
+
+function readJsonArtifact(fileName: string): unknown {
+  return JSON.parse(fs.readFileSync(path.join(artifactDir, fileName), "utf8"));
 }
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -1446,15 +1761,6 @@ function isPublicReservationNumber(value: string) {
 function findRawReservationIdLeaks(content: string) {
   const matches = content.matchAll(/"reservationId"\s*:\s*"([a-z0-9]{20,})"/g);
   return [...matches].map((match) => match[1] ?? "");
-}
-
-function resolveQaEnv(name: string) {
-  const processValue = process.env[name]?.trim();
-  if (processValue) {
-    return processValue;
-  }
-  const localValue = localEnv[name]?.trim();
-  return localValue ? localValue : undefined;
 }
 
 function readLocalEnvFiles(filePaths: string[]) {

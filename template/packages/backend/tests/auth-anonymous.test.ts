@@ -71,7 +71,6 @@ describe("anonymous auth provider characterization", () => {
 describe("anonymousLoginProviderPolicy", () => {
   test("enables only when customer accounts, exact env 1, and a non-empty allowlist all match", () => {
     const enabled = anonymousLoginProviderPolicy({
-      customerAccounts: true,
       anonymousLoginEnv: "1",
       adminEmailAllowlist: ["owner@example.invalid"],
     });
@@ -92,7 +91,6 @@ describe("anonymousLoginProviderPolicy", () => {
     test(`fails closed for non-exact env value ${JSON.stringify(anonymousLoginEnv)}`, () => {
       expect(
         anonymousLoginProviderPolicy({
-          customerAccounts: true,
           anonymousLoginEnv,
           adminEmailAllowlist: ["owner@example.invalid"],
         }),
@@ -100,21 +98,10 @@ describe("anonymousLoginProviderPolicy", () => {
     });
   }
 
-  test("stays off when customer accounts are disabled even with env 1", () => {
-    expect(
-      anonymousLoginProviderPolicy({
-        customerAccounts: false,
-        anonymousLoginEnv: "1",
-        adminEmailAllowlist: ["owner@example.invalid"],
-      }),
-    ).toBe(false);
-  });
-
   test("stays off when the normalized admin allowlist is missing or empty", () => {
     for (const rawAllowlist of [undefined, "", "  ,  "]) {
       expect(
         anonymousLoginProviderPolicy({
-          customerAccounts: true,
           anonymousLoginEnv: "1",
           adminEmailAllowlist: normalizeAdminEmailAllowlist(rawAllowlist),
         }),

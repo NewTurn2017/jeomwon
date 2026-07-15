@@ -5,6 +5,8 @@ import { domainConfig } from "@jeomwon/backend/domain.config";
 import { jeomwonConvex } from "@jeomwon/backend/src/convex-refs";
 import { fetchQuery, preloadQuery } from "convex/nextjs";
 import { CustomerChatWidget } from "@/components/customer-chat-widget";
+import { DemoBanner } from "@/components/demo-banner";
+import { env } from "@/env.mjs";
 import { loadViewerRole } from "@/lib/admin-routing";
 import { Navigation } from "./_components/navigation";
 
@@ -21,6 +23,10 @@ export default async function Layout({
   const preloadedProducts = domainConfig.features.polar
     ? await preloadQuery(api.subscriptions.listAllProducts, {}, { token })
     : null;
+  const QaBrowserBridge =
+    env.JEOMWON_QA_BROWSER === "1" && process.env.NODE_ENV !== "production"
+      ? (await import("@/components/qa-browser-bridge")).QaBrowserBridge
+      : null;
   return (
     <div className="flex min-h-[100vh] w-full flex-col bg-muted/40">
       <Navigation
@@ -29,15 +35,10 @@ export default async function Layout({
         preloadedProducts={preloadedProducts}
         viewerRole={viewerRole}
       />
+      <DemoBanner enabled={env.NEXT_PUBLIC_JEOMWON_DEMO === "1"} />
       {children}
-      {/*
-       * Compile-time flag: with customerAccounts OFF the widget never mounts and
-       * never calls /api/chat, so no customer-facing behavior changes. The route
-       * file and @jeomwon/agents ARE compiled into apps/app either way (the kit
-       * copies template/ wholesale), but the route 404s when the flag is off, so
-       * the flag-off app has no functional chat surface.
-       */}
-      {domainConfig.features.customerAccounts ? <CustomerChatWidget /> : null}
+      <CustomerChatWidget />
+      {QaBrowserBridge === null ? null : <QaBrowserBridge />}
     </div>
   );
 }

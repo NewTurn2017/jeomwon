@@ -35,7 +35,7 @@
       "id": "app-url",
       "kind": "local-env",
       "title": "App URL",
-      "description": "The dashboard app URL linked from the public web app.",
+      "description": "The authenticated customer app URL linked from the public web CTA.",
       "variables": [
         {
           "name": "NEXT_PUBLIC_APP_URL",
@@ -79,7 +79,7 @@
         },
         {
           "name": "NEXT_PUBLIC_CONVEX_URL",
-          "projects": ["web", "app"],
+          "projects": ["app"],
           "details": "The Convex deployment URL copied from packages/backend/.env.local.",
           "template": "{{convexUrl}}",
           "defaultValue": "https://example-123.convex.cloud",
@@ -127,7 +127,7 @@
           "details": "The client ID from Google Cloud Console > APIs & Services > Credentials.",
           "info": [
             "Authorized redirect URI: {{convexSiteUrl}}/api/auth/callback/google",
-            "Authorized JavaScript origins for local dev: http://localhost:3000 and http://localhost:3001"
+            "Authorized JavaScript origin for local dev: http://localhost:3000"
           ],
           "secret": false
         },
@@ -206,13 +206,13 @@
       "variables": [
         {
           "name": "OPENAI_API_KEY",
-          "projects": ["web", "app"],
-          "details": "Stored in apps/web/.env.local and apps/app/.env.local for local Next route handlers.",
+          "projects": ["app"],
+          "details": "Stored in apps/app/.env.local for the authenticated chat route handler.",
           "secret": true
         },
         {
           "name": "AGENT_RUNTIME",
-          "projects": ["web", "app"],
+          "projects": ["app"],
           "details": "Set to openai when the key is configured, or mock when skipped.",
           "defaultValue": "mock",
           "secret": false

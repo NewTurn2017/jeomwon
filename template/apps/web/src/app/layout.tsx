@@ -1,17 +1,13 @@
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "@jeomwon/ui/globals.css";
-import "@/components/customer-chat-widget.css";
 import { domainConfig } from "@jeomwon/backend/domain.config";
 import { cn } from "@jeomwon/ui/utils";
 import type { Metadata } from "next";
-import { DemoBanner } from "@/components/demo-banner";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
-import { env } from "@/env";
-import { ConvexClientProvider } from "./convex-client-provider";
 
 const pageTitle = `${domainConfig.storeName} 예약`;
-const pageDescription = `${domainConfig.storeName}의 서비스 예약을 채팅으로 문의하고 확정할 수 있습니다.`;
+const pageDescription = `${domainConfig.storeName}의 서비스와 운영 시간을 확인하고 예약 앱으로 이동할 수 있습니다.`;
 
 export const metadata: Metadata = {
   title: {
@@ -41,12 +37,9 @@ export default function RootLayout({
   return (
     <html lang={language} suppressHydrationWarning>
       <body className={cn("min-h-screen bg-background font-sans antialiased")}>
-        <ConvexClientProvider>
-          <Header />
-          <DemoBanner enabled={env.NEXT_PUBLIC_JEOMWON_DEMO === "1"} />
-          {children}
-          <Footer />
-        </ConvexClientProvider>
+        <Header />
+        {children}
+        <Footer />
       </body>
     </html>
   );

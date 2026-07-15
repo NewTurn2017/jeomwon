@@ -65,7 +65,7 @@ type DomainPack = {
     email: boolean;
     polar: boolean;
     waitlist?: boolean;
-    customerAccounts?: boolean;
+    customerAccounts?: true;
     operatorCalendarCrud?: boolean;
   };
   copy: {
@@ -95,13 +95,15 @@ type DomainPack = {
 ### Kit-core feature flags
 
 `features.*` is a closed set owned by the kit: every flag's code ships in
-`template/`. Each flag below is optional in the pack for backward compatibility,
-must be boolean when present, and defaults to `false`.
+`template/`. `waitlist` and `operatorCalendarCrud` are optional booleans that
+default to `false`.
 
 - `waitlist` — notify-only waitlist on freed slots (`convex/engine/waitlist.ts`).
-- `customerAccounts` — customer login surfaces. When it is `true` the admin
-  allowlist must be configured; an empty `JEOMWON_ADMIN_EMAILS` then denies admin
-  access instead of granting it.
+- `customerAccounts` — compatibility literal for baseline customer login and
+  self-service surfaces. Omission materializes `true`; explicit `true` is accepted.
+  Explicit `false` fails with
+  `features.customerAccounts=false is no longer supported; omit it or set true`.
+  The admin allowlist is required and empty values deny admin access.
 - `operatorCalendarCrud` — operator create/edit/cancel from the admin calendar.
   Requires `adminWidget: "calendar"`; `seatGrid` has no operator CRUD surface.
 
@@ -122,7 +124,10 @@ For retries, partial reruns, and debugging, run the individual `scaffold.mjs`, `
 `scripts/inject.mjs <target-dir> <domain-pack.json>` validates and writes only generated domain artifacts:
 
 - `packages/backend/domain.config.ts`: typed config and duration helpers.
-- `packages/backend/convex/jeomwonSeed.ts`: deterministic resource seed mutation driven by `domainConfig.resources`.
+- `packages/email/src/reservation-sample.ts`: email sample when that scaffold path exists.
+
+`packages/backend/convex/jeomwonSeed.ts` is template-owned and remains byte-identical
+through injection. `demoReset.ts` imports its `seedDomainResources` export directly.
 
 Validation gates:
 
@@ -134,11 +139,12 @@ Validation gates:
 - `durationMinutes` is positive when present; day services normally omit it.
 - `confirmationRequired` must be `true`.
 - `notificationEmail` must be an email-like string.
-- `features.waitlist`, `features.customerAccounts`, and
-  `features.operatorCalendarCrud` are optional for backward compatibility and
-  default to `false`; when present each must be boolean. The default is
-  materialized into the written config because the emitted `DomainConfig` type
-  declares them non-optional.
+- `features.waitlist` and `features.operatorCalendarCrud` are optional and default
+  to `false`; when present each must be boolean.
+- `features.customerAccounts` may be omitted or literal `true`. Omission
+  materializes `true`; explicit `false` returns the exact compatibility error
+  above; other values fail validation. Emitted `DomainConfig` declares it as
+  literal `true`.
 - `features.operatorCalendarCrud: true` requires `adminWidget: "calendar"`. A
   `seatGrid` pack that asks for it fails with
   `operatorCalendarCrud requires adminWidget: "calendar"`.
@@ -150,9 +156,9 @@ Run these gates in order:
 
 1. Template regression: in `template/`, run `bun install --frozen-lockfile --offline`, `bun run typecheck`, `bun run lint`, and `bun run build`.
 2. Sample bootstrap (standard journey): into a fresh, empty target directory, run `bun skill/scripts/bootstrap.mjs <fresh-target> "Pension Stay" <pension-domain-pack.json>`. This runs scaffold → inject → offline verify in one command and ends with `VERIFY PASS`. Bootstrap's verify owns the offline install and never runs live QA — it strips an ambient `JEOMWON_QA_BASE_URL` and reports `SKIP qa`. Bootstrap refuses a non-empty target, so do not point it at the committed `samples/pension-stay`; use a throwaway directory.
-3. Convex/web QA (one command): after `bun setup` provisions the dev Convex deployment, run `bun run qa` in the generated project (or in `template/`). `scripts/qa-local.ts` deploys the Convex functions, sets the QA env, boots the web app in mock runtime, runs the 11-gate suite, and tears the server and env back down. It refuses any non-`dev:` deployment and forces email capture, so no real mail is sent.
+3. Convex/authenticated-app QA (one command): after `bun setup` provisions the dev Convex deployment (and `bunx playwright install chromium` prepares the local browser once), run `bun run qa` in the generated project (or in `template/`). `scripts/qa-local.ts` requires the app Convex URL to exactly match the verified backend `dev:` deployment, injects that canonical URL into every child, temporarily enables anonymous customer auth with a nonmatching reserved `.invalid` admin allowlist, boots `apps/app` in mock runtime, signs in isolated browser identities A/B, runs the exact 11-gate suite, and restores the app/browser/env lifecycle. Deterministic gate 10 proves that the authenticated customer identity is denied operator-only routes and mutations. Successful Google operator CRUD is a separate maintainer-owned live smoke and remains BLOCKED until explicitly authorized; it never requires operator email/storage-state inputs for the exact 11-gate command. The runner forces email capture, so no real mail is sent.
 
-`verify.mjs` (bootstrap's third stage) is the offline gate and never fetches provider secrets. It uses Bun offline install, builds the email package normally, builds the Next app/web surfaces with `next build --webpack` for sandbox compatibility, and skips QA unless a running web surface is explicitly supplied through `JEOMWON_QA_BASE_URL`. The live 11-gate QA in gate 3 is the one-command path; `verify.mjs` covers the sandboxed offline path.
+`verify.mjs` (bootstrap's third stage) is the offline gate and never fetches provider secrets. It uses Bun offline install, builds the email package normally, builds the Next app/web surfaces with `next build --webpack` for sandbox compatibility, and skips QA unless a running authenticated app surface is explicitly supplied through `JEOMWON_QA_BASE_URL`. CI runs the template regression plus the fresh generator contract; the live authenticated-app 11-gate QA in gate 3 remains the maintainer-owned dev-deployment path.
 
 ### Recovery / partial execution
 
@@ -210,8 +216,8 @@ example `extensionConfig.features.<featureKey> = false`. Extension modules and
 extension QA gates import this file rather than reading generated domain config.
 
 Chosen: a separate generated-app extension setting file. It survives reinject
-because `inject.mjs` writes only `domain.config.ts`, the resource seed, and email
-samples through paths such as `writeProjectFile` and `renderDomainConfig`. It
+because `inject.mjs` writes only `domain.config.ts` and the email sample through
+paths such as `writeProjectFile` and `renderDomainConfig`. It
 keeps the pack schema strict and adds no new machinery.
 
 Rejected: an inject preservation block. It would add generator complexity and
@@ -231,9 +237,9 @@ app, like the M2 no-show case study, which is switched by
 `extension.config.ts`. It does not govern **kit-core** feature flags, whose code
 ships in `template/` and therefore exists in every generated project before any
 extension is written. A kit-core capability has nowhere else to be switched on
-per project, so its flag belongs in pack `features.*`. `features.waitlist` is the
-precedent; `features.customerAccounts` and `features.operatorCalendarCrud` follow
-it.
+per project, so its flag belongs in pack `features.*`. `features.waitlist` and
+`features.operatorCalendarCrud` are optional switches; `features.customerAccounts`
+is retained only as a literal-true compatibility field for the baseline surface.
 
 The distinction is where the code lives, not who wants a toggle:
 
@@ -241,8 +247,9 @@ The distinction is where the code lives, not who wants a toggle:
   pack schema.
 - Code in `template/` → a kit-core `features.*` flag, and adding one is a kit
   change: `inject.mjs` validation, the emitted `DomainConfig` type, and
-  `template/packages/backend/domain.config.ts` move together, optional in the pack
-  and defaulting to `false` so existing packs keep injecting unchanged.
+  `template/packages/backend/domain.config.ts` move together. Optional
+  capabilities default off; baseline capabilities use a compatibility literal
+  such as `customerAccounts: true`.
 
 An extension may not promote itself into `features.*` by moving its own code into
 `template/`; template seam hardening still requires proof that the seam belongs in

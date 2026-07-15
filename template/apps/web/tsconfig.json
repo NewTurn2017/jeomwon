@@ -4,13 +4,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@jeomwon/agents": ["../../packages/agents/src/index.ts"],
-      "@jeomwon/agents/*": ["../../packages/agents/src/*"],
       "@jeomwon/backend": ["../../packages/backend"],
       "@jeomwon/backend/*": ["../../packages/backend/*"],
-      "@jeomwon/email/reservation": [
-        "../../packages/email/src/reservation.tsx"
-      ],
       "@jeomwon/ui/globals.css": ["../../packages/ui/src/globals.css"],
       "@jeomwon/ui/utils": ["../../packages/ui/src/utils/index.ts"],
       "@jeomwon/ui/*": ["../../packages/ui/src/components/*"]

@@ -2,16 +2,15 @@ import { domainConfig } from "@jeomwon/backend/domain.config";
 import type {
   AgentName,
   AvailabilitySearchArgs,
-  CancelArgs,
   ChatRequest,
   ChatTurnResult,
-  ConfirmArgs,
-  HoldArgs,
+  CustomerCreateHoldArgs,
+  CustomerRescheduleArgs,
+  CustomerReservationRef,
   LookupReservationArgs,
   PublicContext,
   PublicSlot,
   PublicThreadState,
-  RescheduleArgs,
   WaitlistArgs,
 } from "@jeomwon/backend/src/agent-contract";
 import {
@@ -28,7 +27,7 @@ import { z } from "zod";
 export type AgentRuntimeMode = "mock" | "openai";
 
 export type AgentToolbox = {
-  publicState(threadId: string): Promise<PublicThreadState>;
+  publicState(threadId?: string): Promise<PublicThreadState>;
   logUserMessage(request: ChatRequest): Promise<void>;
   logAssistantMessage(input: {
     threadId: string;
@@ -55,53 +54,32 @@ export type AgentToolbox = {
   lookupReservation(
     args: LookupReservationArgs,
   ): Promise<{ publicContext: PublicContext }>;
-  createHold(args: HoldArgs): Promise<{ publicContext: PublicContext }>;
+  createHold(
+    args: CustomerCreateHoldArgs,
+  ): Promise<{ publicContext: PublicContext }>;
   confirmReservation(
-    args: ConfirmArgs,
+    args: CustomerReservationRef,
   ): Promise<{ publicContext: PublicContext }>;
   cancelReservation(
-    args: CancelArgs,
+    args: CustomerReservationRef,
   ): Promise<{ publicContext: PublicContext; escalated: boolean }>;
   rescheduleReservation(
-    args: RescheduleArgs,
+    args: CustomerRescheduleArgs,
   ): Promise<{ publicContext: PublicContext }>;
 };
 
-const legacyCustomerReservationToolReferences = {
-  availableSlots: jeomwonConvex.agentTools.searchAvailability,
-  createHold: jeomwonConvex.agentTools.createHold,
-  confirmReservation: jeomwonConvex.agentTools.confirmReservation,
-  cancelReservation: jeomwonConvex.agentTools.cancelReservation,
-  rescheduleReservation: jeomwonConvex.agentTools.rescheduleReservation,
-} as const;
-
-export function customerReservationToolReferences(customerAccounts: boolean) {
-  return customerAccounts
-    ? jeomwonConvex.customerReservations
-    : legacyCustomerReservationToolReferences;
-}
-
 export function createConvexAgentToolbox(
   convexUrl: string,
-  authToken?: string,
+  authToken: string,
 ): AgentToolbox {
   const client = new ConvexHttpClient(convexUrl);
-  const customerReservationRefs = customerReservationToolReferences(
-    domainConfig.features.customerAccounts,
-  );
-  // Anonymous by default: with no token this is byte-for-byte the old toolbox,
-  // so the public web route keeps working with zero auth. When a token IS
-  // present (the authenticated apps/app route), attach it as the bearer so
-  // getAuthUserId(ctx) resolves inside every query/mutation and Convex can
-  // derive/verify the caller's own thread instead of failing closed.
-  if (authToken) {
-    client.setAuth(authToken);
-  }
+  client.setAuth(authToken);
 
   return {
     async publicState(threadId) {
-      normalizeConvexArgs({ threadId });
-      return await client.query(jeomwonConvex.chat.publicState, { threadId });
+      const args = threadId === undefined ? {} : { threadId };
+      normalizeConvexArgs(args);
+      return await client.query(jeomwonConvex.chat.publicState, args);
     },
     async logUserMessage(request) {
       normalizeConvexArgs(request);
@@ -123,15 +101,15 @@ export function createConvexAgentToolbox(
     },
     async searchAvailability(args) {
       normalizeConvexArgs(args);
-      if ("snapshot" in customerReservationRefs) {
-        return await client.query(customerReservationRefs.availableSlots, {
+      return await client.query(
+        jeomwonConvex.customerReservations.availableSlots,
+        {
           serviceKey: args.serviceKey ?? domainConfig.services[0]?.key ?? "",
           resourceKey: args.resourceKey,
           preferredStartMs: args.preferredStartMs,
           count: args.count,
-        });
-      }
-      return await client.query(customerReservationRefs.availableSlots, args);
+        },
+      );
     },
     async recordAvailability(input) {
       normalizeConvexArgs(input);
@@ -153,59 +131,29 @@ export function createConvexAgentToolbox(
     },
     async createHold(args) {
       normalizeConvexArgs(args);
-      if ("snapshot" in customerReservationRefs) {
-        return await client.mutation(customerReservationRefs.createHold, {
-          serviceKey: args.serviceKey,
-          resourceKey: args.resourceKey,
-          startMs: args.startMs,
-        });
-      }
-      return await client.mutation(customerReservationRefs.createHold, args);
+      return await client.mutation(
+        jeomwonConvex.customerReservations.createHold,
+        args,
+      );
     },
     async confirmReservation(args) {
       normalizeConvexArgs(args);
-      if ("snapshot" in customerReservationRefs) {
-        if (!args.confirmed) {
-          throw new Error("confirmation_required");
-        }
-        return await client.mutation(
-          customerReservationRefs.confirmReservation,
-          { reservationId: args.reservationId },
-        );
-      }
       return await client.mutation(
-        customerReservationRefs.confirmReservation,
+        jeomwonConvex.customerReservations.confirmReservation,
         args,
       );
     },
     async cancelReservation(args) {
       normalizeConvexArgs(args);
-      if ("snapshot" in customerReservationRefs) {
-        return await client.mutation(
-          customerReservationRefs.cancelReservation,
-          { reservationId: args.reservationId },
-        );
-      }
       return await client.mutation(
-        customerReservationRefs.cancelReservation,
+        jeomwonConvex.customerReservations.cancelReservation,
         args,
       );
     },
     async rescheduleReservation(args) {
       normalizeConvexArgs(args);
-      if ("snapshot" in customerReservationRefs) {
-        return await client.mutation(
-          customerReservationRefs.rescheduleReservation,
-          {
-            reservationId: args.reservationId,
-            serviceKey: args.serviceKey,
-            resourceKey: args.resourceKey,
-            startMs: args.startMs,
-          },
-        );
-      }
       return await client.mutation(
-        customerReservationRefs.rescheduleReservation,
+        jeomwonConvex.customerReservations.rescheduleReservation,
         args,
       );
     },
@@ -233,25 +181,18 @@ export function normalizeRuntimeMode(
 export type ChatHandlerResult = { status: number; body: unknown };
 
 /**
- * The shared POST /api/chat body, owned here so the two app routes cannot drift
- * on the security-sensitive turn path.
+ * The authenticated app's POST /api/chat body. Its route resolves the session
+ * first, then forwards `authToken` into this toolbox.
  *
- * Anonymous (web) and authenticated (app) requests take the SAME path: the only
- * difference is `authToken`, which is threaded straight into the toolbox. For
- * the anonymous case this is byte-for-byte the previous web-route logic — parse,
- * validate `message`, mint a continuity threadId when none was sent, run the
- * turn, and shape the same success / 422 / 500 envelopes.
- *
- * The client-supplied `thread_id` is passed through UNTRUSTED: with
- * `features.customerAccounts` on, Convex re-derives the caller's own thread from
- * the forwarded token and rejects a mismatch, so a forged thread cannot leak.
+ * The client-supplied `thread_id` is untrusted: Convex re-derives the caller's
+ * own thread from the forwarded token and rejects a mismatch.
  */
 export async function handleChatRequest(
   request: { json(): Promise<unknown> },
   options: {
     convexUrl: string;
     runtimeMode: AgentRuntimeMode;
-    authToken?: string;
+    authToken: string;
   },
 ): Promise<ChatHandlerResult> {
   let payload: ReturnType<typeof normalizeConvexArgs>;
@@ -295,15 +236,13 @@ export async function handleChatRequest(
         thread_id: result.threadId,
       },
     };
-  } catch (error) {
-    const detail =
-      error instanceof Error ? error.message : "Agent runtime failed.";
+  } catch {
     return {
       status: 500,
       body: {
         error: {
           code: "agent_runtime_failed",
-          details: [detail],
+          details: ["Agent runtime failed."],
         },
       },
     };
@@ -543,12 +482,9 @@ async function handleHold(
   tools: AgentToolbox,
 ) {
   const hold = await tools.createHold({
-    threadId,
-    displayName: null,
     serviceKey: slot.serviceKey,
     resourceKey: slot.resourceKey,
     startMs: slot.startMs,
-    endMs: slot.endMs,
   });
   const reply = [
     domainConfig.copy.holdCreated,
@@ -589,11 +525,7 @@ async function handleConfirmation(
 
   let confirmed: { publicContext: PublicContext };
   try {
-    confirmed = await tools.confirmReservation({
-      threadId,
-      reservationId,
-      confirmed: true,
-    });
+    confirmed = await tools.confirmReservation({ reservationId });
   } catch (error) {
     const reply = reservationOperationErrorReply(error, "confirm");
     await tools.logAssistantMessage({
@@ -660,11 +592,7 @@ async function handleCancel(
 
   let cancelled: { publicContext: PublicContext; escalated: boolean };
   try {
-    cancelled = await tools.cancelReservation({
-      threadId,
-      reservationId,
-      requestedAtMs: Date.now(),
-    });
+    cancelled = await tools.cancelReservation({ reservationId });
   } catch (error) {
     const reply = reservationOperationErrorReply(error, "cancel");
     await tools.logAssistantMessage({
@@ -828,13 +756,10 @@ async function handleReschedule(
   let rescheduled: { publicContext: PublicContext };
   try {
     rescheduled = await tools.rescheduleReservation({
-      threadId,
       reservationId,
       serviceKey: slot.serviceKey,
       resourceKey: slot.resourceKey,
       startMs: slot.startMs,
-      endMs: slot.endMs,
-      requestedAtMs: Date.now(),
     });
   } catch (error) {
     const reply = reservationOperationErrorReply(error, "reschedule");
@@ -1292,12 +1217,8 @@ async function runOpenAiTurn(
 
   try {
     return await runLlmTurn(request, tools, initialState);
-  } catch (error) {
-    console.warn(
-      `[jeomwon] openai runtime failed, falling back to deterministic: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
+  } catch {
+    console.warn("[jeomwon] agent_runtime_fallback");
     return await runDeterministicCore(request, tools, initialState);
   }
 }
@@ -1456,16 +1377,12 @@ function buildAgentTools(
         serviceKey: z.string(),
         resourceKey: z.string(),
         startMs: z.number(),
-        endMs: z.number(),
       }),
-      execute: async ({ serviceKey, resourceKey, startMs, endMs }) => {
+      execute: async ({ serviceKey, resourceKey, startMs }) => {
         const hold = await tools.createHold({
-          threadId,
-          displayName: null,
           serviceKey,
           resourceKey,
           startMs,
-          endMs,
         });
         activeAgent.name = "reservation";
         return JSON.stringify({
@@ -1482,11 +1399,7 @@ function buildAgentTools(
       parameters: z.object({ reservationId: z.string() }),
       execute: async ({ reservationId }) => {
         try {
-          const confirmed = await tools.confirmReservation({
-            threadId,
-            reservationId,
-            confirmed: true,
-          });
+          const confirmed = await tools.confirmReservation({ reservationId });
           activeAgent.name = "reservation";
           return JSON.stringify({
             reservationId: confirmed.publicContext.reservationId,
@@ -1504,11 +1417,7 @@ function buildAgentTools(
       parameters: z.object({ reservationId: z.string() }),
       execute: async ({ reservationId }) => {
         try {
-          const cancelled = await tools.cancelReservation({
-            threadId,
-            reservationId,
-            requestedAtMs: Date.now(),
-          });
+          const cancelled = await tools.cancelReservation({ reservationId });
           activeAgent.name = cancelled.escalated ? "escalation" : "reservation";
           return JSON.stringify({
             status: cancelled.publicContext.status,
@@ -1528,24 +1437,14 @@ function buildAgentTools(
         serviceKey: z.string(),
         resourceKey: z.string(),
         startMs: z.number(),
-        endMs: z.number(),
       }),
-      execute: async ({
-        reservationId,
-        serviceKey,
-        resourceKey,
-        startMs,
-        endMs,
-      }) => {
+      execute: async ({ reservationId, serviceKey, resourceKey, startMs }) => {
         try {
           const rescheduled = await tools.rescheduleReservation({
-            threadId,
             reservationId,
             serviceKey,
             resourceKey,
             startMs,
-            endMs,
-            requestedAtMs: Date.now(),
           });
           activeAgent.name = "reservation";
           return JSON.stringify({

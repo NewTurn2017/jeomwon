@@ -108,8 +108,8 @@ export default defineSchema({
     status: reservationStatus,
     holdExpiresAtMs: v.union(v.number(), v.null()),
     // Who created this reservation. Server-set inside mutations only, never from
-    // client args. Optional so rows written before this field — and every pack
-    // that does not use customer accounts — stay valid without a backfill.
+    // client args. Optional so rows written before this field stay valid without
+    // a backfill; customer accounts are the literal-true baseline.
     origin: v.optional(v.union(v.literal("operator"), v.literal("customer"))),
     auditHistory: v.array(
       v.object({

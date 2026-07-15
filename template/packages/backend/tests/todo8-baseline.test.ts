@@ -2,13 +2,19 @@ import { expect, test } from "bun:test";
 import { getFunctionName } from "convex/server";
 import { jeomwonConvex } from "../src/convex-refs";
 
-test("Todo 7 preserves the legacy agent and admin public references before canonical cutover", () => {
+test("PR4 exposes canonical customer writes and no legacy agent write references", () => {
   // Given
-  const legacyWrites = [
-    jeomwonConvex.agentTools.createHold,
-    jeomwonConvex.agentTools.confirmReservation,
-    jeomwonConvex.agentTools.cancelReservation,
-    jeomwonConvex.agentTools.rescheduleReservation,
+  const writeNames = [
+    "createHold",
+    "confirmReservation",
+    "cancelReservation",
+    "rescheduleReservation",
+  ] as const;
+  const customerWrites = [
+    jeomwonConvex.customerReservations.createHold,
+    jeomwonConvex.customerReservations.confirmReservation,
+    jeomwonConvex.customerReservations.cancelReservation,
+    jeomwonConvex.customerReservations.rescheduleReservation,
   ];
   const adminWrites = [
     jeomwonConvex.admin.rescheduleCustomerReservation,
@@ -16,16 +22,19 @@ test("Todo 7 preserves the legacy agent and admin public references before canon
   ];
 
   // When
-  const legacyNames = legacyWrites.map(getFunctionName);
+  const customerNames = customerWrites.map(getFunctionName);
   const adminNames = adminWrites.map(getFunctionName);
 
   // Then
-  expect(JSON.stringify(legacyNames)).toBe(
+  for (const name of writeNames) {
+    expect(name in jeomwonConvex.agentTools).toBe(false);
+  }
+  expect(JSON.stringify(customerNames)).toBe(
     JSON.stringify([
-      "agentTools:createHold",
-      "agentTools:confirmReservation",
-      "agentTools:cancelReservation",
-      "agentTools:rescheduleReservation",
+      "customerReservations:createHold",
+      "customerReservations:confirmReservation",
+      "customerReservations:cancelReservation",
+      "customerReservations:rescheduleReservation",
     ]),
   );
   expect(JSON.stringify(adminNames)).toBe(

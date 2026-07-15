@@ -24,14 +24,10 @@ import {
 } from "./engine/availability";
 import {
   appendChatEvent,
-  cancelCustomerReservation,
-  confirmCustomerReservation,
-  createCustomerReservationHold,
   ensureThread,
   expireCustomerReservationHold,
   generateUniqueReservationNumber,
   publicResources,
-  rescheduleCustomerReservation,
   resolveThreadReservation,
 } from "./engine/customerReservationLifecycle";
 import { assertThreadAccess } from "./engine/identity";
@@ -55,11 +51,9 @@ const publicSlotValidator = v.object({
 
 // Every function below is a PUBLIC Convex function whose only scoping is the
 // caller-supplied `threadId`. `assertThreadAccess` is what makes that string
-// safe to act on once accounts exist: with `features.customerAccounts` on, the
-// caller's thread is re-derived from their authenticated identity and the
-// argument is compared against it, so passing someone else's thread fails
-// instead of working. With the flag off the guard returns immediately and these
-// mutations behave byte-for-byte as they did before.
+// safe to act on: the caller's thread is re-derived from their authenticated
+// identity and the argument is compared against it, so passing someone else's
+// thread fails instead of working.
 //
 // The guard runs FIRST in each handler — before any read or write — so an
 // unauthorized caller cannot even provoke a row to be created (`ensureThread`
@@ -387,100 +381,6 @@ export const lookupReservation = mutation({
     return { publicContext };
   },
 });
-
-/**
- * @deprecated Compatibility adapter for `features.customerAccounts=false`.
- * Authenticated chat and direct UI use `customerReservations:*`; remove in PR4.
- */
-export const createHold = mutation({
-  args: {
-    threadId: v.string(),
-    displayName: v.union(v.string(), v.null()),
-    serviceKey: v.string(),
-    resourceKey: v.string(),
-    startMs: v.number(),
-    endMs: v.number(),
-  },
-  handler: async (ctx, args) => {
-    assertLegacyReservationAdapterEnabled();
-    await assertThreadAccess(ctx, args.threadId);
-    return await createCustomerReservationHold(ctx, {
-      threadId: args.threadId,
-      displayName: args.displayName,
-      serviceKey: args.serviceKey,
-      resourceKey: args.resourceKey,
-      startMs: args.startMs,
-    });
-  },
-});
-
-/** @deprecated Compatibility adapter for the PR4 legacy-web removal. */
-export const confirmReservation = mutation({
-  args: {
-    threadId: v.string(),
-    reservationId: v.string(),
-    confirmed: v.boolean(),
-  },
-  handler: async (ctx, args) => {
-    assertLegacyReservationAdapterEnabled();
-    await assertThreadAccess(ctx, args.threadId);
-    if (!args.confirmed) {
-      const thread = await ensureThread(ctx, args.threadId, "reservation");
-      return { publicContext: thread.publicContext };
-    }
-    return await confirmCustomerReservation(ctx, {
-      threadId: args.threadId,
-      reservationId: args.reservationId,
-    });
-  },
-});
-
-/** @deprecated Compatibility adapter for the PR4 legacy-web removal. */
-export const cancelReservation = mutation({
-  args: {
-    threadId: v.string(),
-    reservationId: v.string(),
-    requestedAtMs: v.number(),
-  },
-  handler: async (ctx, args) => {
-    assertLegacyReservationAdapterEnabled();
-    await assertThreadAccess(ctx, args.threadId);
-    return await cancelCustomerReservation(ctx, {
-      threadId: args.threadId,
-      reservationId: args.reservationId,
-    });
-  },
-});
-
-/** @deprecated Compatibility adapter for the PR4 legacy-web removal. */
-export const rescheduleReservation = mutation({
-  args: {
-    threadId: v.string(),
-    reservationId: v.string(),
-    serviceKey: v.string(),
-    resourceKey: v.string(),
-    startMs: v.number(),
-    endMs: v.number(),
-    requestedAtMs: v.number(),
-  },
-  handler: async (ctx, args) => {
-    assertLegacyReservationAdapterEnabled();
-    await assertThreadAccess(ctx, args.threadId);
-    return await rescheduleCustomerReservation(ctx, {
-      threadId: args.threadId,
-      reservationId: args.reservationId,
-      serviceKey: args.serviceKey,
-      resourceKey: args.resourceKey,
-      startMs: args.startMs,
-    });
-  },
-});
-
-function assertLegacyReservationAdapterEnabled() {
-  if (domainConfig.features.customerAccounts) {
-    throw new Error("legacy_reservation_adapter_disabled");
-  }
-}
 
 export const expireHold = internalMutation({
   args: {

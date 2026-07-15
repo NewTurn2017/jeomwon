@@ -99,7 +99,7 @@ export type DomainConfig = {
     email: boolean;
     polar: boolean;
     waitlist: boolean;
-    customerAccounts: boolean;
+    customerAccounts: true;
     operatorCalendarCrud: boolean;
   };
   copy: DomainCopy;
@@ -152,7 +152,7 @@ export const domainConfig: DomainConfig = {
     email: true,
     polar: false,
     waitlist: false,
-    customerAccounts: false,
+    customerAccounts: true,
     operatorCalendarCrud: false,
   },
   copy: {

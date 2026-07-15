@@ -1,9 +1,5 @@
 export type ReturnTo = "/" | "/admin";
 export type ViewerRole = "operator" | "customer";
-export type RootDashboardSurface =
-  | "operator"
-  | "customer"
-  | "customer-disabled";
 
 export function normalizeReturnTo(input: unknown): ReturnTo {
   return input === "/admin" ? "/admin" : "/";
@@ -39,15 +35,4 @@ export async function loadViewerRole(
   } catch {
     return "customer";
   }
-}
-
-export function rootDashboardSurface(
-  viewerRole: ViewerRole,
-  customerAccountsEnabled: boolean,
-): RootDashboardSurface {
-  if (viewerRole === "operator") {
-    return "operator";
-  }
-
-  return customerAccountsEnabled ? "customer" : "customer-disabled";
 }

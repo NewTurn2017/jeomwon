@@ -1,4 +1,4 @@
-# Customer and Admin Dashboard Surfaces (`apps/app`)
+# Authenticated Customer and Admin Surfaces (`apps/app`)
 
 ## Overview
 
@@ -16,14 +16,18 @@ repository's `skill/REFERENCE.md` for the extension sequence and Session Rules.
 
 ## Rendered surface
 
-- `./src/app/[locale]/(dashboard)/(onboarded)/page.tsx` resolves the viewer role.
-  Customers see `CustomerReservationManager`; operators see `AdminDashboard`.
+- `./src/app/[locale]/(dashboard)/(onboarded)/page.tsx` always renders
+  `CustomerReservationManager` for the signed-in customer. Operator status does
+  not change the root surface.
 - `./src/app/[locale]/(dashboard)/admin/page.tsx` is the dedicated operator
   route. It renders `AdminDashboard` only for an operator and returns not found
   for every other viewer.
 - `./src/app/[locale]/(dashboard)/_components/customer-reservation-manager.tsx`
   owns the customer reservation UI and calls only the canonical
   `jeomwonConvex.customerReservations` query and mutations.
+- `./src/app/[locale]/(dashboard)/layout.tsx` always mounts the authenticated
+  `CustomerChatWidget`; `/api/chat` returns JSON 401 before invoking the agent
+  runtime when the auth token is missing.
 - `./src/app/[locale]/(dashboard)/_components/admin-dashboard.tsx` is the
   dashboard shell. `AdminDashboard` subscribes to `admin.dashboardSnapshot` and
   renders four sections in fixed order: `EscalationQueue`, `AdminWidgetBoard`,
@@ -95,9 +99,9 @@ displaying configuration presence only.
 
 An account with no email — the product anonymous provider from
 `AUTH_ANONYMOUS_LOGIN` — can never be an operator, even if a synthetic matching
-email is present. The provider is available only when customer accounts are on,
-the Convex and app server flags are both exactly `1`, and the Convex deployment
-has a non-empty operator allowlist. `bun setup` writes both flags together,
+email is present. The provider is available only when the Convex and app server
+flags are both exactly `1` and the Convex deployment has a non-empty operator
+allowlist. `bun setup` writes both flags together,
 requires an exact production opt-in, and fails its postflight when the two sides
 do not match. Guest browser identity is device-local, so the login screen warns
 that losing browser sign-in data also loses access to earlier reservations.
@@ -143,8 +147,8 @@ Widget behavior notes:
 ## Extension-agent consumption method
 
 - Keep internal reservation context (operator memo, risk signals, private
-  decision, cost basis) on this authenticated surface only; never leak it to the
-  customer web app.
+  decision, cost basis) on the internal operator route only; never leak it to
+  the authenticated customer app.
 - Extend widget behavior from the existing `adminWidget` snapshot field and the
   `AdminWidgetBoard` branch. Do not add a new pack key — the pack validator
   rejects unknown keys.
@@ -155,8 +159,8 @@ Widget behavior notes:
 
 - Do not remove or repurpose the `adminWidget` data path (config → inject
   validation → snapshot → `AdminWidgetBoard`).
-- Do not expose internal reservation context on any public surface.
-- Do not weaken `ensureAdmin` into a presence check when `customerAccounts` is
-  true, and do not move `JEOMWON_ADMIN_EMAILS` into a `.env.local` or a
+- Do not expose internal reservation context on the customer surface.
+- Do not weaken `ensureAdmin` into a presence check, and do not move
+  `JEOMWON_ADMIN_EMAILS` into a `.env.local` or a
   `NEXT_PUBLIC_` var. Authorization is a server decision.
 - Do not authorize any caller — operator or customer — by `threadId`.

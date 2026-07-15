@@ -14,7 +14,7 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["node"]
+    "types": ["bun", "node"]
   },
   "include": ["*.ts"]
 }

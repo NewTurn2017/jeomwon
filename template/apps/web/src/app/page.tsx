@@ -4,8 +4,9 @@ import {
   getServiceDurationMinutes,
   type Weekday,
 } from "@jeomwon/backend/domain.config";
-import { CalendarDays, Clock3, MessageCircle, ShieldCheck } from "lucide-react";
-import { ChatCtaButton } from "@/components/chat-cta-button";
+import { buttonVariants } from "@jeomwon/ui/button";
+import { CalendarDays, Clock3, LogIn, ShieldCheck } from "lucide-react";
+import { appLoginUrl } from "@/env";
 
 const weekdayLabels: Record<Weekday, string> = {
   monday: "월요일",
@@ -54,14 +55,19 @@ export default function Page() {
               {domainConfig.storeName} 예약
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-              원하는 서비스와 시간을 채팅으로 남기면 예약 가능 여부 확인부터
-              임시 홀드와 확정 안내까지 한 흐름으로 도와드립니다.
+              앱에서 로그인하면 예약 가능한 시간을 확인하고, 임시 홀드부터 예약
+              확정·변경·취소까지 직접 관리할 수 있습니다.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <ChatCtaButton className="h-12 gap-2 px-5 text-base">
-                <MessageCircle aria-hidden="true" className="h-5 w-5" />
-                채팅으로 예약하기
-              </ChatCtaButton>
+              <a
+                className={buttonVariants({
+                  className: "h-12 gap-2 px-5 text-base",
+                })}
+                href={appLoginUrl}
+              >
+                <LogIn aria-hidden="true" className="h-5 w-5" />
+                앱에서 예약하기
+              </a>
               <a
                 className="inline-flex h-12 items-center justify-center rounded-md border border-border bg-background px-5 font-medium text-foreground text-sm transition-colors hover:bg-muted"
                 href="#services"
@@ -119,8 +125,8 @@ export default function Page() {
               예약 가능한 서비스
             </h2>
             <p className="mt-3 text-muted-foreground">
-              현재 공개된 서비스와 기본 소요 시간입니다. 세부 일정은 채팅에서
-              가능한 시간 기준으로 안내됩니다.
+              현재 공개된 서비스와 기본 소요 시간입니다. 앱에서 로그인한 뒤 실제
+              예약 가능한 시간을 확인할 수 있습니다.
             </p>
           </div>
           <ul className="mt-8 grid gap-4 md:grid-cols-2">
