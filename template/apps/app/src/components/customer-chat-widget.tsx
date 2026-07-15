@@ -68,8 +68,7 @@ const reservationStatusView: Record<
   },
 };
 
-// Authenticated variant of the public site widget. The thread is DERIVED from
-// the signed-in identity inside Convex (features.customerAccounts) rather than
+// The thread is derived from the signed-in identity inside Convex rather than
 // minted in localStorage: this widget never invents a thread id. It reads its
 // own thread from `chat.publicState` (which resolves it from the forwarded auth
 // token) and echoes that id back on POST, where the authenticated /api/chat
@@ -284,9 +283,7 @@ export function CustomerChatWidget() {
             <Button
               aria-label="메시지 보내기"
               className="h-10 w-10 shrink-0 rounded-full"
-              disabled={
-                isSending || !threadId || message.trim().length === 0
-              }
+              disabled={isSending || !threadId || message.trim().length === 0}
               size="icon"
               type="submit"
             >

@@ -1,6 +1,6 @@
 # jeomwon — CS AI SaaS 에이전트 킷 계획서
 
-> "AI 점원이 가게 프런트를 지킨다 — 도메인 인터뷰 한 번으로 고객용 CS AI 챗, 관리자 대시보드, 예약 메일이 붙은 Convex SaaS를 뽑아주는 소상공인용 agentic CS SaaS 킷"
+> "AI 점원이 가게 프런트를 지킨다 — 도메인 인터뷰 한 번으로 인증 고객 앱의 CS AI 챗·자기 예약 관리, 내부 운영자 `/admin`, 예약 메일이 붙은 Convex SaaS를 뽑아주는 소상공인용 agentic CS SaaS 킷"
 
 작성일: 2026-07-02 · 상태: **로드맵 Phase 0~7 전체 완료** (2026-07-02, 펜션 도메인 셀프 증명까지) · 구현 방식: `/senior-mode` (Codex 위임 + 오케스트레이터 게이트 검증)
 
@@ -32,8 +32,8 @@
 **사용자**: SaaS를 빠르게 세우고 싶은 개발자/창업자. Claude Code 사용자면 스킬로, 아니면 생성된 레포의 위저드로.
 
 **생성물(엔드 유저 제품)의 구성**:
-- `apps/web` — 마케팅 페이지 + **고객용 CS AI 챗**(익명 thread 키, 예약·문의·변경·취소)
-- `apps/app` — **관리자 대시보드**(Google 로그인): 예약 캘린더/좌석 그리드, 에스컬레이션 큐, 에이전트 활동 타임라인
+- `apps/web` — **정적 마케팅 안내 + 인증 앱 CTA**. 공개 서비스·영업·정책 정보만 렌더하며 인증·Convex·챗 런타임은 두지 않음
+- `apps/app` — **인증 고객 앱**(Google 로그인, 선택적 product anonymous): 루트에서 CS AI 챗과 자기 예약 조회·생성·변경·취소. 내부 운영자는 별도 `/admin`에서 예약 캘린더/좌석 그리드, 에스컬레이션 큐, 에이전트 활동 타임라인 사용
 - `packages/backend` — Convex: 도메인 스키마, 불변식 mutation, 스케줄러, 이벤트
 - 메일 — React Email + Resend: 예약 확정/변경/취소/에스컬레이션 알림
 - 선택 — Polar 결제(예약금/구독)
@@ -51,7 +51,7 @@
 - agentic-system-builder의 인터뷰 방법론 확장: Actor/Resource/Reservation/Availability/Policy/Tool/Agent/Handoff/Guardrail/PublicContext/Widget/Event.
 - **핵심 설계: generic reservation core + 도메인 config.** Convex 스키마는 범용 코어(resources, reservations, threads, events, policies)로 고정하고, 인터뷰 산출물은 `domain.config.ts`(리소스 타입, 시술/좌석/객실 정의, 소요시간, 영업시간, 시간대, 취소 정책, 라벨/카피, 위젯 타입, 메일 토글, Polar 토글) + 시드 데이터. 코드젠은 위젯 선택과 카피 수준으로 최소화 — 도메인 교체가 안전해짐.
 - 관리자 위젯 프리미티브 2종: **캘린더 뷰**(시간 슬롯형: 미용실·펜션·진료) / **좌석 그리드 뷰**(공간형: PC방·도서관). 도메인 config가 선택.
-  - > 현재 상태(M4.1, 2026-07-10): `adminWidget`는 팩 계약·데이터 경로(config → `inject.mjs` 검증 → `dashboardSnapshot`/`publicDomainSnapshot`)로만 존재하고, 대시보드는 위젯 값과 무관하게 단일 `AdminDashboard` 고정 레이아웃을 렌더한다. 캘린더/좌석 그리드 뷰 실구현은 UI 재설계와 함께 별도 결정. 현행 사실은 FEATURES.md 6절·`apps/app/README.md` 참고.
+  - > 현재 상태(PR4, 2026-07-15): `adminWidget`는 config → `inject.mjs` 검증 → `dashboardSnapshot` → `AdminWidgetBoard`로 전달된다. `seatGrid`이면 `SeatGridWidget`, 그 외에는 `CalendarWidget`을 렌더하는 분기가 구현되어 있으며 두 위젯은 동일한 예약 snapshot을 사용한다. 상세 계약은 `apps/app/README.md` 참고.
 - 스킬 구성: `SKILL.md`(오케스트레이션 fast path) + `REFERENCE.md`(방법론·주입 계약·QA 레시피) + `EXAMPLES.md`(도메인 팩) + `scripts/`(scaffold.mjs: 템플릿 복사·이름 치환 / inject.mjs: 도메인 팩 주입 / verify.mjs: 게이트 러너).
 
 ### 2.3 셋업 계층 (생성된 프로젝트의 `bun setup`)
@@ -78,7 +78,7 @@
 4. **SSE 수제 중계 폐기 → Convex 반응형 쿼리(useQuery)** — builder-test의 SSE 계층 전체가 Next+Convex 조합에서는 불필요. 큰 단순화.
 5. **홀드 만료는 scheduler + 테스트용 단축 env** (`SALON_TEST_HOLD_MS` 패턴).
 6. **PublicContext/InternalContext 분리 + 공개 표면 grep 게이트** — 내부 키가 챗·위젯·공개 JSON에 나오면 게이트 실패.
-7. **thread_id는 인증이 아님** — 고객 챗은 익명 대화 키, 관리자 표면은 Convex Auth(Google) 뒤에.
+7. **thread_id는 인증이 아님** — 고객 챗과 자기 예약은 Convex Auth 사용자 ID로 권한을 판정하고, thread ID는 대화 라우팅 키로만 사용. 내부 `/admin`은 별도 운영자 allowlist를 fail-closed로 적용.
 8. **2단 검증 루프** — Codex 샌드박스는 네트워크 차단(npm·Convex 불가). 브리프에 "네트워크 게이트는 로컬 실행 지침으로 남겨라"를 명시하고 오케스트레이터가 로컬에서 게이트 실행. 실패 시 증거(오류 전문, 재현 커맨드)를 좁혀 재위임.
 9. **브리프 계약** — Goal/Scope/Must-NOT/게이트/Stop condition/완료 마커. 게이트 없는 위임 금지.
 10. **에이전트 로스터 패턴** — triage(분류·핸드오프만) + availability/reservation/policy/escalation 전문가. 쓰기 도구는 reservation 계열만 소유. 되돌리기 어려운 쓰기는 확인 가드레일 필수.

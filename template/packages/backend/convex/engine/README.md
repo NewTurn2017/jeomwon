@@ -65,10 +65,11 @@ Consuming points:
 - `agentTools:searchAvailability` calls `findAvailableSlots`, which uses
   `firstSearchStart`, `slotStepMs`, `alignToSlot`, `serviceEndMs`,
   `isSlotAllowed`, `hasCollision`, and `buildSlot`.
-- `agentTools:createHold` rechecks `serviceEndMs`, `isSlotAllowed`, and
+- `customerReservations:createHold` rechecks `serviceEndMs`, `isSlotAllowed`, and
   `hasCollision` immediately before inserting a held reservation.
-- `agentTools:rescheduleReservation` rechecks `serviceEndMs`, `isSlotAllowed`,
-  and `hasCollision` before moving a confirmed or rescheduled reservation.
+- `customerReservations:rescheduleReservation` rechecks `serviceEndMs`,
+  `isSlotAllowed`, and `hasCollision` before moving a confirmed or rescheduled
+  reservation.
 - `../../src/convex-refs.ts` exposes typed public references
   to these consuming functions, not to the primitive helpers directly.
 
@@ -95,9 +96,7 @@ Invariants:
 
 - The only current policy key used by this primitive is `cancelWindowHours`.
 - Canonical lifecycle actions derive `requestedAtMs` from the server clock
-  (`Date.now()`) immediately before the policy check. The deprecated
-  `agentTools` adapters still accept their legacy field shape, but the value is
-  ignored and cannot influence the decision.
+  (`Date.now()`) immediately before the policy check.
 - Cancellation of a `confirmed` or `rescheduled` reservation inside the window
   escalates instead of cancelling immediately: the shared customer lifecycle
   writes `reservation.escalated` audit history, schedules
@@ -195,8 +194,8 @@ Hold is lifecycle state, not a separate primitive. It is distributed across:
 
 - `reservations.status: "held"`
 - `holdExpiresAtMs`
-- `agentTools:createHold`
-- `agentTools:confirmReservation`
+- `customerReservations:createHold`
+- `customerReservations:confirmReservation`
 - `agentTools:expireHold`
 - `expireCustomerReservationHold`
 - `isActiveReservation`
@@ -261,11 +260,11 @@ The canonical customer surface owns six operations:
 - `cancelReservation({ reservationId })`
 - `rescheduleReservation({ reservationId, serviceKey, resourceKey, startMs })`
 
-Every operation first requires `features.customerAccounts`, then authenticates the
-customer and derives `customerThreadId(userId)`. Client args never accept a thread,
-end time, request time, display name, role, or origin. The server derives those
-values and projects only customer-safe reservation fields. A reservation outside
-the derived thread is reported as `reservation_not_found`.
+Every operation authenticates the customer and derives
+`customerThreadId(userId)`. Client args never accept a thread, end time, request
+time, display name, role, or origin. The server derives those values and projects
+only customer-safe reservation fields. A reservation outside the derived thread
+is reported as `reservation_not_found`.
 
 Customer snapshot and legacy-id thread reads take at most 257 rows: a fixed
 256-row lifetime budget plus one truncation sentinel. Snapshot overflow fails
@@ -285,9 +284,9 @@ deliberately fail-closed; it never chooses from a partial or ambiguous result
 set and never falls back to exposing the raw Convex id.
 
 Authenticated chat and direct customer UI use the same
-`jeomwonConvex.customerReservations.*` references. The `agentTools` reservation
-writers remain deprecated adapters only for the `customerAccounts=false` legacy
-web lane until PR4 removes that lane.
+`jeomwonConvex.customerReservations.*` references. `agentTools` contains chat
+event, guardrail, lookup, and waitlist operations, but no reservation writer
+adapter.
 
 ## Waitlist
 
@@ -319,9 +318,10 @@ Consuming points:
 - `agentTools:joinWaitlist` returns an existing waitlisted row for the same
   thread, service, and resource when present; otherwise, when the waitlist
   feature is enabled and no availability exists, it inserts a waitlisted row.
-- `agentTools:cancelReservation` calls `onSlotFreed` when an active slot is freed.
-- `agentTools:rescheduleReservation` calls `onSlotFreed` for the old slot after a
-  successful reschedule.
+- `customerReservations:cancelReservation` calls `onSlotFreed` when an active
+  slot is freed.
+- `customerReservations:rescheduleReservation` calls `onSlotFreed` for the old
+  slot after a successful reschedule.
 - `expireCustomerReservationHold` calls `onSlotFreed` after a held slot expires.
 
 Extension-agent consumption method:

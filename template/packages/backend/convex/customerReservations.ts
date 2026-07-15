@@ -19,10 +19,7 @@ import {
   customerReservationThreadReadCap,
   publicReservationId,
 } from "./engine/customerReservationPublicId";
-import {
-  assertCustomerAccountsEnabled,
-  customerThreadId,
-} from "./engine/identity";
+import { customerThreadId } from "./engine/identity";
 import {
   publicDomainSnapshot,
   serviceByKey,
@@ -131,7 +128,6 @@ export const rescheduleReservation = mutation({
 });
 
 export async function ensureCustomer(ctx: QueryCtx | MutationCtx) {
-  assertCustomerAccountsEnabled();
   const userId = await getAuthUserId(ctx);
   if (userId === null) {
     throw new Error("auth_required");

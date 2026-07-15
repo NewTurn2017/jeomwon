@@ -7,17 +7,6 @@ import {
   returnToFromUrl,
 } from "../../../apps/app/src/lib/admin-routing";
 
-type RootDashboardSurfacePolicy = (
-  viewerRole: "operator" | "customer",
-  customerAccountsEnabled: boolean,
-) => "operator" | "customer" | "customer-disabled";
-
-function isRootDashboardSurfacePolicy(
-  value: unknown,
-): value is RootDashboardSurfacePolicy {
-  return typeof value === "function";
-}
-
 describe("normalizeReturnTo", () => {
   test("allows only the two literal targets", () => {
     const cases: ReadonlyArray<readonly [unknown, "/" | "/admin"]> = [
@@ -44,18 +33,14 @@ describe("normalizeReturnTo", () => {
 
   test("accepts one URL-decoded literal admin target", () => {
     expect(
-      returnToFromUrl(
-        new URL("https://app.example/login?returnTo=%2Fadmin"),
-      ),
+      returnToFromUrl(new URL("https://app.example/login?returnTo=%2Fadmin")),
     ).toBe("/admin");
   });
 
   test("rejects repeated returnTo parameters as an array-equivalent input", () => {
     expect(
       returnToFromUrl(
-        new URL(
-          "https://app.example/login?returnTo=%2Fadmin&returnTo=%2F",
-        ),
+        new URL("https://app.example/login?returnTo=%2Fadmin&returnTo=%2F"),
       ),
     ).toBe("/");
   });
@@ -88,9 +73,7 @@ test("authenticated login redirects to the validated target without login query"
 
 describe("loadViewerRole", () => {
   test("allows only the exact operator role", async () => {
-    const cases: ReadonlyArray<
-      readonly [unknown, "operator" | "customer"]
-    > = [
+    const cases: ReadonlyArray<readonly [unknown, "operator" | "customer"]> = [
       ["operator", "operator"],
       ["customer", "customer"],
       [undefined, "customer"],
@@ -110,25 +93,4 @@ describe("loadViewerRole", () => {
       }),
     ).toBe("customer");
   });
-});
-
-test("customer root does not select the operator surface when customer accounts are disabled", async () => {
-  // Given
-  const routing = await import(
-    "../../../apps/app/src/lib/admin-routing"
-  );
-  const candidate =
-    "rootDashboardSurface" in routing
-      ? routing.rootDashboardSurface
-      : undefined;
-  expect(isRootDashboardSurfacePolicy(candidate)).toBe(true);
-  if (!isRootDashboardSurfacePolicy(candidate)) {
-    throw new Error("root_dashboard_surface_policy_missing");
-  }
-
-  // When
-  const surface = candidate("customer", false);
-
-  // Then
-  expect(surface).toBe("customer-disabled");
 });

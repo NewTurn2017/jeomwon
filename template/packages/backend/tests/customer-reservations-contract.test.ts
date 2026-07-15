@@ -99,35 +99,16 @@ test("canonical customer reservation references own the six public operations", 
   );
 });
 
-test("feature-on chat selects the direct customer reservation references", () => {
+test("chat runtime has no legacy customer reservation reference selector", () => {
   // Given
   const selector = Reflect.get(
     agentRuntime,
     "customerReservationToolReferences",
   );
-  const directRefs = Reflect.get(jeomwonConvex, "customerReservations");
 
   // When
-  const chatRefs =
-    typeof selector === "function"
-      ? Reflect.apply(selector, undefined, [true])
-      : null;
+  const selectorExists = typeof selector === "function";
 
   // Then
-  expect(chatRefs).toBe(directRefs);
-  console.log(
-    `MANUAL_QA_SHARED=${JSON.stringify({
-      featureOnChatUsesDirectRefs: chatRefs === directRefs,
-      createHold: functionName(Reflect.get(Object(directRefs), "createHold")),
-      confirmReservation: functionName(
-        Reflect.get(Object(directRefs), "confirmReservation"),
-      ),
-      cancelReservation: functionName(
-        Reflect.get(Object(directRefs), "cancelReservation"),
-      ),
-      rescheduleReservation: functionName(
-        Reflect.get(Object(directRefs), "rescheduleReservation"),
-      ),
-    })}`,
-  );
+  expect(selectorExists).toBe(false);
 });

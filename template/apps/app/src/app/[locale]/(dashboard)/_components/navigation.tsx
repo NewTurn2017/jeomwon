@@ -219,7 +219,7 @@ export function Navigation({
               `${buttonVariants({ variant: "ghost", size: "sm" })} text-foreground`,
             )}
           >
-            {t("dashboard")}
+            {t("reservations")}
           </Link>
         </div>
         {viewerRole === "operator" ? (

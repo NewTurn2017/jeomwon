@@ -164,7 +164,7 @@ export type AdminDashboardSnapshot = {
  * customer without duplication and without ever widening the customer surface:
  * there is simply nowhere here to put `auditHistory`, `internalContext`,
  * escalations, or another customer's rows. Widening the board's prop to this —
- * rather than typing `customerSnapshot` as `AdminDashboardSnapshot` — is what
+ * rather than typing the customer projection as `AdminDashboardSnapshot` — is what
  * keeps the PublicContext/InternalContext separation a compile-time guarantee.
  */
 export type WidgetReservation = {
@@ -190,20 +190,16 @@ export type WidgetSnapshot = {
 };
 
 /**
- * Customer accounts (`features.customerAccounts`).
- *
  * ── Where the authenticated identity must enter Convex ───────────────────────
- * With the flag ON, `chat:publicState` and every `agentTools:*` mutation derive
- * the caller's thread from `getAuthUserId(ctx)` and reject a `threadId` that is
- * not theirs. Convex learns who the caller is ONLY from the auth token on the
- * request. So the chat path must forward the customer's token:
+ * `chat:publicState` and every `agentTools:*` mutation derive the caller's thread
+ * from `getAuthUserId(ctx)` and reject a `threadId` that is not theirs. Convex
+ * learns who the caller is only from the auth token on the request. The chat
+ * path must forward the customer's token:
  *
  *   ConvexHttpClient#setAuth(token)   <- required
  *
- * The agent toolbox builds its `ConvexHttpClient` from a URL alone and never
- * calls `setAuth`. Until a token is forwarded, a flags-ON deployment gets
- * `auth_required` from every chat mutation. That is deliberate: the boundary
- * fails CLOSED. Do NOT "fix" it by relaxing the guard — the guard IS the feature.
+ * Without that token, the deployment returns `auth_required` from every chat
+ * mutation. That is deliberate: the boundary fails closed.
  */
 export type CustomerReservation = {
   id: string;
@@ -282,40 +278,9 @@ export type WaitlistArgs = {
   preferredStartMs: number | null;
 };
 
-export type HoldArgs = {
-  threadId: string;
-  displayName: string | null;
-  serviceKey: string;
-  resourceKey: string;
-  startMs: number;
-  endMs: number;
-};
-
-export type ConfirmArgs = {
-  threadId: string;
-  reservationId: string;
-  confirmed: boolean;
-};
-
 export type LookupReservationArgs = {
   threadId: string;
   reservationId: string;
-};
-
-export type CancelArgs = {
-  threadId: string;
-  reservationId: string;
-  requestedAtMs: number;
-};
-
-export type RescheduleArgs = {
-  threadId: string;
-  reservationId: string;
-  serviceKey: string;
-  resourceKey: string;
-  startMs: number;
-  endMs: number;
-  requestedAtMs: number;
 };
 
 export type CustomerAvailableSlotsArgs = {

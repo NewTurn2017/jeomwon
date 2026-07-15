@@ -10,9 +10,7 @@ import type {
   AdminSessionCreateArgs,
   AdminSessionUpdateArgs,
   AvailabilitySearchArgs,
-  CancelArgs,
   ChatRequest,
-  ConfirmArgs,
   CustomerAvailableSlotsArgs,
   CustomerCreateHoldArgs,
   CustomerRescheduleArgs,
@@ -20,13 +18,11 @@ import type {
   CustomerSnapshot,
   DomainPublicSnapshot,
   GuardrailStatus,
-  HoldArgs,
   JsonRecord,
   LookupReservationArgs,
   PublicContext,
   PublicSlot,
   PublicThreadState,
-  RescheduleArgs,
   WaitlistArgs,
 } from "./agent-contract";
 
@@ -100,9 +96,6 @@ export const jeomwonConvex = {
       AdminReservationRef,
       AdminCancelResult
     >("admin:deleteSession"),
-    // Compatibility property for the existing customer calendar. Its function
-    // identity is canonical `customerReservations:snapshot`, not an admin query.
-    customerSnapshot: customerReservationRefs.snapshot,
     // Which surface the signed-in viewer should see. Answers, never throws;
     // reuses the same `isOperator` rule as `ensureAdmin`, decided inside Convex
     // because the operator allowlist lives in the deployment env.
@@ -118,9 +111,8 @@ export const jeomwonConvex = {
       Record<string, never>,
       DomainPublicSnapshot
     >("chat:domainPublicConfig"),
-    // `threadId` is optional because with `features.customerAccounts` on the
-    // server derives it from the authenticated user and only *checks* the
-    // argument. Callers on that path should omit it entirely — and MUST call
+    // `threadId` is optional because the server derives it from the authenticated
+    // user and only checks the argument. Callers should omit it and MUST call
     // `ConvexHttpClient#setAuth(token)`, or Convex sees no identity and this
     // throws `auth_required`.
     publicState: makeFunctionReference<
@@ -180,25 +172,5 @@ export const jeomwonConvex = {
       LookupReservationArgs,
       { publicContext: PublicContext }
     >("agentTools:lookupReservation"),
-    createHold: makeFunctionReference<
-      "mutation",
-      HoldArgs,
-      { publicContext: PublicContext; holdExpiresAtMs: number }
-    >("agentTools:createHold"),
-    confirmReservation: makeFunctionReference<
-      "mutation",
-      ConfirmArgs,
-      { publicContext: PublicContext }
-    >("agentTools:confirmReservation"),
-    cancelReservation: makeFunctionReference<
-      "mutation",
-      CancelArgs,
-      { publicContext: PublicContext; escalated: boolean }
-    >("agentTools:cancelReservation"),
-    rescheduleReservation: makeFunctionReference<
-      "mutation",
-      RescheduleArgs,
-      { publicContext: PublicContext }
-    >("agentTools:rescheduleReservation"),
   },
 } as const;

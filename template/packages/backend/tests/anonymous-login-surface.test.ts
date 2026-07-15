@@ -11,20 +11,11 @@ import ko from "../../../apps/app/src/locales/ko";
 const templateRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const appRoot = `${templateRoot}apps/app/src`;
 
-test("the app exposes anonymous login only for the exact feature and app flag", () => {
-  expect(anonymousLoginAvailable({ customerAccounts: true, appEnv: "1" })).toBe(
-    true,
-  );
+test("the app exposes anonymous login only for the exact app flag", () => {
+  expect(anonymousLoginAvailable({ appEnv: "1" })).toBe(true);
 
-  for (const customerAccounts of [false]) {
-    expect(anonymousLoginAvailable({ customerAccounts, appEnv: "1" })).toBe(
-      false,
-    );
-  }
   for (const appEnv of [undefined, "", "0", "true", " 1", "1 "]) {
-    expect(anonymousLoginAvailable({ customerAccounts: true, appEnv })).toBe(
-      false,
-    );
+    expect(anonymousLoginAvailable({ appEnv })).toBe(false);
   }
 });
 

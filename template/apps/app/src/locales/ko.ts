@@ -1,8 +1,8 @@
 export default {
   metadata: {
-    title: "Jeomwon · 예약 운영 대시보드",
+    title: "Jeomwon · 내 예약",
     description:
-      "실시간 예약 상태와 에스컬레이션, 에이전트 활동을 한 화면에서 관리하는 AI 예약 운영 대시보드입니다.",
+      "내 예약을 만들고 변경하며 AI 점원에게 필요한 도움을 받을 수 있습니다.",
   },
   dashboard: {
     title: "예약 관제",
@@ -70,9 +70,6 @@ export default {
     customer: {
       title: "내 예약",
       description: "확정된 예약과 다가오는 일정을 확인합니다.",
-      disabledTitle: "고객 예약 화면 준비 중",
-      disabledDescription:
-        "현재 이 배포에서는 고객 예약 화면을 이용할 수 없습니다. 운영자에게 문의해 주세요.",
       empty: "아직 예약이 없습니다. 아래 채팅으로 새 예약을 시작해 보세요.",
       bookViaChat: "예약 변경이나 새 예약은 아래 채팅으로 문의하세요.",
       manager: {
@@ -131,11 +128,11 @@ export default {
     signInError: "로그인에 실패했습니다. 설정을 확인한 뒤 다시 시도하세요.",
   },
   navigation: {
-    dashboard: "대시보드",
+    reservations: "내 예약",
     admin: "관리자",
     settings: "설정",
     billing: "결제",
-    account: "운영자 계정",
+    account: "내 계정",
     free: "무료",
     upgradePro: "PRO로 업그레이드",
     theme: "테마",
@@ -149,9 +146,9 @@ export default {
   },
   onboarding: {
     eyebrow: "초기 설정",
-    title: "운영자 이름을 설정하세요",
+    title: "사용할 이름을 설정하세요",
     description:
-      "운영 화면과 감사 이력에 표시될 이름입니다. 나중에 설정에서 다시 바꿀 수 있습니다.",
+      "예약과 계정에 표시될 이름입니다. 설정에서 다시 바꿀 수 있습니다.",
     usernameLabel: "사용자명",
     usernamePlaceholder: "예: jeomwon-owner",
     continueButton: "시작하기",
@@ -166,14 +163,14 @@ export default {
     },
     username: {
       title: "사용자명",
-      description: "운영자 프로필과 내부 기록에 표시되는 이름입니다.",
+      description: "예약과 계정에 표시되는 이름입니다.",
       placeholder: "사용자명",
       maxLengthHint: "최대 32자까지 사용할 수 있습니다.",
       saveButton: "저장",
     },
     deleteAccount: {
       title: "계정 삭제",
-      description: "계정과 관련 데이터를 영구 삭제합니다.",
+      description: "내 계정과 관련 데이터를 영구 삭제합니다.",
       warning: "이 작업은 되돌릴 수 없습니다.",
       deleteButton: "계정 삭제",
       confirmButton: "정말 삭제할까요?",

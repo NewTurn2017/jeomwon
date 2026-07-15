@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import { domainConfig } from "../domain.config";
 import { query } from "./_generated/server";
 import { resolveCustomerThreadId } from "./engine/identity";
 import {
@@ -16,13 +15,9 @@ export const domainPublicConfig = query({
 /**
  * The customer's view of their own conversation.
  *
- * `threadId` is OPTIONAL, and that is the whole security fix. With
- * `features.customerAccounts` on, the thread is derived from the authenticated
- * user inside Convex and a mismatched argument is rejected — so this public query
- * can no longer be turned into "read any customer's transcript" by passing their
- * thread string, which `admin:dashboardSnapshot` hands out to operator surfaces.
- * With the flag off, `threadId` is still required and still trusted: an anonymous
- * random-UUID thread is its own bearer secret, exactly as before.
+ * `threadId` is optional because the thread is derived from the authenticated
+ * user inside Convex. A mismatched argument is rejected, so this public query
+ * cannot read another customer's transcript by accepting a caller-owned key.
  */
 export const publicState = query({
   args: {
@@ -35,22 +30,17 @@ export const publicState = query({
       .query("chatThreads")
       .withIndex("by_thread", (q) => q.eq("threadId", threadId))
       .unique();
-    // The event window is flag-gated so the nine anonymous packs are untouched.
-    //
-    // Flag OFF: oldest-80, exactly as before this file changed. Anonymous threads
-    // are short-lived, so pinning the window to the start of the conversation is
-    // fine and — more to the point — must stay identical.
-    //
-    // Flag ON: newest-80. A per-account thread is PERMANENT, so oldest-80 would
+    // A per-account thread is permanent, so oldest-80 would
     // freeze the customer's view once the thread crosses 80 events and they would
     // never see a new message again. `take` keeps the first n rows it walks, so
     // newest-first + reverse gives the most recent 80 in reading order.
-    const eventsQuery = ctx.db
-      .query("chatEvents")
-      .withIndex("by_thread", (q) => q.eq("threadId", threadId));
-    const recentEvents = domainConfig.features.customerAccounts
-      ? (await eventsQuery.order("desc").take(80)).reverse()
-      : await eventsQuery.order("asc").take(80);
+    const recentEvents = (
+      await ctx.db
+        .query("chatEvents")
+        .withIndex("by_thread", (q) => q.eq("threadId", threadId))
+        .order("desc")
+        .take(80)
+    ).reverse();
     const publicContext = thread?.publicContext ?? defaultPublicContext();
     const guardrailBanner = thread?.guardrailBanner ?? null;
 

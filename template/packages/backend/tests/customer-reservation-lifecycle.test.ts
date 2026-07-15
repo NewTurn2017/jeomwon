@@ -1,14 +1,82 @@
 import { describe, expect, test } from "bun:test";
-import {
-  cancelReservation,
-  confirmReservation,
-  createHold,
-  expireHold,
-  rescheduleReservation,
-} from "../convex/agentTools";
+import { expireHold } from "../convex/agentTools";
 import { isSlotAllowed, serviceEndMs } from "../convex/engine/availability";
+import {
+  cancelCustomerReservation,
+  confirmCustomerReservation,
+  createCustomerReservationHold,
+  rescheduleCustomerReservation,
+} from "../convex/engine/customerReservationLifecycle";
 import { isInsideCancelWindow } from "../convex/engine/policy";
 import { domainConfig } from "../domain.config";
+
+type LegacyCreateHoldArgs = {
+  readonly threadId: string;
+  readonly displayName: string | null;
+  readonly serviceKey: string;
+  readonly resourceKey: string;
+  readonly startMs: number;
+  readonly endMs: number;
+};
+
+type LegacyReservationArgs = {
+  readonly threadId: string;
+  readonly reservationId: string;
+  readonly confirmed?: boolean;
+  readonly requestedAtMs?: number;
+};
+
+type LegacyRescheduleArgs = LegacyReservationArgs & {
+  readonly serviceKey: string;
+  readonly resourceKey: string;
+  readonly startMs: number;
+  readonly endMs: number;
+};
+
+// These test-local adapters preserve the pre-cutover lifecycle characterization
+// inputs without reintroducing public Convex functions. Production callers use
+// only the canonical customerReservations validators.
+const createHold = {
+  _handler: async (
+    ctx: Parameters<typeof createCustomerReservationHold>[0],
+    args: LegacyCreateHoldArgs,
+  ) =>
+    await createCustomerReservationHold(ctx, {
+      threadId: args.threadId,
+      displayName: args.displayName,
+      serviceKey: args.serviceKey,
+      resourceKey: args.resourceKey,
+      startMs: args.startMs,
+    }),
+};
+
+const confirmReservation = {
+  _handler: async (
+    ctx: Parameters<typeof confirmCustomerReservation>[0],
+    args: LegacyReservationArgs,
+  ) => await confirmCustomerReservation(ctx, args),
+};
+
+const cancelReservation = {
+  _handler: async (
+    ctx: Parameters<typeof cancelCustomerReservation>[0],
+    args: LegacyReservationArgs,
+  ) => await cancelCustomerReservation(ctx, args),
+};
+
+const rescheduleReservation = {
+  _handler: async (
+    ctx: Parameters<typeof rescheduleCustomerReservation>[0],
+    args: LegacyRescheduleArgs,
+  ) =>
+    await rescheduleCustomerReservation(ctx, {
+      threadId: args.threadId,
+      reservationId: args.reservationId,
+      serviceKey: args.serviceKey,
+      resourceKey: args.resourceKey,
+      startMs: args.startMs,
+    }),
+};
 
 type TableName = "reservations" | "resources" | "chatThreads" | "chatEvents";
 type StoredRow = Record<string, unknown> & { _id: string };
