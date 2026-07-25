@@ -115,7 +115,7 @@ default to `false`.
 - Stages: `scaffold` → `inject` → `verify`. There is no separate install step; `verify.mjs` owns the offline install.
 - Offline-only: bootstrap deletes an ambient `JEOMWON_QA_BASE_URL` from the verify step and never passes `--qa`, so its verify always reports `SKIP qa`. It never runs `bun setup` and never runs live QA.
 - Failure: it stops at the first failing stage, names the stage and status, and prints exactly one `Recovery: bun <script> ...` line (using the public `bun` token) for that stage. It never deletes a target — after a scaffold failure a non-empty or partial target must be inspected and removed manually before the printed command is rerun.
-- Success: it prints the resolved generated-project path and the next steps `cd <target>`, `bun setup`, then `bun run qa` as guidance only (it does not run them).
+- Success: it prints the resolved generated-project path and the next steps `cd <target>`, `bun x convex login`, `bun setup`, then `bun run qa` as guidance only (it does not run them).
 
 For retries, partial reruns, and debugging, run the individual `scaffold.mjs`, `inject.mjs`, and `verify.mjs` commands directly (see the Injection Contract and Verification Gates below).
 

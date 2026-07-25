@@ -26,3 +26,21 @@ jobs:
       - run: bun run lint
       - run: bun test
       - run: cd .. && bun test skill/scripts/generator-contract.test.ts
+
+  setup-portability:
+    name: setup contract (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, macos-14, ubuntu-24.04, windows-latest]
+    defaults:
+      run:
+        working-directory: template
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+      - run: bun install --frozen-lockfile
+      - run: bun test packages/backend/tests/setup-first-success.test.ts packages/backend/tests/setup-anonymous-login.test.ts scripts/first-success-report.test.ts

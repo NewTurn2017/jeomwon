@@ -129,6 +129,7 @@ function printSuccess() {
 	console.log(`Bootstrap complete: ${targetDir}`);
 	console.log("Next steps (run these yourself; bootstrap does not run them):");
 	console.log(`  cd ${targetDir}`);
+	console.log("  bun x convex login");
 	console.log("  bun setup");
 	console.log("  bun run qa");
 }

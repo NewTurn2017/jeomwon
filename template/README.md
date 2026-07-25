@@ -21,9 +21,29 @@ tooling         공유 TypeScript 설정
 
 ```bash
 bun install
+bun x convex login
 bun setup
 bun dev
 ```
+
+`bun setup`의 첫 성공 경로는 저장소에 고정된 Bun·Convex CLI 버전과 Convex
+로그인을 먼저 확인합니다. 이후 deployment, 앱 URL 연결, JWT 키, 로컬 익명 고객
+로그인을 자동 설정합니다. 사용자가 입력하는 값은 Google OAuth client ID,
+client secret, 실제 Google 운영자 계정과 일치하는 이메일 하나뿐입니다.
+
+setup이 표시한 정확한 Redirect URI를 Google Console에 등록하고 저장하면 Enter로
+재개합니다. 이 등록 단계는 건너뛸 수 없습니다. Resend·OpenAI·Polar는 첫 성공
+범위에서 제외되며 기본 예약·취소·운영자 에스컬레이션은 Convex로 영속됩니다.
+첫 성공 후 선택 제공자까지 연결하려면 `bun setup --optional-providers`를
+실행합니다.
+
+setup 중 `prerequisite_missing`은 표시된 Bun 버전과 `bun install
+--frozen-lockfile`, `prerequisite_unauthenticated`는 `bun x convex login`으로
+복구합니다. `external_environment`는 네트워크·Convex 팀 권한·deployment quota를
+확인합니다. Google 로그인에서 redirect mismatch가 보이면 setup이 출력한 URI가
+공백·슬래시까지 정확히 등록됐는지 확인한 뒤 `bun setup`을 다시 실행합니다. 정상
+사전 조건에서 deployment·URL·JWT 자동화가 실패하면 수동 env 편집으로 우회하지
+말고 `product_failure`로 기록합니다.
 
 개별 앱만 실행하려면 다음 명령을 사용합니다.
 
@@ -45,8 +65,9 @@ bun dev:app
 
 ## 환경 변수
 
-`bun setup`은 필요한 값을 대화형으로 입력받아 로컬 env와 Convex 배포 env에
-반영합니다. 수동으로 설정할 때는 아래 값을 준비하세요.
+`bun setup`이 로컬 env와 Convex 배포 env를 자동으로 연결합니다. 아래 목록은
+자동화 결과의 소유 위치를 설명하기 위한 것이며, 첫 성공 중 수동 env 편집으로
+설정을 우회하지 않습니다.
 
 ### 정적 공개 웹 (`apps/web/.env.local`)
 
@@ -61,14 +82,15 @@ env를 두지 않습니다.
 
 ```bash
 NEXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
-AUTH_ANONYMOUS_LOGIN=0
+AUTH_ANONYMOUS_LOGIN=1
 AGENT_RUNTIME=mock
 ```
 
 고객 로그인·예약·챗과 내부 `/admin`에 필요한 Convex 연결 및 챗 런타임 env는
 app이 소유합니다. `AGENT_RUNTIME=openai`를 선택할 때만 앱 서버 전용 env인
 `OPENAI_API_KEY`를 추가하세요. `AUTH_ANONYMOUS_LOGIN`은 setup이 Convex 배포와
-app에 같은 값으로 기록하며 기본값은 `0`입니다.
+app에 같은 값으로 기록하며 로컬 첫 성공에서는 `1`입니다. production URL에서는
+명시적 확인 문구 없이는 활성화되지 않습니다.
 
 ### Convex 배포 env
 
@@ -77,7 +99,7 @@ SITE_URL=http://localhost:3001
 AUTH_GOOGLE_ID=<google-oauth-client-id>
 AUTH_GOOGLE_SECRET=<google-oauth-client-secret>
 JEOMWON_ADMIN_EMAILS=<operator-email>
-AUTH_ANONYMOUS_LOGIN=0
+AUTH_ANONYMOUS_LOGIN=1
 RESEND_API_KEY=<resend-api-key>
 RESEND_SENDER_EMAIL_AUTH=Jeomwon <onboarding@yourdomain.com>
 ```
@@ -110,3 +132,8 @@ bun qa
 PASS로 증명합니다. 실제 Google 운영자 로그인과 성공 CRUD는 별도
 maintainer-owned 라이브 smoke이며 사용자 승인 전에는 BLOCKED입니다. ambient
 deploy key나 별도 operator email/storage-state를 로컬 러너에 제공하지 마세요.
+
+첫 사용자 10명의 전체 영속 왕복과 운영체제별 판정 절차는
+`docs/first-success-validation.md`를 따릅니다. 기록 후
+`bun run first-success:report <기록.json>`으로 4/3/3 할당, 중앙값 15분,
+9/10 25분, 플랫폼별 기능·보안 100% 조건을 기계적으로 판정합니다.

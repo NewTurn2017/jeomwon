@@ -9,7 +9,8 @@
     "JEOMWON_SETUP_STUB_FILE",
     "JEOMWON_TEST_HOLD_MS",
     "AGENT_RUNTIME",
-    "NO_COLOR"
+    "NO_COLOR",
+    "TERM"
   ],
   "ui": "stream",
   "tasks": {

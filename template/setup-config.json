@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "introMessage": "Jeomwon setup provisions Convex, Google OAuth, Resend, OpenAI, and optional Polar without printing secrets.",
+  "introMessage": "Jeomwon setup provisions the required Convex and Google OAuth first-success path without printing secrets.",
   "projects": [
     {
       "id": "convex",
@@ -68,7 +68,7 @@
       "kind": "convex-provision",
       "title": "Convex",
       "description": "Create or reuse a Convex dev cloud deployment, then propagate its URL to the apps.",
-      "instructions": "The wizard checks ~/.convex/config.json. If missing, it can run npx convex login and resume.",
+      "instructions": "The wizard verifies the repository Bun and Convex CLI versions plus an existing Convex login before provisioning.",
       "variables": [
         {
           "name": "CONVEX_URL",
@@ -161,13 +161,13 @@
       "id": "anonymous-login",
       "kind": "anonymous-login",
       "title": "Product Anonymous Authentication",
-      "description": "Optional customer guest login. Default off; production requires explicit opt-in and a non-empty operator allowlist.",
+      "description": "Local first-success customer login is enabled automatically; production still requires explicit opt-in and a non-empty operator allowlist.",
       "variables": [
         {
           "name": "AUTH_ANONYMOUS_LOGIN",
           "projects": ["convex", "app"],
           "details": "Setup writes the exact same value to the Convex deployment and apps/app server env. Values are never printed.",
-          "defaultValue": "0",
+          "defaultValue": "1",
           "secret": false
         }
       ],

@@ -216,9 +216,23 @@ describe("admin customer reservation lifecycle", () => {
         );
         const resolvedReservation = objectField(resolved, "reservation");
         expect(objectField(resolvedReservation, "id")).toBe(reservationId);
-        expect(objectField(resolvedReservation, "status")).toBe(
-          action === "approveCancel" ? "cancelled" : "confirmed",
+        const expectedStatus =
+          action === "approveCancel" ? "cancelled" : "confirmed";
+        expect(objectField(resolvedReservation, "status")).toBe(expectedStatus);
+
+        const customerSnapshot = await invoke(
+          customerReservations.snapshot,
+          fixture.customerA,
+          {},
         );
+        const customerRows = objectField(customerSnapshot, "reservations");
+        if (!Array.isArray(customerRows)) {
+          throw new Error("reservation_snapshot_rows_missing");
+        }
+        const customerRow = customerRows.find(
+          (row) => objectField(row, "id") === reservationId,
+        );
+        expect(objectField(customerRow, "status")).toBe(expectedStatus);
       } finally {
         Date.now = originalNow;
         restore();

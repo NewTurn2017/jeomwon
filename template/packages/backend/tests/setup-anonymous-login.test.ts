@@ -46,9 +46,18 @@ function baseStubs(customerAccounts = true): Stubs {
   };
 }
 
+function productionStubs() {
+  const stubs = baseStubs(true);
+  stubs.values = {
+    ...stubs.values,
+    SITE_URL: "https://reservations.example.com",
+  };
+  return stubs;
+}
+
 function runSetup(stubs: Stubs) {
   const result = spawnSync(
-    "bun",
+    process.execPath,
     [
       "scripts/setup/index.ts",
       "--dry-run",
@@ -125,7 +134,7 @@ describe("anonymous login setup matrix", () => {
 
   test("production requires the exact explicit opt-in phrase", () => {
     for (const optIn of [undefined, "yes", "true", "1", " enable "]) {
-      const stubs = baseStubs(true);
+      const stubs = productionStubs();
       stubs.answers = {
         ...stubs.answers,
         "anonymous-login:enable": true,
@@ -143,7 +152,7 @@ describe("anonymous login setup matrix", () => {
       ).toBe(false);
     }
 
-    const allowed = baseStubs(true);
+    const allowed = productionStubs();
     allowed.answers = {
       ...allowed.answers,
       "anonymous-login:enable": true,

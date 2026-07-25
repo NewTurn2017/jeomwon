@@ -98,6 +98,7 @@ type CliOptions = {
   nonInteractive: boolean;
   yes: boolean;
   help: boolean;
+  optionalProviders: boolean;
   stubFile?: string;
   convexUrl?: string;
   projectName?: string;
@@ -125,6 +126,24 @@ type CommandResult = {
   stdout: string;
   stderr: string;
 };
+
+type SetupFailureCategory =
+  | "prerequisite_missing"
+  | "prerequisite_unauthenticated"
+  | "external_environment"
+  | "oauth_configuration"
+  | "product_failure";
+
+class SetupFailure extends Error {
+  constructor(
+    readonly category: SetupFailureCategory,
+    message: string,
+    readonly nextSteps: readonly string[],
+  ) {
+    super(message);
+    this.name = "SetupFailure";
+  }
+}
 
 type RuntimeContext = {
   root: string;
@@ -196,16 +215,13 @@ async function main() {
   );
   console.log(`  ${RULE}`);
   console.log(
-    `  ${style.cyan("필수")}  ${style.bold("Convex")} ${style.gray("무료 계정 — 지금 연결합니다.")}`,
+    `  ${style.cyan("필수")}  ${style.bold("Convex + Google OAuth")} ${style.gray("첫 성공 경로")}`,
   );
   console.log(
-    `  ${style.gray("선택")}  ${style.gray("OpenAI · Resend · Google 로그인")}`,
+    `        ${style.gray("입력은 Google client ID · client secret · 운영자 이메일 3개입니다.")}`,
   );
   console.log(
-    `        ${style.gray("지금 건너뛰어도 됩니다 — mock/capture 모드로 끝까지 동작하고,")}`,
-  );
-  console.log(
-    `        ${style.gray("나중에 ")}${style.cyan("bun setup")}${style.gray(" 을 다시 실행해 추가할 수 있습니다.")}`,
+    `        ${style.gray("Convex deployment · URL · JWT · 로컬 익명 고객은 자동 설정됩니다.")}`,
   );
   console.log(`  ${RULE}`);
   console.log(
@@ -222,36 +238,46 @@ async function main() {
 
   try {
     assertEnvLocalIgnored(ctx);
-    const domainFeatures = await readDomainFeatures(ctx);
+    await assertSetupPrerequisites(ctx);
     const siteUrl = await configureSiteUrl(ctx);
     const deployment = await configureConvex(ctx);
 
     await configureConvexAuth(ctx, deployment, siteUrl);
     await configureGoogleOAuth(ctx, deployment);
     await configureAdminEmails(ctx);
-    await configureAnonymousLogin(ctx);
-
-    await configureResend(ctx);
-    await configureOpenAI(ctx);
-
-    if (domainFeatures.polar) {
-      await configurePolar(ctx, deployment);
+    await configureAnonymousLogin(ctx, siteUrl);
+    if (ctx.options.optionalProviders) {
+      const domainFeatures = await readDomainFeatures(ctx);
+      await configureResend(ctx);
+      await configureOpenAI(ctx);
+      if (domainFeatures.polar) {
+        await configurePolar(ctx, deployment);
+      }
+      await configureOptionalLocalSteps(ctx);
     } else {
-      section("Polar");
-      console.log("domain.config.features.polar=false, skipping Polar setup.");
+      await configureFirstSuccessDefaults(ctx);
     }
-
-    await configureOptionalLocalSteps(ctx);
     await finalizeEnvFiles(ctx);
     printCompletion(ctx, deployment);
   } catch (error) {
+    const failure =
+      error instanceof SetupFailure
+        ? error
+        : new SetupFailure(
+            "product_failure",
+            error instanceof Error ? error.message : String(error),
+            ["오류를 수정한 뒤 bun setup을 다시 실행하세요."],
+          );
     console.error("");
     console.error(
       redact(
-        `Setup failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Setup stopped [${failure.category}]: ${failure.message}`,
         ctx.knownSecrets,
       ),
     );
+    for (const [index, step] of failure.nextSteps.entries()) {
+      console.error(`  ${index + 1}. ${redact(step, ctx.knownSecrets)}`);
+    }
     process.exitCode = 1;
   }
 }
@@ -263,6 +289,7 @@ function parseCliOptions(args: string[]): CliOptions {
     nonInteractive: false,
     yes: false,
     help: false,
+    optionalProviders: false,
   };
 
   for (let index = 0; index < args.length; index += 1) {
@@ -288,6 +315,10 @@ function parseCliOptions(args: string[]): CliOptions {
     }
     if (arg === "--help" || arg === "-h") {
       options.help = true;
+      continue;
+    }
+    if (arg === "--optional-providers") {
+      options.optionalProviders = true;
       continue;
     }
     if (arg === "--stub-file") {
@@ -342,11 +373,16 @@ function readOptionValue(args: string[], index: number, option: string) {
 function printHelp() {
   console.log(`Usage: bun setup [--dry-run] [--non-interactive] [--yes]
 
+Prerequisites:
+  bun install --frozen-lockfile
+  bun x convex login
+
 Options:
   --dry-run              Do not run external commands or write .env.local files.
   --fresh-dry-run        With --dry-run, ignore existing .env.local files.
-  --non-interactive      Use defaults and stubs; defer missing credentials.
+  --non-interactive      Use defaults and supplied values; required OAuth values fail closed.
   --yes, -y              Accept default yes/no answers.
+  --optional-providers   Configure Resend, OpenAI, Polar, and extra local steps.
   --stub-file <path>     JSON values for rehearsal.
   --convex-url <url>     Reuse an existing Convex deployment URL.
   --project-name <name>  Convex project name for new provisioning.
@@ -428,6 +464,119 @@ function assertEnvLocalIgnored(ctx: RuntimeContext) {
   }
 }
 
+async function assertSetupPrerequisites(ctx: RuntimeContext) {
+  section("사전 조건");
+
+  const packageJson = readJsonFile<{
+    packageManager?: string;
+  }>(path.join(ctx.root, "package.json"));
+  const backendPackageJson = readJsonFile<{
+    dependencies?: Record<string, string>;
+  }>(path.join(ctx.root, "packages/backend/package.json"));
+  const expectedBunVersion =
+    packageJson.packageManager?.match(/^bun@(.+)$/)?.[1];
+  const expectedConvexVersion =
+    backendPackageJson.dependencies?.convex ?? "repository dependency";
+  const actualBunVersion = process.versions.bun;
+  if (!actualBunVersion) {
+    throw new SetupFailure(
+      "prerequisite_missing",
+      "bun setup은 Bun 런타임에서 실행해야 합니다.",
+      ["https://bun.sh 에서 Bun을 설치하세요.", "bun setup을 다시 실행하세요."],
+    );
+  }
+  if (expectedBunVersion && actualBunVersion !== expectedBunVersion) {
+    throw new SetupFailure(
+      "prerequisite_missing",
+      `Bun ${expectedBunVersion}이 필요하지만 ${actualBunVersion}이 실행 중입니다.`,
+      [
+        `Bun ${expectedBunVersion}을 설치하거나 활성화하세요.`,
+        "bun install --frozen-lockfile을 실행하세요.",
+        "bun setup을 다시 실행하세요.",
+      ],
+    );
+  }
+  ui.ok(`Bun ${actualBunVersion}`);
+
+  if (ctx.options.dryRun) {
+    ui.info(
+      "DRY RUN: Convex CLI 버전과 로그인 상태를 실제로 변경하지 않습니다.",
+    );
+    await ensureConvexAuthenticated(ctx);
+    return;
+  }
+
+  const result = await runConvexCommand(ctx, ["--version"]);
+  if (result.code !== 0) {
+    throw classifyConvexCommandFailure("Convex CLI 확인", result);
+  }
+  const version = result.stdout.trim().match(/\d+\.\d+\.\d+/)?.[0];
+  if (!version) {
+    throw new SetupFailure(
+      "prerequisite_missing",
+      "설치된 Convex CLI 버전을 확인할 수 없습니다.",
+      [
+        "bun install --frozen-lockfile을 실행하세요.",
+        "bun x convex --version으로 CLI를 확인하세요.",
+        "bun setup을 다시 실행하세요.",
+      ],
+    );
+  }
+  if (!versionSatisfiesDeclaredRange(version, expectedConvexVersion)) {
+    throw new SetupFailure(
+      "prerequisite_missing",
+      `Convex CLI ${expectedConvexVersion}가 필요하지만 ${version}이 실행 중입니다.`,
+      [
+        "bun install --frozen-lockfile을 실행하세요.",
+        "bun x convex --version으로 CLI를 다시 확인하세요.",
+        "bun setup을 다시 실행하세요.",
+      ],
+    );
+  }
+  ui.ok(`Convex CLI ${version}`);
+  await ensureConvexAuthenticated(ctx);
+}
+
+function versionSatisfiesDeclaredRange(actual: string, declared: string) {
+  const actualParts = actual.split(".").map(Number);
+  const minimumText = declared.match(/\d+\.\d+\.\d+/)?.[0];
+  if (!minimumText) {
+    return false;
+  }
+  const minimumParts = minimumText.split(".").map(Number);
+  const [actualMajor, actualMinor, actualPatch] = actualParts;
+  const [minimumMajor, minimumMinor, minimumPatch] = minimumParts;
+  if (
+    actualMajor === undefined ||
+    actualMinor === undefined ||
+    actualPatch === undefined ||
+    minimumMajor === undefined ||
+    minimumMinor === undefined ||
+    minimumPatch === undefined
+  ) {
+    return false;
+  }
+  if (declared.startsWith("^") && actualMajor !== minimumMajor) {
+    return false;
+  }
+  if (
+    declared.startsWith("~") &&
+    (actualMajor !== minimumMajor || actualMinor !== minimumMinor)
+  ) {
+    return false;
+  }
+  if (!declared.startsWith("^") && !declared.startsWith("~")) {
+    return actual === minimumText;
+  }
+  return (
+    actualMajor > minimumMajor ||
+    (actualMajor === minimumMajor && actualMinor > minimumMinor) ||
+    (actualMajor === minimumMajor &&
+      actualMinor === minimumMinor &&
+      actualPatch >= minimumPatch)
+  );
+}
+
 async function configureSiteUrl(ctx: RuntimeContext) {
   const appUrlStep = requireStep(ctx, "app-url");
   await configureLocalDefaults(ctx, appUrlStep);
@@ -435,10 +584,12 @@ async function configureSiteUrl(ctx: RuntimeContext) {
   const siteStep = requireStep(ctx, "site-url");
   section(siteStep.title);
   const variable = requireVariable(siteStep, "SITE_URL");
-  const siteUrl = await getValueForVariable(ctx, variable, {
-    prompt: "Public site URL",
-    defaultValue: variable.defaultValue ?? "http://localhost:3001",
-  });
+  const siteUrl = localDefaultValue(
+    ctx,
+    variable,
+    "backend",
+    variable.defaultValue ?? "http://localhost:3001",
+  );
 
   await setLocalEnv(ctx, "backend", "SITE_URL", siteUrl);
   return siteUrl;
@@ -447,16 +598,48 @@ async function configureSiteUrl(ctx: RuntimeContext) {
 async function configureLocalDefaults(ctx: RuntimeContext, step: StepConfig) {
   section(step.title);
   for (const variable of step.variables) {
-    const value = await getValueForVariable(ctx, variable, {
-      prompt: variable.details ?? variable.name,
-      defaultValue: variable.defaultValue ?? "",
-    });
+    const firstLocalProject = variable.projects.find(
+      (projectId) => projectId !== "convex",
+    );
+    const value =
+      step.interactive === true
+        ? await getValueForVariable(ctx, variable, {
+            prompt: variable.details ?? variable.name,
+            defaultValue: variable.defaultValue ?? "",
+          })
+        : localDefaultValue(
+            ctx,
+            variable,
+            firstLocalProject,
+            variable.defaultValue ?? "",
+          );
     for (const projectId of variable.projects) {
       if (projectId !== "convex") {
         await setLocalEnv(ctx, projectId, variable.name, value);
       }
     }
   }
+}
+
+function localDefaultValue(
+  ctx: RuntimeContext,
+  variable: StepVariable,
+  projectId: string | undefined,
+  fallback: string,
+) {
+  const value =
+    stubValue(ctx, variable.name) ??
+    (projectId ? readLocalEnv(ctx, projectId).get(variable.name) : undefined) ??
+    fallback;
+  if (!value && variable.required !== false) {
+    throw new SetupFailure(
+      "product_failure",
+      `${variable.name} 기본값을 결정할 수 없습니다.`,
+      ["setup-config.json의 기본값을 확인한 뒤 bun setup을 다시 실행하세요."],
+    );
+  }
+  ui.ok(`${variable.name} 자동 설정`);
+  return value;
 }
 
 async function configureConvex(ctx: RuntimeContext): Promise<ConvexDeployment> {
@@ -480,14 +663,12 @@ async function configureConvex(ctx: RuntimeContext): Promise<ConvexDeployment> {
   if (convexUrl) {
     console.log("Convex deployment URL is configured.");
   } else {
-    await ensureConvexAuthenticated(ctx);
     const projectName = await getProjectName(ctx);
     if (ctx.options.dryRun) {
       convexUrl = `https://${slugify(projectName)}-dry-run.convex.cloud`;
       console.log("DRY RUN: would run Convex dev provisioning.");
     } else {
-      await runInteractiveCommand(ctx, "npx", [
-        "convex",
+      const result = await runVisibleConvexCommand(ctx, [
         "dev",
         "--once",
         "--configure",
@@ -497,10 +678,18 @@ async function configureConvex(ctx: RuntimeContext): Promise<ConvexDeployment> {
         "--dev-deployment",
         "cloud",
       ]);
+      if (result.code !== 0) {
+        throw classifyConvexCommandFailure("Convex deployment 생성", result);
+      }
       convexUrl = readLocalEnv(ctx, "backend").get("CONVEX_URL");
       if (!convexUrl) {
-        throw new Error(
-          "Convex provisioning finished but packages/backend/.env.local has no CONVEX_URL.",
+        throw new SetupFailure(
+          "product_failure",
+          "Convex deployment 생성 후 packages/backend/.env.local의 CONVEX_URL을 자동 확인하지 못했습니다.",
+          [
+            "수동 환경변수 입력으로 우회하지 마세요.",
+            "생성 로그를 확인한 뒤 bun setup을 다시 실행하세요.",
+          ],
         );
       }
     }
@@ -523,7 +712,14 @@ async function configureConvex(ctx: RuntimeContext): Promise<ConvexDeployment> {
 async function ensureConvexAuthenticated(ctx: RuntimeContext) {
   if (ctx.options.dryRun) {
     if (ctx.stubs.convexAuthenticated === false) {
-      console.log("DRY RUN: Convex auth missing; would run npx convex login.");
+      throw new SetupFailure(
+        "prerequisite_unauthenticated",
+        "Convex CLI 로그인이 필요합니다.",
+        [
+          "bun x convex login을 실행하세요.",
+          "로그인 완료 후 bun setup을 다시 실행하세요.",
+        ],
+      );
     } else {
       console.log("DRY RUN: assuming Convex CLI is authenticated.");
     }
@@ -536,21 +732,14 @@ async function ensureConvexAuthenticated(ctx: RuntimeContext) {
     return;
   }
 
-  const shouldLogin = await promptConfirm(ctx, {
-    key: "convex:login",
-    message: "Convex CLI is not authenticated. Run npx convex login now?",
-    defaultValue: true,
-  });
-
-  if (!shouldLogin) {
-    throw new Error("Run npx convex login, then rerun bun setup.");
-  }
-
-  await runInteractiveCommand(ctx, "npx", ["convex", "login"], ctx.root);
-
-  if (!fs.existsSync(configPath)) {
-    throw new Error("Convex login did not create ~/.convex/config.json.");
-  }
+  throw new SetupFailure(
+    "prerequisite_unauthenticated",
+    "Convex CLI 로그인 정보를 찾지 못했습니다.",
+    [
+      "bun x convex login을 실행하세요.",
+      "로그인 완료 후 bun setup을 다시 실행하세요.",
+    ],
+  );
 }
 
 async function getProjectName(ctx: RuntimeContext) {
@@ -558,14 +747,9 @@ async function getProjectName(ctx: RuntimeContext) {
     return ctx.options.projectName;
   }
 
-  const defaultName = slugify(path.basename(ctx.root));
-  return await promptText(ctx, {
-    key: "convex:projectName",
-    message: "Convex project name",
-    defaultValue: defaultName,
-    secret: false,
-    required: true,
-  });
+  const projectName = slugify(path.basename(ctx.root));
+  ui.ok(`Convex project name 자동 결정: ${projectName}`);
+  return projectName;
 }
 
 async function configureConvexAuth(
@@ -656,91 +840,165 @@ async function configureGoogleOAuth(
   if (step.instructions) {
     console.log(step.instructions);
   }
-  console.log("1. Google Cloud Console에서 프로젝트를 선택하거나 생성하세요.");
-  console.log("2. OAuth 동의 화면을 구성하세요.");
-  console.log("3. OAuth client ID를 Web application으로 생성하세요.");
-  console.log(
-    `Redirect URI: ${deployment.convexSiteUrl}/api/auth/callback/google`,
-  );
-  console.log("JavaScript origin: http://localhost:3000");
-
   const variables = [
     requireVariable(step, "AUTH_GOOGLE_ID"),
     requireVariable(step, "AUTH_GOOGLE_SECRET"),
   ];
-  const deferredVariables = await getDeferredGoogleOAuthVariables(
-    ctx,
-    variables,
-  );
-  if (deferredVariables.length > 0) {
-    for (const variable of deferredVariables) {
-      logDeferredKey(ctx, variable.name, "Google OAuth console setup needed");
-    }
-    console.log(
-      "Google OAuth deferred (유예됨; console setup required). Keep this redirect URI for later:",
-    );
-    console.log(`${deployment.convexSiteUrl}/api/auth/callback/google`);
-    return;
-  }
-
-  await configureConvexSecretVariable(ctx, step, "AUTH_GOOGLE_ID");
-  await configureConvexSecretVariable(ctx, step, "AUTH_GOOGLE_SECRET");
-}
-
-async function getDeferredGoogleOAuthVariables(
-  ctx: RuntimeContext,
-  variables: StepVariable[],
-) {
-  if (ctx.options.dryRun || ctx.options.nonInteractive) {
-    return [];
-  }
-
   const missingVariables: StepVariable[] = [];
   for (const variable of variables) {
-    if (stubValue(ctx, variable.name) !== undefined) {
-      continue;
-    }
-    if (await isConvexEnvConfigured(ctx, variable.name)) {
+    if (
+      stubValue(ctx, variable.name) === undefined &&
+      (await isConvexEnvConfigured(ctx, variable.name))
+    ) {
       continue;
     }
     missingVariables.push(variable);
   }
 
   if (missingVariables.length === 0) {
-    return [];
+    ui.ok("Google OAuth client ID와 secret이 이미 설정됨 (값 숨김)");
+    return;
   }
 
-  const configure = await promptConfirm(ctx, {
-    key: "google-oauth:configure",
-    message:
-      "Configure Google OAuth now? Choose no to set it up later after Google Console work.",
-    defaultValue: false,
-  });
-  return configure ? [] : missingVariables;
+  const redirectUri = `${deployment.convexSiteUrl}/api/auth/callback/google`;
+  console.log(
+    "1. Google Cloud Console에서 OAuth client를 Web application으로 여세요.",
+  );
+  console.log("2. 아래 URI를 Authorized redirect URI에 정확히 등록하세요.");
+  console.log(`Redirect URI: ${redirectUri}`);
+  console.log("JavaScript origin: http://localhost:3000");
+  console.log("3. 저장이 끝날 때까지 이 설정은 자동으로 일시정지됩니다.");
+  await pauseForGoogleRedirectRegistration(ctx, redirectUri);
+
+  for (const variable of missingVariables) {
+    const value = await promptRequiredOAuthCredential(ctx, variable);
+    await ensureConvexEnv(ctx, variable.name, value, {
+      secret: true,
+      force: true,
+    });
+  }
+  ui.ok("Google OAuth 설정 완료 (값 숨김)");
 }
 
-async function configureAnonymousLogin(ctx: RuntimeContext) {
+async function pauseForGoogleRedirectRegistration(
+  ctx: RuntimeContext,
+  redirectUri: string,
+) {
+  const key = "google-oauth:redirect-registered";
+  const stub = ctx.stubs.answers?.[key];
+  if (stub !== undefined) {
+    const confirmed =
+      stub === true ||
+      (typeof stub === "string" &&
+        ["y", "yes", "true", "1", "registered"].includes(
+          stub.trim().toLowerCase(),
+        ));
+    if (!confirmed) {
+      throw googleOAuthFailure(redirectUri);
+    }
+    ui.ok("Redirect URI 등록 확인됨 (stub)");
+    return;
+  }
+
+  if (ctx.options.dryRun) {
+    ui.info("DRY RUN: Redirect URI 등록을 기다린 뒤 Enter로 자동 재개합니다.");
+    return;
+  }
+  if (ctx.options.nonInteractive) {
+    throw googleOAuthFailure(redirectUri);
+  }
+
+  await promptLine(
+    `  ${glyph.step} Google Console 저장을 마쳤으면 Enter를 눌러 계속하세요: `,
+  );
+  ui.ok("Redirect URI 등록 확인됨");
+}
+
+function googleOAuthFailure(redirectUri: string) {
+  return new SetupFailure(
+    "oauth_configuration",
+    "Google Redirect URI 등록 확인이 필요합니다.",
+    [
+      `Google OAuth client에 ${redirectUri}를 정확히 등록하세요.`,
+      "등록 후 bun setup을 다시 실행하세요.",
+    ],
+  );
+}
+
+async function promptRequiredOAuthCredential(
+  ctx: RuntimeContext,
+  variable: StepVariable,
+) {
+  const stub = stubValue(ctx, variable.name);
+  if (stub !== undefined) {
+    if (!stub.trim()) {
+      throw new SetupFailure(
+        "oauth_configuration",
+        `${variable.name} 값이 비어 있습니다.`,
+        ["Google OAuth client 값을 확인한 뒤 bun setup을 다시 실행하세요."],
+      );
+    }
+    ctx.knownSecrets.add(stub);
+    console.log(`${variable.name}: using stub value (hidden).`);
+    return stub;
+  }
+  if (ctx.options.dryRun) {
+    console.log(`DRY RUN: would prompt for ${variable.name} (value hidden).`);
+    return `dry-run-${variable.name.toLowerCase()}`;
+  }
+  if (ctx.options.nonInteractive) {
+    throw new SetupFailure(
+      "oauth_configuration",
+      `${variable.name} 입력이 필요합니다.`,
+      [
+        "Google Cloud Console에서 Web application OAuth client 값을 확인하세요.",
+        `JEOMWON_SETUP_${variable.name}를 제공하고 bun setup --non-interactive를 다시 실행하세요.`,
+      ],
+    );
+  }
+
+  const value = await promptSecret(
+    `  ${glyph.step} ${variable.details ?? variable.name}: `,
+  );
+  if (!value.trim()) {
+    throw new SetupFailure(
+      "oauth_configuration",
+      `${variable.name} 입력이 필요합니다.`,
+      ["Google OAuth client 값을 확인한 뒤 bun setup을 다시 실행하세요."],
+    );
+  }
+  ctx.knownSecrets.add(value.trim());
+  return value.trim();
+}
+
+async function configureAnonymousLogin(ctx: RuntimeContext, siteUrl: string) {
   const step = requireStep(ctx, "anonymous-login");
   section(step.title);
   const providerBefore = await readConvexEnvValue(ctx, "AUTH_ANONYMOUS_LOGIN");
   const appBefore = readLocalEnv(ctx, "app").get("AUTH_ANONYMOUS_LOGIN");
   assertAnonymousLoginSynchronized(providerBefore, appBefore);
 
-  const enable = await promptConfirm(ctx, {
-    key: "anonymous-login:enable",
-    message: "Enable product anonymous login for this deployment?",
-    defaultValue: false,
-  });
-
-  if (enable) {
-    const production = await promptConfirm(ctx, {
-      key: "anonymous-login:production-deployment",
-      message: "Is this a production deployment?",
+  const production = !isLocalDevelopmentUrl(siteUrl);
+  let enable = true;
+  if (production) {
+    enable = await promptConfirm(ctx, {
+      key: "anonymous-login:enable",
+      message: "Enable product anonymous login for this production deployment?",
       defaultValue: false,
     });
-    if (production) {
+    if (enable) {
+      const confirmedProduction = await promptConfirm(ctx, {
+        key: "anonymous-login:production-deployment",
+        message: "Confirm this is a production deployment",
+        defaultValue: true,
+      });
+      if (!confirmedProduction) {
+        throw new Error("production deployment confirmation is required");
+      }
       await requireProductionAnonymousOptIn(ctx);
     }
+  } else {
+    ui.ok("로컬 첫 성공용 익명 고객 로그인 자동 활성화");
   }
 
   const nextValue = enable ? "1" : "0";
@@ -751,6 +1009,26 @@ async function configureAnonymousLogin(ctx: RuntimeContext) {
   });
   await setLocalEnv(ctx, "app", "AUTH_ANONYMOUS_LOGIN", nextValue);
   await verifyAnonymousLoginPostflight(ctx);
+}
+
+function isLocalDevelopmentUrl(value: string) {
+  const url = new URL(validateUrl(value));
+  return (
+    (url.hostname === "localhost" ||
+      url.hostname === "127.0.0.1" ||
+      url.hostname === "::1") &&
+    (url.protocol === "http:" || url.protocol === "https:")
+  );
+}
+
+async function configureFirstSuccessDefaults(ctx: RuntimeContext) {
+  section("첫 성공 런타임");
+  const openAiKey = readLocalEnv(ctx, "app").get("OPENAI_API_KEY");
+  await setLocalEnv(ctx, "app", "AGENT_RUNTIME", openAiKey ? "openai" : "mock");
+  ui.skip("Resend · OpenAI · Polar 설정은 첫 성공 이후로 유예");
+  ui.info(
+    "예약·취소·에스컬레이션은 Convex 영속 상태로 바로 검증할 수 있습니다.",
+  );
 }
 
 async function requireProductionAnonymousOptIn(ctx: RuntimeContext) {
@@ -1259,17 +1537,10 @@ async function ensureConvexEnv(
     return;
   }
 
-  const result = await runCommand(ctx, "npx", [
-    "convex",
-    "env",
-    "set",
-    "--",
-    name,
-    value,
-  ]);
+  const result = await runConvexCommand(ctx, ["env", "set", "--", name, value]);
 
   if (result.code !== 0) {
-    throw new Error(`Failed to set Convex env ${name}.`);
+    throw classifyConvexCommandFailure(`Convex env ${name} 설정`, result);
   }
 
   const verified = await isConvexEnvConfigured(ctx, name);
@@ -1291,7 +1562,7 @@ async function isConvexEnvConfigured(ctx: RuntimeContext, name: string) {
     return value === true || (typeof value === "string" && value.length > 0);
   }
 
-  const result = await runCommand(ctx, "npx", ["convex", "env", "get", name]);
+  const result = await runConvexCommand(ctx, ["env", "get", name]);
   return result.code === 0;
 }
 
@@ -1309,7 +1580,7 @@ async function readConvexEnvValue(ctx: RuntimeContext, name: string) {
     return stub === true ? "<configured>" : undefined;
   }
 
-  const result = await runCommand(ctx, "npx", ["convex", "env", "get", name]);
+  const result = await runConvexCommand(ctx, ["env", "get", name]);
   return result.code === 0 ? result.stdout.trim() : undefined;
 }
 
@@ -1631,30 +1902,89 @@ async function promptSecret(message: string) {
   });
 }
 
-async function runInteractiveCommand(
+async function runVisibleConvexCommand(
   ctx: RuntimeContext,
-  command: string,
   args: string[],
-  cwd = getConvexWorkingDirectory(ctx),
-) {
+): Promise<CommandResult> {
   if (ctx.options.dryRun) {
-    console.log(`DRY RUN: would run ${command} ${args.join(" ")}.`);
-    return;
+    console.log(`DRY RUN: would run bun x convex ${args.join(" ")}.`);
+    return { code: 0, stdout: "", stderr: "" };
   }
 
-  const code = await new Promise<number>((resolve, reject) => {
-    const child = spawn(command, args, {
-      cwd,
-      stdio: "inherit",
+  return await new Promise<CommandResult>((resolve, reject) => {
+    const child = spawn(process.execPath, ["x", "convex", ...args], {
+      cwd: getConvexWorkingDirectory(ctx),
+      stdio: ["inherit", "pipe", "pipe"],
       env: process.env,
     });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      const value = chunk.toString("utf8");
+      stdout += value;
+      process.stdout.write(redact(value, ctx.knownSecrets));
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      const value = chunk.toString("utf8");
+      stderr += value;
+      process.stderr.write(redact(value, ctx.knownSecrets));
+    });
     child.on("error", reject);
-    child.on("close", (exitCode) => resolve(exitCode ?? 1));
+    child.on("close", (code) => {
+      resolve({
+        code: code ?? 1,
+        stdout: redact(stdout, ctx.knownSecrets),
+        stderr: redact(stderr, ctx.knownSecrets),
+      });
+    });
   });
+}
 
-  if (code !== 0) {
-    throw new Error(`${command} exited with code ${code}.`);
+async function runConvexCommand(ctx: RuntimeContext, args: string[]) {
+  return await runCommand(ctx, process.execPath, ["x", "convex", ...args]);
+}
+
+function classifyConvexCommandFailure(
+  phase: string,
+  result: CommandResult,
+): SetupFailure {
+  const output = `${result.stdout}\n${result.stderr}`.toLowerCase();
+  if (
+    output.includes("not logged in") ||
+    output.includes("convex login") ||
+    output.includes("authentication")
+  ) {
+    return new SetupFailure(
+      "prerequisite_unauthenticated",
+      `${phase} 중 Convex 인증이 거부되었습니다.`,
+      [
+        "bun x convex login을 실행하세요.",
+        "로그인 완료 후 bun setup을 다시 실행하세요.",
+      ],
+    );
   }
+  if (
+    /(network|fetch failed|econn|enotfound|etimedout|socket|permission|forbidden|quota|rate limit)/i.test(
+      output,
+    )
+  ) {
+    return new SetupFailure(
+      "external_environment",
+      `${phase} 중 네트워크·권한·deployment quota 오류가 발생했습니다.`,
+      [
+        "네트워크 연결과 Convex 팀 권한 및 deployment quota를 확인하세요.",
+        "외부 환경이 복구된 뒤 bun setup을 다시 실행하세요.",
+      ],
+    );
+  }
+  return new SetupFailure(
+    "product_failure",
+    `${phase} 자동화가 실패했습니다 (exit ${result.code}).`,
+    [
+      "수동 명령이나 환경변수 편집으로 우회하지 마세요.",
+      "출력된 Convex 오류를 확인한 뒤 bun setup을 다시 실행하세요.",
+    ],
+  );
 }
 
 async function runCommand(
