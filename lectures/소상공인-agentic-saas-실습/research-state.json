@@ -1,0 +1,1329 @@
+{
+  "schema_version": 1,
+  "session_id": "019fe024-e4b5-7623-b5e3-2a87039793f1",
+  "lecture_slug": "소상공인-agentic-saas-실습",
+  "topic": "소상공인을 위한 Agentic SaaS 구축 1시간 실습",
+  "depth": "deep",
+  "status": "gate2_approved",
+  "created_at": "2026-08-08T08:41:49.583Z",
+  "updated_at": "2026-08-08T09:18:00.284Z",
+  "gates": {
+    "gate1": {
+      "status": "approved",
+      "brief_path": "brief.md",
+      "brief_sha256": "f9d73d92c448268f11f658f99d4a92e17fb51f6e61bc04b97515640904e7be1d",
+      "outline_path": "outline.md",
+      "outline_sha256": "f743df287094e5dff7ed525eed0b77d100cc0c73535ec587840f2e6527c3aa86",
+      "outline_revision": 1,
+      "approved_at": "2026-08-08T08:41:49.583Z"
+    },
+    "gate2": {
+      "status": "approved",
+      "validated_at": "2026-08-08T09:18:00.283Z",
+      "validator_version": "1.0.0",
+      "research_digest": "3553fab868dca656b63df071e5e522002573fb029a9a550847af46aa3e24bcad",
+      "approved_at": "2026-08-08T09:18:00.284Z",
+      "approval_receipt_sha256": "1529876644e004bd73da6211f55964506f155bc2c262f23398e5c11dfd72f1e8",
+      "errors": [],
+      "brief_sha256": "f9d73d92c448268f11f658f99d4a92e17fb51f6e61bc04b97515640904e7be1d",
+      "research_sha256": "9b8ce6f5a070c03f89825566d4b5c7cfe995f8de3741b964e07c9f921482b45e",
+      "outline_sha256": "f743df287094e5dff7ed525eed0b77d100cc0c73535ec587840f2e6527c3aa86",
+      "accepted_gap_ids": []
+    }
+  },
+  "capabilities": {
+    "host": "omo-senpi",
+    "orchestration": "team_create",
+    "max_parallel": 8,
+    "search": [
+      "web_search",
+      "webfetch",
+      "repository"
+    ],
+    "fetch": [
+      "webfetch",
+      "read"
+    ],
+    "browser": [
+      "ultimate-browsing-fallback"
+    ],
+    "notes": "Eight-member research team: six axes, skeptic, and adversarial synthesis."
+  },
+  "axes": [
+    {
+      "axis_id": "A1",
+      "question": "Jeomwon 생성기와 생성된 애플리케이션의 실제 경계와 현재 capability 한계는 무엇인가?",
+      "lecture_need": "슬라이드 5, 9, 11의 아키텍처와 생성 흐름 검증",
+      "outline_refs": [
+        "S5",
+        "S9",
+        "S11"
+      ],
+      "source_territories": [
+        "Jeomwon repository",
+        "skill contracts"
+      ],
+      "freshness": "current at research date",
+      "success_condition": "generator writes and runtime ownership proven from current source",
+      "status": "closed",
+      "attempt_ids": [
+        "T1"
+      ],
+      "lead_ids": [
+        "L1"
+      ],
+      "result_summary": "Template copy, strict config/email injection, offline verify; manual extensions remain post-generation.",
+      "blocker": null
+    },
+    {
+      "axis_id": "A2",
+      "question": "Next.js 두 앱, Convex, Vercel의 현재 역할과 배포 경계는 무엇인가?",
+      "lecture_need": "슬라이드 5, 6, 13의 배포 설명 검증",
+      "outline_refs": [
+        "S5",
+        "S6",
+        "S13"
+      ],
+      "source_territories": [
+        "Next.js official docs",
+        "Convex official docs",
+        "Vercel official docs",
+        "Jeomwon source"
+      ],
+      "freshness": "current at research date",
+      "success_condition": "all deployable units and non-git operator state separated",
+      "status": "closed",
+      "attempt_ids": [
+        "T2"
+      ],
+      "lead_ids": [
+        "L2"
+      ],
+      "result_summary": "Two independent Vercel Next.js projects and a separate Convex deployment; dashboard state remains operator-verified.",
+      "blocker": null
+    },
+    {
+      "axis_id": "A3",
+      "question": "비개발자에게 Convex DB와 예약 mutation 불변식을 어떻게 정확히 설명할 것인가?",
+      "lecture_need": "슬라이드 7, 8의 데이터와 서버 규칙 설명",
+      "outline_refs": [
+        "S7",
+        "S8"
+      ],
+      "source_territories": [
+        "Convex official docs",
+        "Jeomwon backend engine"
+      ],
+      "freshness": "current at research date",
+      "success_condition": "platform primitives and product rules distinguished with state-machine evidence",
+      "status": "closed",
+      "attempt_ids": [
+        "T3"
+      ],
+      "lead_ids": [
+        "L3"
+      ],
+      "result_summary": "Convex supplies reactive transactions and durable scheduling; Jeomwon mutations own booking policy.",
+      "blocker": null
+    },
+    {
+      "axis_id": "A4",
+      "question": "네 업종 후보가 현재 Jeomwon capability에 맞으며 라이브 데모 위험은 무엇인가?",
+      "lecture_need": "슬라이드 3, 11, 12의 현장 선택과 데모",
+      "outline_refs": [
+        "S3",
+        "S11",
+        "S12"
+      ],
+      "source_territories": [
+        "Jeomwon examples",
+        "domain pack schema",
+        "generated UI"
+      ],
+      "freshness": "current at research date",
+      "success_condition": "all four domains mapped to current matrix with explicit fallbacks",
+      "status": "closed",
+      "attempt_ids": [
+        "T4"
+      ],
+      "lead_ids": [
+        "L4"
+      ],
+      "result_summary": "Salon is safest; each vertical fits the matrix but has a named capability/demo limit.",
+      "blocker": null
+    },
+    {
+      "axis_id": "A5",
+      "question": "Polar 구독 결제와 미구현 예약 결제의 경계를 어떤 증거로 설명할 것인가?",
+      "lecture_need": "슬라이드 14의 결제 범위 정확성",
+      "outline_refs": [
+        "S14"
+      ],
+      "source_territories": [
+        "Polar official docs",
+        "Jeomwon subscriptions",
+        "reservation schema"
+      ],
+      "freshness": "current at research date",
+      "success_condition": "provider capability and Jeomwon product boundary independently corroborated",
+      "status": "closed",
+      "attempt_ids": [
+        "T5"
+      ],
+      "lead_ids": [
+        "L5"
+      ],
+      "result_summary": "Default-off account subscription wiring exists; per-reservation checkout/payment state does not.",
+      "blocker": null
+    },
+    {
+      "axis_id": "A6",
+      "question": "소상공인 비개발자가 수업 후 재현할 수 있는 60분 설명 순서와 프롬프트는 무엇인가?",
+      "lecture_need": "슬라이드 1, 4, 10, 15의 학습 전이",
+      "outline_refs": [
+        "S1",
+        "S4",
+        "S10",
+        "S15"
+      ],
+      "source_territories": [
+        "adult learning primary sources",
+        "lecture workflow"
+      ],
+      "freshness": "research literature through research date",
+      "success_condition": "worked-example and delayed-retrieval design tied to observable learner artifacts",
+      "status": "closed",
+      "attempt_ids": [
+        "T6"
+      ],
+      "lead_ids": [
+        "L6"
+      ],
+      "result_summary": "Use worked example, fading, blank reconstruction, changed case, and delayed reproduction; 60 minutes is only a container.",
+      "blocker": null
+    }
+  ],
+  "attempts": [
+    {
+      "attempt_id": "T1",
+      "axis_id": "A1",
+      "mode": "parallel_team",
+      "status": "returned_complete",
+      "started_at": "2026-08-08T08:45:00Z",
+      "finished_at": "2026-08-08T08:50:19Z",
+      "host_reference": "st_019fe08a",
+      "error": null,
+      "result_digest": "team-result:A1:generator-boundary"
+    },
+    {
+      "attempt_id": "T2",
+      "axis_id": "A2",
+      "mode": "parallel_team",
+      "status": "returned_complete",
+      "started_at": "2026-08-08T08:45:00Z",
+      "finished_at": "2026-08-08T08:48:52Z",
+      "host_reference": "st_019fe08b",
+      "error": null,
+      "result_digest": "team-result:A2:deployment-boundary"
+    },
+    {
+      "attempt_id": "T3",
+      "axis_id": "A3",
+      "mode": "parallel_team",
+      "status": "returned_complete",
+      "started_at": "2026-08-08T08:45:00Z",
+      "finished_at": "2026-08-08T08:48:20Z",
+      "host_reference": "st_019fe08c",
+      "error": null,
+      "result_digest": "team-result:A3:convex-invariants"
+    },
+    {
+      "attempt_id": "T4",
+      "axis_id": "A4",
+      "mode": "parallel_team",
+      "status": "returned_complete",
+      "started_at": "2026-08-08T08:45:00Z",
+      "finished_at": "2026-08-08T08:49:09Z",
+      "host_reference": "st_019fe08d",
+      "error": null,
+      "result_digest": "team-result:A4:vertical-matrix"
+    },
+    {
+      "attempt_id": "T5",
+      "axis_id": "A5",
+      "mode": "parallel_team",
+      "status": "returned_complete",
+      "started_at": "2026-08-08T08:45:00Z",
+      "finished_at": "2026-08-08T08:49:49Z",
+      "host_reference": "st_019fe08e",
+      "error": null,
+      "result_digest": "team-result:A5:payment-boundary"
+    },
+    {
+      "attempt_id": "T6",
+      "axis_id": "A6",
+      "mode": "parallel_team",
+      "status": "returned_complete",
+      "started_at": "2026-08-08T08:45:00Z",
+      "finished_at": "2026-08-08T08:54:24Z",
+      "host_reference": "st_019fe08f",
+      "error": null,
+      "result_digest": "team-result:A6:learning-transfer"
+    }
+  ],
+  "waves": [
+    {
+      "wave_id": "W1",
+      "kind": "initial",
+      "status": "complete",
+      "axis_ids": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6"
+      ],
+      "lead_ids": [],
+      "started_at": "2026-08-08T08:45:00Z",
+      "completed_at": "2026-08-08T08:54:24Z",
+      "summary": "Eight-member team completed six independent evidence axes plus independent red-team and alternative narrative."
+    },
+    {
+      "wave_id": "W2",
+      "kind": "counter_audit",
+      "status": "complete",
+      "axis_ids": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6"
+      ],
+      "lead_ids": [
+        "L1",
+        "L3",
+        "L4"
+      ],
+      "started_at": "2026-08-08T08:54:25Z",
+      "completed_at": "2026-08-08T08:58:00Z",
+      "summary": "Skeptic challenged arbitrary-code, deployment, policy, parser, runtime, payment, provenance, and learning claims."
+    },
+    {
+      "wave_id": "W3",
+      "kind": "gap_audit",
+      "status": "complete",
+      "axis_ids": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6"
+      ],
+      "lead_ids": [
+        "L2",
+        "L5",
+        "L6"
+      ],
+      "started_at": "2026-08-08T08:58:01Z",
+      "completed_at": "2026-08-08T09:01:00Z",
+      "summary": "External dashboard, live Polar sandbox, all-vertical live QA, and direct audience-trial gaps were bounded and exposed."
+    }
+  ],
+  "leads": [
+    {
+      "lead_id": "L1",
+      "parent_axis_id": "A1",
+      "description": "Stale FEATURES/VISION statements versus current source",
+      "status": "investigated_closed",
+      "resolution": "Current source and app/skill contracts override stale snapshot statements.",
+      "source_ids": [
+        "R3",
+        "R5"
+      ]
+    },
+    {
+      "lead_id": "L2",
+      "parent_axis_id": "A2",
+      "description": "Actual Vercel dashboard roots, env scopes, domains, and deploy keys",
+      "status": "dead_end",
+      "resolution": "External operator state not represented in git; lecture labels it as a checklist, not a current fact.",
+      "source_ids": [
+        "R9",
+        "R10"
+      ]
+    },
+    {
+      "lead_id": "L3",
+      "parent_axis_id": "A3",
+      "description": "Scheduler punctuality and held-cancellation nuance",
+      "status": "investigated_closed",
+      "resolution": "Durable does not mean punctual; valid held cancellation frees capacity while confirmed/rescheduled may escalate.",
+      "source_ids": [
+        "R13",
+        "R14"
+      ]
+    },
+    {
+      "lead_id": "L4",
+      "parent_axis_id": "A4",
+      "description": "Deterministic parser and stale pension sample",
+      "status": "investigated_closed",
+      "resolution": "Use safe relative input or direct slot UI; never use committed sample as current generator input.",
+      "source_ids": [
+        "R15",
+        "R16"
+      ]
+    },
+    {
+      "lead_id": "L5",
+      "parent_axis_id": "A5",
+      "description": "Live Polar sandbox checkout, webhook, and portal evidence",
+      "status": "dead_end",
+      "resolution": "Not executed in this research phase; source-state claim narrowed and gap disclosed.",
+      "source_ids": [
+        "R17",
+        "R18",
+        "R19"
+      ]
+    },
+    {
+      "lead_id": "L6",
+      "parent_axis_id": "A6",
+      "description": "Direct randomized trial for this audience and exact 60-minute ladder",
+      "status": "dead_end",
+      "resolution": "No direct trial found; design remains a measurable instructional hypothesis.",
+      "source_ids": [
+        "R21",
+        "R22",
+        "R23",
+        "R24",
+        "R25"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "R1",
+      "title": "Jeomwon scaffold script",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/cd8d222/skill/scripts/scaffold.mjs",
+      "source_type": "repository",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R2",
+      "title": "Jeomwon inject script",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/cd8d222/skill/scripts/inject.mjs",
+      "source_type": "repository",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R3",
+      "title": "Jeomwon bootstrap script",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/cd8d222/skill/scripts/bootstrap.mjs",
+      "source_type": "repository",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R4",
+      "title": "Jeomwon verify script",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/cd8d222/skill/scripts/verify.mjs",
+      "source_type": "repository",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R5",
+      "title": "Authenticated chat route",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/cd8d222/template/apps/app/src/app/api/chat/route.ts",
+      "source_type": "repository",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R6",
+      "title": "Public web contract",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/cd8d222/template/apps/web/README.md",
+      "source_type": "repository",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R7",
+      "title": "Authenticated app contract",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/cd8d222/template/apps/app/README.md",
+      "source_type": "repository",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R8",
+      "title": "App Vercel config",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/cd8d222/template/apps/app/vercel.json",
+      "source_type": "repository",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R9",
+      "title": "Convex Vercel hosting",
+      "url": "https://docs.convex.dev/production/hosting/vercel",
+      "source_type": "official_docs",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R10",
+      "title": "Vercel monorepos",
+      "url": "https://vercel.com/docs/monorepos",
+      "source_type": "official_docs",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R11",
+      "title": "Convex query functions",
+      "url": "https://docs.convex.dev/functions/query-functions",
+      "source_type": "official_docs",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R12",
+      "title": "Convex mutation functions",
+      "url": "https://docs.convex.dev/functions/mutation-functions",
+      "source_type": "official_docs",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R13",
+      "title": "Convex scheduled functions",
+      "url": "https://docs.convex.dev/scheduling/scheduled-functions",
+      "source_type": "official_docs",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R14",
+      "title": "Jeomwon customer reservation lifecycle",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/cd8d222/template/packages/backend/convex/engine/customerReservationLifecycle.ts",
+      "source_type": "repository",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R15",
+      "title": "Jeomwon domain examples",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/cd8d222/skill/EXAMPLES.md",
+      "source_type": "repository",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R16",
+      "title": "Jeomwon agent parser and runtime",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/cd8d222/template/packages/agents/src/index.ts",
+      "source_type": "repository",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R17",
+      "title": "Polar subscriptions",
+      "url": "https://polar.sh/docs/features/subscriptions/introduction",
+      "source_type": "official_docs",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R18",
+      "title": "Polar products",
+      "url": "https://polar.sh/docs/features/products",
+      "source_type": "official_docs",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R19",
+      "title": "Jeomwon subscriptions",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/cd8d222/template/packages/backend/convex/subscriptions.ts",
+      "source_type": "repository",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R20",
+      "title": "Jeomwon schema",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/cd8d222/template/packages/backend/convex/schema.ts",
+      "source_type": "repository",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R21",
+      "title": "Worked examples and example-problem pairs",
+      "url": "https://doi.org/10.1016/j.cedpsych.2010.10.004",
+      "source_type": "research",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R22",
+      "title": "Fading worked examples",
+      "url": "https://eric.ed.gov/?id=EJ658398",
+      "source_type": "research",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R23",
+      "title": "Video production and engagement",
+      "url": "https://up.csail.mit.edu/other-pubs/las2014-pguo-engagement.pdf",
+      "source_type": "research",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R24",
+      "title": "Segmentation cognitive-load counterevidence",
+      "url": "https://eric.ed.gov/?id=EJ1341335",
+      "source_type": "research",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R25",
+      "title": "Retrieval practice and delayed retention",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/16507066/",
+      "source_type": "research",
+      "primary": true,
+      "accessed_at": "2026-08-08"
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "O1",
+      "source_id": "R1",
+      "statement": "Scaffold copies the canonical template and rewrites project tokens.",
+      "supports_claim_ids": [
+        "C1"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "generator-source",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O2",
+      "source_id": "R2",
+      "statement": "Injection writes the closed domain configuration and optional email sample.",
+      "supports_claim_ids": [
+        "C1"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "generator-source",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O3",
+      "source_id": "R3",
+      "statement": "Bootstrap sequences scaffold, inject, and verify while excluding live QA.",
+      "supports_claim_ids": [
+        "C1"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "generator-source",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O4",
+      "source_id": "R4",
+      "statement": "Verify performs offline checks and only runs QA when explicitly configured.",
+      "supports_claim_ids": [
+        "C1"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "generator-source",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O5",
+      "source_id": "R6",
+      "statement": "The public web contract excludes Convex, auth, chat, and reservation runtime.",
+      "supports_claim_ids": [
+        "C2"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "product-source",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O6",
+      "source_id": "R7",
+      "statement": "The authenticated app owns customer, operator, and chat surfaces.",
+      "supports_claim_ids": [
+        "C2"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "product-source",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O7",
+      "source_id": "R8",
+      "statement": "The app build coordinates Convex deployment and Next.js build.",
+      "supports_claim_ids": [
+        "C2"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "product-source",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O8",
+      "source_id": "R9",
+      "statement": "Convex uses separate deployment URLs and deploy keys with Vercel hosting.",
+      "supports_claim_ids": [
+        "C2"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "platform-docs",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O9",
+      "source_id": "R10",
+      "statement": "Vercel monorepos use independent projects and roots per deployable.",
+      "supports_claim_ids": [
+        "C2"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "platform-docs",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O10",
+      "source_id": "R11",
+      "statement": "Subscribed queries deliver current results when dependent data changes.",
+      "supports_claim_ids": [
+        "C3"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "convex-docs",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O11",
+      "source_id": "R12",
+      "statement": "Mutation reads and writes execute transactionally.",
+      "supports_claim_ids": [
+        "C3"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "convex-docs",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O12",
+      "source_id": "R13",
+      "statement": "Scheduled mutations are durable but not exactly punctual.",
+      "supports_claim_ids": [
+        "C3"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "convex-docs",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O13",
+      "source_id": "R14",
+      "statement": "Jeomwon mutation code owns collision, state, cancel, audit, and expiry rules.",
+      "supports_claim_ids": [
+        "C3"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "product-source",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O14",
+      "source_id": "R15",
+      "statement": "Four domain examples map to current resource, slot, and widget combinations.",
+      "supports_claim_ids": [
+        "C4"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "generator-source",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O15",
+      "source_id": "R16",
+      "statement": "The deterministic parser accepts limited relative phrases and one OpenAI Agent is instantiated.",
+      "supports_claim_ids": [
+        "C4"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "runtime-source",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O16",
+      "source_id": "R17",
+      "statement": "Polar documents recurring subscription checkout and customer portal behavior.",
+      "supports_claim_ids": [
+        "C5"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "provider-docs",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O17",
+      "source_id": "R18",
+      "statement": "Polar also supports one-time products, so provider capability is broader than Jeomwon wiring.",
+      "supports_claim_ids": [
+        "C5"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "provider-docs",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O18",
+      "source_id": "R19",
+      "statement": "Jeomwon checkout, subscription, portal, and webhook functions are account-plan features.",
+      "supports_claim_ids": [
+        "C5"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "product-source",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O19",
+      "source_id": "R20",
+      "statement": "Reservation schema has no payment, order, amount, currency, deposit, or refund linkage.",
+      "supports_claim_ids": [
+        "C5"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "product-source",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O20",
+      "source_id": "R21",
+      "statement": "Worked examples and example-first sequences improve novice transfer and effort.",
+      "supports_claim_ids": [
+        "C6"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "learning-study",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O21",
+      "source_id": "R22",
+      "statement": "Fading complete examples toward problems supports near transfer.",
+      "supports_claim_ids": [
+        "C6"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "learning-study",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O22",
+      "source_id": "R23",
+      "statement": "Shorter intentional video units improve engagement and problem-attempt behavior.",
+      "supports_claim_ids": [
+        "C7"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "engagement-study",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O23",
+      "source_id": "R24",
+      "statement": "Over-segmentation and excessive prompts can increase distraction and reduce germane processing.",
+      "supports_claim_ids": [],
+      "contradicts_claim_ids": [
+        "C7"
+      ],
+      "independence_group": "segmentation-counterstudy",
+      "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O24",
+      "source_id": "R25",
+      "statement": "Retrieval practice improves delayed retention at two days and one week.",
+      "supports_claim_ids": [
+        "C7"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "retrieval-study",
+      "valid_at": "2026-08-08"
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "C1",
+      "statement": "Jeomwon generation is template copy, strict configuration injection, and offline verification rather than arbitrary code generation.",
+      "status": "supported",
+      "risk": "low",
+      "support_observation_ids": [
+        "O1",
+        "O2",
+        "O3",
+        "O4"
+      ],
+      "contradict_observation_ids": [],
+      "source_ids": [
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "primary_source_id": null,
+      "counter_search": "Checked seed ownership, setup, QA, and extension contract counterexamples.",
+      "valid_at": "2026-08-08",
+      "verification_ids": [],
+      "slide_refs": [
+        "S1",
+        "S5",
+        "S9",
+        "S11"
+      ]
+    },
+    {
+      "claim_id": "C2",
+      "statement": "Jeomwon deploys two independent Next.js projects and one separate Convex backend; rollout is not atomic.",
+      "status": "supported",
+      "risk": "medium",
+      "support_observation_ids": [
+        "O5",
+        "O6",
+        "O7",
+        "O8",
+        "O9"
+      ],
+      "contradict_observation_ids": [],
+      "source_ids": [
+        "R6",
+        "R7",
+        "R8",
+        "R9",
+        "R10"
+      ],
+      "primary_source_id": null,
+      "counter_search": "Checked static-export, single-project, and Convex-inside-Vercel alternatives.",
+      "valid_at": "2026-08-08",
+      "verification_ids": [],
+      "slide_refs": [
+        "S5",
+        "S6",
+        "S13"
+      ]
+    },
+    {
+      "claim_id": "C3",
+      "statement": "Convex supplies reactive transactional primitives while Jeomwon mutations own booking collision and lifecycle policy.",
+      "status": "supported",
+      "risk": "medium",
+      "support_observation_ids": [
+        "O10",
+        "O11",
+        "O12",
+        "O13"
+      ],
+      "contradict_observation_ids": [],
+      "source_ids": [
+        "R11",
+        "R12",
+        "R13",
+        "R14"
+      ],
+      "primary_source_id": null,
+      "counter_search": "Checked scheduler punctuality, lock semantics, cancellation states, and bypass paths.",
+      "valid_at": "2026-08-08",
+      "verification_ids": [],
+      "slide_refs": [
+        "S7",
+        "S8"
+      ]
+    },
+    {
+      "claim_id": "C4",
+      "statement": "All four workshop domains fit the current capability matrix but require domain-specific live-demo fallbacks.",
+      "status": "supported",
+      "risk": "medium",
+      "support_observation_ids": [
+        "O14",
+        "O15"
+      ],
+      "contradict_observation_ids": [],
+      "source_ids": [
+        "R15",
+        "R16"
+      ],
+      "primary_source_id": null,
+      "counter_search": "Checked group seats, midnight crossing, day horizon, stale sample, weather, and literal date parsing.",
+      "valid_at": "2026-08-08",
+      "verification_ids": [],
+      "slide_refs": [
+        "S3",
+        "S11",
+        "S12"
+      ]
+    },
+    {
+      "claim_id": "C5",
+      "statement": "Current Jeomwon Polar wiring is default-off account-plan subscription billing, and reservation lifecycle has no per-booking checkout or payment state.",
+      "status": "supported",
+      "risk": "high",
+      "support_observation_ids": [
+        "O16",
+        "O17",
+        "O18",
+        "O19"
+      ],
+      "contradict_observation_ids": [],
+      "source_ids": [
+        "R17",
+        "R18",
+        "R19",
+        "R20"
+      ],
+      "primary_source_id": "R17",
+      "counter_search": "Searched Polar one-time products and repository payment, checkout, order, amount, currency, deposit, and refund connections.",
+      "valid_at": "2026-08-08",
+      "verification_ids": [
+        "V1"
+      ],
+      "slide_refs": [
+        "S14"
+      ]
+    },
+    {
+      "claim_id": "C6",
+      "statement": "Novices should see a worked example before faded completion and independent reproduction.",
+      "status": "supported",
+      "risk": "medium",
+      "support_observation_ids": [
+        "O20",
+        "O21"
+      ],
+      "contradict_observation_ids": [],
+      "source_ids": [
+        "R21",
+        "R22"
+      ],
+      "primary_source_id": null,
+      "counter_search": "Checked problem-first and expertise-reversal conditions.",
+      "valid_at": "2026-08-08",
+      "verification_ids": [],
+      "slide_refs": [
+        "S1",
+        "S4",
+        "S10",
+        "S15"
+      ]
+    },
+    {
+      "claim_id": "C7",
+      "statement": "Meaningful short units plus delayed retrieval support reproduction, but over-segmentation must be avoided and sixty minutes is only a delivery container.",
+      "status": "supported",
+      "risk": "medium",
+      "support_observation_ids": [
+        "O22",
+        "O24"
+      ],
+      "contradict_observation_ids": [
+        "O23"
+      ],
+      "source_ids": [
+        "R23",
+        "R24",
+        "R25"
+      ],
+      "primary_source_id": null,
+      "counter_search": "Checked engagement-versus-learning, segmentation load, and immediate-versus-delayed performance.",
+      "valid_at": "2026-08-08",
+      "verification_ids": [],
+      "slide_refs": [
+        "S1",
+        "S4",
+        "S10",
+        "S15"
+      ]
+    }
+  ],
+  "verifications": [
+    {
+      "verification_id": "V1",
+      "claim_ids": [
+        "C5"
+      ],
+      "method": "official-provider-plus-repository-static-audit",
+      "status": "confirmed",
+      "command": "source review and repository countersearch",
+      "stdout_path": null,
+      "stderr_path": null,
+      "result": "Polar supports subscriptions and one-time products; Jeomwon wires account subscriptions only and reservation schema has no payment linkage.",
+      "verified_at": "2026-08-08T08:58:00Z"
+    }
+  ],
+  "visuals": [],
+  "convergence": {
+    "status": "ready",
+    "planned_axis_count": 6,
+    "closed_axis_count": 6,
+    "open_lead_count": 0,
+    "terminal_lead_count": 6,
+    "expansion_audit_count": 2,
+    "high_risk_claim_count": 1,
+    "verified_high_risk_claim_count": 1,
+    "unresolved_claim_ids": [],
+    "accepted_gap_ids": [],
+    "checked_at": "2026-08-08T09:18:00.283Z",
+    "errors": []
+  },
+  "projection": {
+    "research_md_path": "research.md",
+    "research_md_sha256": "9b8ce6f5a070c03f89825566d4b5c7cfe995f8de3741b964e07c9f921482b45e",
+    "outline_delta": [
+      "S1 promise becomes offline-verified reservation SaaS codebase.",
+      "S5/S9 show literal template copy, strict config injection, and offline verify.",
+      "S6 separates web Vercel, app Vercel, and external Convex.",
+      "S7 distinguishes Convex primitives from Jeomwon booking policy.",
+      "S8 includes held-cancel nuance and durable-not-punctual scheduling.",
+      "S10 uses one mostly blank changed-case completion sheet.",
+      "S11 uses salon haircut and supported relative/direct slot input.",
+      "S12 labels pre-provisioned reference UI unless same-artifact lineage is proven.",
+      "S13 hard-stops at OFFLINE VERIFIED.",
+      "S14 physically disconnects account subscription and booking money.",
+      "S15 requires blank and delayed changed-domain reconstruction."
+    ],
+    "slide_claim_map": [
+      {
+        "slide_id": "S1",
+        "claim_ids": [
+          "C1",
+          "C6",
+          "C7"
+        ],
+        "source_ids": [
+          "R1",
+          "R2",
+          "R3",
+          "R4",
+          "R21",
+          "R22",
+          "R23",
+          "R24",
+          "R25"
+        ]
+      },
+      {
+        "slide_id": "S3",
+        "claim_ids": [
+          "C4"
+        ],
+        "source_ids": [
+          "R15",
+          "R16"
+        ]
+      },
+      {
+        "slide_id": "S4",
+        "claim_ids": [
+          "C3",
+          "C6",
+          "C7"
+        ],
+        "source_ids": [
+          "R11",
+          "R12",
+          "R13",
+          "R14",
+          "R21",
+          "R22",
+          "R23",
+          "R24",
+          "R25"
+        ]
+      },
+      {
+        "slide_id": "S5",
+        "claim_ids": [
+          "C1",
+          "C2"
+        ],
+        "source_ids": [
+          "R1",
+          "R2",
+          "R3",
+          "R4",
+          "R6",
+          "R7",
+          "R8",
+          "R9",
+          "R10"
+        ]
+      },
+      {
+        "slide_id": "S6",
+        "claim_ids": [
+          "C2"
+        ],
+        "source_ids": [
+          "R6",
+          "R7",
+          "R8",
+          "R9",
+          "R10"
+        ]
+      },
+      {
+        "slide_id": "S7",
+        "claim_ids": [
+          "C3"
+        ],
+        "source_ids": [
+          "R11",
+          "R12",
+          "R13",
+          "R14"
+        ]
+      },
+      {
+        "slide_id": "S8",
+        "claim_ids": [
+          "C3"
+        ],
+        "source_ids": [
+          "R11",
+          "R12",
+          "R13",
+          "R14"
+        ]
+      },
+      {
+        "slide_id": "S9",
+        "claim_ids": [
+          "C1"
+        ],
+        "source_ids": [
+          "R1",
+          "R2",
+          "R3",
+          "R4"
+        ]
+      },
+      {
+        "slide_id": "S10",
+        "claim_ids": [
+          "C6",
+          "C7"
+        ],
+        "source_ids": [
+          "R21",
+          "R22",
+          "R23",
+          "R24",
+          "R25"
+        ]
+      },
+      {
+        "slide_id": "S11",
+        "claim_ids": [
+          "C1",
+          "C4"
+        ],
+        "source_ids": [
+          "R1",
+          "R2",
+          "R3",
+          "R4",
+          "R15",
+          "R16"
+        ]
+      },
+      {
+        "slide_id": "S12",
+        "claim_ids": [
+          "C2",
+          "C4"
+        ],
+        "source_ids": [
+          "R6",
+          "R7",
+          "R8",
+          "R9",
+          "R10",
+          "R15",
+          "R16"
+        ]
+      },
+      {
+        "slide_id": "S13",
+        "claim_ids": [
+          "C1",
+          "C2"
+        ],
+        "source_ids": [
+          "R1",
+          "R2",
+          "R3",
+          "R4",
+          "R6",
+          "R7",
+          "R8",
+          "R9",
+          "R10"
+        ]
+      },
+      {
+        "slide_id": "S14",
+        "claim_ids": [
+          "C5"
+        ],
+        "source_ids": [
+          "R17",
+          "R18",
+          "R19",
+          "R20"
+        ]
+      },
+      {
+        "slide_id": "S15",
+        "claim_ids": [
+          "C6",
+          "C7"
+        ],
+        "source_ids": [
+          "R21",
+          "R22",
+          "R23",
+          "R24",
+          "R25"
+        ]
+      }
+    ],
+    "unresolved_summary": [
+      "Vercel dashboard roots, env scopes, domains, and deploy keys require operator verification.",
+      "Live Polar sandbox checkout, webhook, and portal evidence is pending.",
+      "All four verticals have not completed fresh authenticated live QA in this research phase.",
+      "No direct randomized trial covers this exact audience and full sixty-minute ladder.",
+      "Delayed changed-domain reproduction data will be collected after delivery."
+    ],
+    "generated_at": "2026-08-08T09:02:23Z"
+  }
+}

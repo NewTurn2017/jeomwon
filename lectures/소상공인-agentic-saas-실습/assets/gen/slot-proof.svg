@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 720" role="img" aria-labelledby="title desc">
+  <title id="title">한 자리, 두 손님, 네 경계</title>
+  <desc id="desc">같은 15시 슬롯에 두 요청이 들어오고 한 요청만 hold로 통과하는 예약 증명 다이어그램</desc>
+  <defs>
+    <radialGradient id="halo" cx="50%" cy="45%" r="55%">
+      <stop offset="0" stop-color="#00e054" stop-opacity=".22"/>
+      <stop offset=".6" stop-color="#00e054" stop-opacity=".05"/>
+      <stop offset="1" stop-color="#00e054" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="720" height="720" fill="none"/>
+  <circle cx="360" cy="342" r="282" fill="url(#halo)"/>
+  <circle cx="360" cy="342" r="248" fill="none" stroke="#00e054" stroke-opacity=".22"/>
+  <circle cx="360" cy="342" r="184" fill="none" stroke="#f4f4ee" stroke-opacity=".12" stroke-dasharray="4 10"/>
+  <path d="M130 190C216 220 266 256 310 308" fill="none" stroke="#f4f4ee" stroke-opacity=".4"/>
+  <path d="M590 520C505 482 458 426 408 378" fill="none" stroke="#ff7272" stroke-opacity=".56" stroke-dasharray="8 9"/>
+  <circle cx="130" cy="190" r="48" fill="#101512" stroke="#f4f4ee" stroke-opacity=".28"/>
+  <circle cx="590" cy="520" r="48" fill="#101512" stroke="#f4f4ee" stroke-opacity=".28"/>
+  <text x="130" y="197" fill="#f4f4ee" font-family="JetBrains Mono,monospace" font-size="18" text-anchor="middle">A</text>
+  <text x="590" y="527" fill="#f4f4ee" font-family="JetBrains Mono,monospace" font-size="18" text-anchor="middle">B</text>
+  <rect x="264" y="272" width="192" height="142" rx="14" fill="#07100a" stroke="#00e054" stroke-width="2" filter="url(#glow)"/>
+  <text x="360" y="324" fill="#00e054" font-family="JetBrains Mono,monospace" font-size="18" text-anchor="middle" letter-spacing="3">ONE SLOT</text>
+  <text x="360" y="372" fill="#ffffff" font-family="JetBrains Mono,monospace" font-size="42" font-weight="700" text-anchor="middle">15:00</text>
+  <path d="M312 430h96" stroke="#00e054" stroke-width="2"/>
+  <text x="360" y="463" fill="#f4f4ee" fill-opacity=".58" font-family="Pretendard,sans-serif" font-size="17" text-anchor="middle">디자이너 수진 · 커트 30분</text>
+  <g font-family="JetBrains Mono,monospace" font-size="13" letter-spacing="2">
+    <text x="86" y="122" fill="#00e054">REQUEST A</text>
+    <text x="540" y="592" fill="#ff7272">REQUEST B</text>
+    <text x="360" y="650" fill="#f4f4ee" fill-opacity=".42" text-anchor="middle">COLLISION · TIME · OWNERSHIP · ESCALATION</text>
+  </g>
+  <rect x="80" y="82" width="166" height="28" rx="14" fill="#00e054" fill-opacity=".12" stroke="#00e054" stroke-opacity=".36"/>
+  <text x="163" y="101" fill="#00e054" font-family="JetBrains Mono,monospace" font-size="11" text-anchor="middle">HELD / VERIFIED</text>
+  <path d="M526 567l84-84" stroke="#ff7272" stroke-width="2"/>
+  <path d="M601 483l12 12M613 483l-12 12" stroke="#ff7272" stroke-width="2"/>
+</svg>
