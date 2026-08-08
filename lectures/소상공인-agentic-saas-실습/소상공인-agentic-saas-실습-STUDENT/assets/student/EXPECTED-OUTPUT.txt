@@ -1,0 +1,13 @@
+scaffold  template -> <empty-target>
+inject    packages/backend/domain.config.ts
+verify    install
+verify    typecheck
+verify    lint
+verify    build
+
+PASS  OFFLINE VERIFIED
+SKIP  authenticated live QA
+
+표현의 의미:
+- PASS는 새 target의 오프라인 계약 통과입니다.
+- SKIP은 setup, 인증, live QA, 배포를 실행하지 않았다는 뜻입니다.

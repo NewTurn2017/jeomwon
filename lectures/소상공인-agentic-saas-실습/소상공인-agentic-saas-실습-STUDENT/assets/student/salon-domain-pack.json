@@ -1,0 +1,86 @@
+{
+  "domainKey": "salon-appointment",
+  "storeName": "라움 헤어",
+  "storeTimezone": "Asia/Seoul",
+  "locale": "ko-KR",
+  "resources": [
+    {
+      "key": "designer-sujin",
+      "label": "수진 디자이너",
+      "kind": "person"
+    }
+  ],
+  "services": [
+    {
+      "key": "haircut",
+      "label": "커트",
+      "durationMinutes": 30,
+      "slotUnit": "minutes:30",
+      "price": "30000원",
+      "resourceKind": "person"
+    }
+  ],
+  "businessHours": {
+    "monday": {
+      "closed": true
+    },
+    "tuesday": {
+      "open": "10:00",
+      "close": "20:00"
+    },
+    "wednesday": {
+      "open": "10:00",
+      "close": "20:00"
+    },
+    "thursday": {
+      "open": "10:00",
+      "close": "20:00"
+    },
+    "friday": {
+      "open": "10:00",
+      "close": "20:00"
+    },
+    "saturday": {
+      "open": "10:00",
+      "close": "18:00"
+    },
+    "sunday": {
+      "open": "11:00",
+      "close": "17:00"
+    }
+  },
+  "blackouts": [],
+  "policies": {
+    "cancelWindowHours": 24,
+    "holdMinutes": 10,
+    "confirmationRequired": true
+  },
+  "adminWidget": "calendar",
+  "notificationEmail": "ops@example.com",
+  "features": {
+    "email": true,
+    "polar": false,
+    "customerAccounts": true
+  },
+  "copy": {
+    "chatTitle": "헤어 예약 도우미",
+    "chatGreeting": "원하는 시술과 시간을 알려주시면 가능한 예약을 찾아드릴게요.",
+    "chatPlaceholder": "예: 내일 커트 예약",
+    "relevanceRefusal": "헤어 예약, 변경, 취소 문의만 도와드릴 수 있어요.",
+    "confirmationRequired": "예약 확정은 고객 확인 후에만 진행할 수 있습니다.",
+    "privacyRefusal": "공개 가능한 예약 정보만 안내할 수 있어요.",
+    "availabilityIntro": "가능한 시술 시간을 찾았어요.",
+    "holdCreated": "선택한 시술 시간을 임시로 잡아두었습니다.",
+    "confirmed": "헤어 예약이 확정되었습니다.",
+    "rescheduled": "헤어 예약이 변경되었습니다.",
+    "cancelled": "헤어 예약이 취소되었습니다.",
+    "cancelEscalated": "취소 가능 시간 규정에 걸려 매장 확인이 필요합니다.",
+    "holdExpired": "임시 홀드 시간이 지나 예약 가능 상태로 돌아갔습니다.",
+    "schemaError": "예약 요청 형식이 올바르지 않습니다.",
+    "guardrailBanner": "헤어 예약 관련 문의만 도와드릴 수 있어요.",
+    "nextStepAvailability": "원하는 시간 번호를 선택해 주세요.",
+    "nextStepHold": "내용이 맞으면 확인한다고 답해 주세요.",
+    "nextStepConfirmed": "변경이나 취소가 필요하면 다시 말씀해 주세요.",
+    "policySummary": "임시 홀드는 10분 유지되며, 예약 24시간 이내 취소는 매장 확인이 필요합니다."
+  }
+}
