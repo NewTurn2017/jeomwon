@@ -176,6 +176,9 @@ export async function pageCanonicalCall(
           case "adminDeleteSession":
             value = await bridge.adminDeleteSession(request.args);
             break;
+          case "adminMarkReservationNoShow":
+            value = await bridge.adminMarkReservationNoShow(request.args);
+            break;
           default:
             request satisfies never;
             return {

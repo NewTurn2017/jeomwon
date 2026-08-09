@@ -13,6 +13,7 @@ import { useForm } from "@tanstack/react-form";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { Upload } from "lucide-react";
 import Image from "next/image";
+import { useState } from "react";
 import { useScopedI18n } from "@/locales/client";
 
 export default function DashboardSettings() {
@@ -27,6 +28,8 @@ export default function DashboardSettings() {
     api.users.deleteCurrentUserAccount,
   );
   const { doubleCheck, getButtonProps } = useDoubleCheck();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deletionError, setDeletionError] = useState<string | null>(null);
 
   const handleUpdateUserImage = async (
     uploaded: ConvexUploadResponse<Id<"_storage">>[],
@@ -41,8 +44,16 @@ export default function DashboardSettings() {
   };
 
   const handleDeleteAccount = async () => {
-    await deleteCurrentUserAccount();
-    signOut();
+    setIsDeleting(true);
+    setDeletionError(null);
+    try {
+      await deleteCurrentUserAccount();
+      await signOut();
+    } catch (error) {
+      setDeletionError(accountDeletionErrorCode(error));
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const usernameForm = useForm({
@@ -196,19 +207,37 @@ export default function DashboardSettings() {
           </p>
         </div>
         <div className="flex min-h-14 w-full items-center justify-between rounded-lg rounded-t-none border-border border-t bg-destructive/10 px-6">
-          <p className="text-muted-foreground text-sm">
-            {t("deleteAccount.warning")}
-          </p>
+          <div className="flex flex-col gap-1">
+            <p className="text-muted-foreground text-sm">
+              {t("deleteAccount.warning")}
+            </p>
+            {(deletionError ||
+              user.accountDeletion?.status === "retryable") && (
+              <p role="alert" className="text-destructive text-sm">
+                {t("deleteAccount.retryable")}
+              </p>
+            )}
+            {(isDeleting || user.accountDeletion?.status === "pending") && (
+              <p role="status" className="text-muted-foreground text-sm">
+                {t("deleteAccount.pending")}
+              </p>
+            )}
+          </div>
           <Button
             size="sm"
             variant="destructive"
+            disabled={isDeleting || user.accountDeletion?.status === "pending"}
             {...getButtonProps({
               onClick: doubleCheck ? handleDeleteAccount : undefined,
             })}
           >
-            {doubleCheck
-              ? t("deleteAccount.confirmButton")
-              : t("deleteAccount.deleteButton")}
+            {isDeleting || user.accountDeletion?.status === "pending"
+              ? t("deleteAccount.pendingButton")
+              : deletionError || user.accountDeletion?.status === "retryable"
+                ? t("deleteAccount.retryButton")
+                : doubleCheck
+                  ? t("deleteAccount.confirmButton")
+                  : t("deleteAccount.deleteButton")}
           </Button>
           <span aria-live="assertive" className="sr-only">
             {doubleCheck ? t("deleteAccount.confirmPrompt") : ""}
@@ -216,6 +245,21 @@ export default function DashboardSettings() {
         </div>
       </section>
     </div>
+  );
+}
+
+function accountDeletionErrorCode(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const stableCodes = [
+    "account_deletion_external_failed",
+    "account_deletion_storage_failed",
+    "account_deletion_retryable",
+    "account_deletion_finalization_failed",
+    "account_deletion_in_progress",
+  ];
+  return (
+    stableCodes.find((code) => message.includes(code)) ??
+    "account_deletion_retryable"
   );
 }
 

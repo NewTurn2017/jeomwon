@@ -1,5 +1,15 @@
 import { v } from "convex/values";
 
+export const reservationEmailAudienceValidator = v.union(
+  v.literal("operator"),
+  v.literal("customer"),
+);
+
+export const reservationEmailModeValidator = v.union(
+  v.literal("capture"),
+  v.literal("sent"),
+);
+
 export const reservationEmailKindValidator = v.union(
   v.literal("reservation.confirmed"),
   v.literal("reservation.rescheduled"),
@@ -33,9 +43,8 @@ export const publicContextValidator = v.object({
 });
 
 export const emailEventPayloadValidator = v.object({
-  mode: v.union(v.literal("capture"), v.literal("sent")),
-  subject: v.string(),
-  summary: v.string(),
-  reservationId: v.union(v.string(), v.null()),
+  audience: reservationEmailAudienceValidator,
   template: reservationEmailKindValidator,
+  mode: reservationEmailModeValidator,
+  reservationId: v.string(),
 });

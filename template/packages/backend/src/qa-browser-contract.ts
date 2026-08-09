@@ -1,5 +1,6 @@
 import type {
   AdminCancelResult,
+  AdminNoShowResult,
   AdminReservationRef,
   AdminReservationResult,
   AdminSessionCreateArgs,
@@ -68,6 +69,10 @@ export type QaCanonicalCall =
   | {
       readonly operation: "adminDeleteSession";
       readonly args: AdminReservationRef;
+    }
+  | {
+      readonly operation: "adminMarkReservationNoShow";
+      readonly args: AdminReservationRef;
     };
 
 export const QA_CANONICAL_OPERATIONS = [
@@ -80,6 +85,7 @@ export const QA_CANONICAL_OPERATIONS = [
   "adminCreateSession",
   "adminUpdateSession",
   "adminDeleteSession",
+  "adminMarkReservationNoShow",
 ] as const;
 
 type QaCanonicalOperation = QaCanonicalCall["operation"];
@@ -98,6 +104,11 @@ export const QA_CANONICAL_FAILURE_CODES = [
   "admin_forbidden",
   "slot_conflict",
   "reservation_not_found",
+  "no_show_disabled",
+  "auth_required",
+  "no_show_future",
+  "no_show_wrong_status",
+  "no_show_already_marked",
 ] as const;
 
 export type QaCanonicalFailureCode =
@@ -136,4 +147,7 @@ export type QaBrowserBridgeContract = {
   readonly adminDeleteSession: (
     args: AdminReservationRef,
   ) => Promise<AdminCancelResult>;
+  readonly adminMarkReservationNoShow: (
+    args: AdminReservationRef,
+  ) => Promise<AdminNoShowResult>;
 };

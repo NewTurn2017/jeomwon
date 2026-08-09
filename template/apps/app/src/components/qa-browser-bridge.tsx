@@ -45,6 +45,8 @@ function QaBrowserBridgeDevelopment() {
         convex.mutation(jeomwonConvex.admin.updateSession, args),
       adminDeleteSession: (args) =>
         convex.mutation(jeomwonConvex.admin.deleteSession, args),
+      adminMarkReservationNoShow: (args) =>
+        convex.mutation(jeomwonConvex.admin.markReservationNoShow, args),
     } satisfies QaBrowserBridgeContract;
 
     Object.defineProperty(window, qaBrowserBridgeKey, {

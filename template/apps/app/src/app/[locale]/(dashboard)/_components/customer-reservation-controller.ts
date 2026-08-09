@@ -59,6 +59,7 @@ export function reservationActions(
     case "draft":
     case "eligible":
     case "waitlisted":
+    case "no_show":
     case "cancelled":
     case "expired":
     case "denied":
@@ -72,6 +73,7 @@ export function reservationActions(
 export function isHistoryStatus(status: ReservationStatus): boolean {
   switch (status) {
     case "cancelled":
+    case "no_show":
     case "expired":
     case "denied":
       return true;

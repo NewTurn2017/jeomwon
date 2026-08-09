@@ -6,8 +6,8 @@ import {
 import { api } from "@jeomwon/backend/convex/_generated/api";
 import { domainConfig } from "@jeomwon/backend/domain.config";
 import { fetchQuery } from "convex/nextjs";
-import { createI18nMiddleware } from "next-international/middleware";
 import { NextResponse } from "next/server";
+import { createI18nMiddleware } from "next-international/middleware";
 import {
   adminLoginRedirectUrl,
   authenticatedLoginRedirectUrl,
@@ -31,6 +31,13 @@ const I18nProxy = createI18nMiddleware({
 const isSignInPage = createRouteMatcher(["/login"]);
 
 const proxy = convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
+  // Let the exact self-contained fixture route enforce its own environment
+  // gate with notFound(). Without this bypass, auth redirects run first and
+  // turn the required QA-disabled 404 into a login redirect.
+  if (request.nextUrl.pathname === "/qa/operator-calendar") {
+    return NextResponse.next();
+  }
+
   const isAuthenticated = await convexAuth.isAuthenticated();
   const isSignIn = isSignInPage(request);
   if (isSignIn && isAuthenticated) {

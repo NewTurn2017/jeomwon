@@ -8,11 +8,48 @@ const reservationStatus = v.union(
   v.literal("held"),
   v.literal("confirmed"),
   v.literal("rescheduled"),
+  v.literal("no_show"),
   v.literal("waitlisted"),
   v.literal("cancelled"),
   v.literal("expired"),
   v.literal("denied"),
   v.literal("escalated"),
+);
+
+const reservationEmailAudience = v.union(
+  v.literal("operator"),
+  v.literal("customer"),
+);
+
+const reservationEmailTemplate = v.union(
+  v.literal("reservation.confirmed"),
+  v.literal("reservation.rescheduled"),
+  v.literal("reservation.cancelled"),
+  v.literal("reservation.escalated"),
+  v.literal("reservation.waitlist_opened"),
+);
+
+const reservationEmailDeliveryStatus = v.union(
+  v.literal("pending"),
+  v.literal("completed"),
+  v.literal("invalidated"),
+);
+
+const reservationEmailMode = v.union(v.literal("capture"), v.literal("sent"));
+
+const accountDeletionPhase = v.union(
+  v.literal("requested"),
+  v.literal("subscription_done"),
+  v.literal("storage_done"),
+  v.literal("records_redacted"),
+  v.literal("auth_deleted"),
+);
+
+const accountDeletionErrorCode = v.union(
+  v.literal("account_deletion_external_failed"),
+  v.literal("account_deletion_storage_failed"),
+  v.literal("account_deletion_retryable"),
+  v.literal("account_deletion_finalization_failed"),
 );
 
 const resourceKind = v.union(
@@ -111,6 +148,9 @@ export default defineSchema({
     // client args. Optional so rows written before this field stay valid without
     // a backfill; customer accounts are the literal-true baseline.
     origin: v.optional(v.union(v.literal("operator"), v.literal("customer"))),
+    // Private server-owned account link. Optional for rows created before the
+    // identity link existed; deletion also handles those rows by derived thread.
+    customerUserId: v.optional(v.id("users")),
     auditHistory: v.array(
       v.object({
         atMs: v.number(),
@@ -126,12 +166,35 @@ export default defineSchema({
     .index("by_domain_status_time", ["domainKey", "status", "startMs"])
     .index("by_domain_reservation_number", ["domainKey", "reservationNumber"])
     .index("by_thread", ["threadId"])
+    .index("by_customer_user", ["customerUserId"])
     .index("by_resource_time", ["domainKey", "resourceKey", "startMs"])
     .index("by_resource_status_end", [
       "domainKey",
       "resourceKey",
       "status",
       "endMs",
+    ]),
+  reservationEmailDeliveries: defineTable({
+    reservationId: v.id("reservations"),
+    audience: reservationEmailAudience,
+    template: reservationEmailTemplate,
+    generation: v.number(),
+    status: reservationEmailDeliveryStatus,
+    idempotencyKey: v.string(),
+    eventRecorded: v.boolean(),
+    mode: v.optional(reservationEmailMode),
+    invalidatedReason: v.optional(v.string()),
+    createdAtMs: v.number(),
+    updatedAtMs: v.number(),
+    completedAtMs: v.optional(v.number()),
+    invalidatedAtMs: v.optional(v.number()),
+  })
+    .index("by_reservation", ["reservationId"])
+    .index("by_reservation_audience_template_generation", [
+      "reservationId",
+      "audience",
+      "template",
+      "generation",
     ]),
   chatThreads: defineTable({
     domainKey: v.string(),
@@ -144,6 +207,23 @@ export default defineSchema({
     createdAtMs: v.number(),
     updatedAtMs: v.number(),
   }).index("by_thread", ["threadId"]),
+  accountDeletionJobs: defineTable({
+    userId: v.id("users"),
+    threadId: v.string(),
+    // Optional only for schema compatibility with jobs created before attempt
+    // ownership existed. A request/resume always assigns a fresh token before
+    // any phase mutation may run.
+    attemptToken: v.optional(v.string()),
+    phase: accountDeletionPhase,
+    reservationCursor: v.number(),
+    chatEventCursor: v.number(),
+    subscriptionCompleted: v.boolean(),
+    storageCompleted: v.boolean(),
+    leaseExpiresAtMs: v.optional(v.number()),
+    errorCode: v.optional(accountDeletionErrorCode),
+    requestedAtMs: v.number(),
+    updatedAtMs: v.number(),
+  }).index("by_user", ["userId"]),
   chatEvents: defineTable({
     domainKey: v.string(),
     threadId: v.string(),

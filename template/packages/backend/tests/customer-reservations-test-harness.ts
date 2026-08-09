@@ -1,6 +1,7 @@
 type TableName =
   | "users"
   | "reservations"
+  | "reservationEmailDeliveries"
   | "resources"
   | "chatThreads"
   | "chatEvents";
@@ -102,6 +103,7 @@ export class FakeDatabase {
   readonly tables: Record<TableName, StoredRow[]> = {
     users: [],
     reservations: [],
+    reservationEmailDeliveries: [],
     resources: [],
     chatThreads: [],
     chatEvents: [],

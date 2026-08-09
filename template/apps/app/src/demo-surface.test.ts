@@ -4,7 +4,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const templateRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+const templateRoot = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../..",
+);
 
 function source(relativePath: string): string {
   return readFileSync(resolve(templateRoot, relativePath), "utf8");
@@ -105,26 +108,22 @@ describe("authenticated app demo surface", () => {
     expect(demoReset.includes("process.env.JEOMWON_DEMO_RESET")).toBe(true);
   });
 
-  test("documents app readiness before web CTA deployment and domain switch", () => {
+  test("keeps deployment automation scoped to the authenticated app", () => {
     // Given
-    const runbook = readFileSync(
-      resolve(templateRoot, "../docs/demo-playground.md"),
-      "utf8",
-    );
-    const cutoverSection = runbook.split("## 4. 안전한 배포·도메인 전환 순서")[1];
+    const appVercel = JSON.parse(source("apps/app/vercel.json")) as Record<
+      string,
+      unknown
+    >;
+    const webVercel = resolve(templateRoot, "apps/web/vercel.json");
 
     // When
-    const appReadyIndex = cutoverSection?.indexOf("`apps/app` 데모") ?? -1;
-    const webCtaIndex = cutoverSection?.indexOf("`apps/web` 정적 마케팅") ?? -1;
-    const domainSwitchIndex =
-      cutoverSection?.indexOf("`demo.codewithgenie.com`을 app 프로젝트로 전환") ??
-      -1;
+    const buildCommand = appVercel.buildCommand;
 
     // Then
-    expect(appReadyIndex).not.toBe(-1);
-    expect(webCtaIndex).not.toBe(-1);
-    expect(domainSwitchIndex).not.toBe(-1);
-    expect(appReadyIndex < webCtaIndex).toBe(true);
-    expect(webCtaIndex < domainSwitchIndex).toBe(true);
+    expect(typeof buildCommand).toBe("string");
+    expect(String(buildCommand)).toContain("convex deploy");
+    expect(String(buildCommand)).toContain("apps/app");
+    expect(String(buildCommand)).not.toContain("apps/web");
+    expect(existsSync(webVercel)).toBe(false);
   });
 });

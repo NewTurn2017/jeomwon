@@ -139,6 +139,7 @@ Reservation statuses:
 - `held`
 - `confirmed`
 - `rescheduled`
+- `no_show`
 - `waitlisted`
 - `cancelled`
 - `expired`
@@ -303,8 +304,8 @@ Invariants:
   side effects.
 - Waitlisted rows are stored as `reservations.status: "waitlisted"` with
   `holdExpiresAtMs: null`.
-- Waitlisted rows are not active collisions. `Escalated` rows remain
-  collision-active until the operator resolves them.
+- Waitlisted and `no_show` rows are not active collisions. `Escalated` rows
+  remain collision-active until the operator resolves them.
 - `onSlotFreed` finds the first overlapping waitlisted row for the freed slot
   that has not already recorded `waitlist.notified`.
 - Notification writes a `waitlist.slotOpened` chat event, schedules
@@ -332,6 +333,20 @@ Extension-agent consumption method:
   skill repository's `skill/REFERENCE.md`.
 - Keep dedupe at the feature boundary and keep generated-app feature toggles
   off by default.
+
+## No-show
+
+Source: `./noShow.ts`. Mutation boundary: `../admin.ts`. Toggle:
+`domainConfig.features.noShow` (off by default).
+
+The authenticated operator-only `admin:markReservationNoShow` mutation marks a
+`confirmed` or `rescheduled` reservation only when its server-observed start is
+not in the future. The terminal transition records `reservation.no_show`, syncs
+the existing eight-field `PublicContext` with `copy.noShow`, and deliberately
+creates no chat event, email delivery, scheduler job, or waitlist notification.
+`no_show` rows are excluded from collision-active and customer edit/cancel sets.
+Repeated and invalid attempts fail with stable no-show contract codes before
+writes. The feature adds no fee, sanction, registry, table, or customer PII.
 
 ## Operator calendar CRUD
 

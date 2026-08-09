@@ -141,6 +141,10 @@ export function nextStepForStatus(status: ReservationStatus) {
     return "운영자 확인을 기다려 주세요.";
   }
 
+  if (status === "no_show") {
+    return domainConfig.copy.noShow ?? domainConfig.copy.nextStepAvailability;
+  }
+
   if (status === "expired") {
     return domainConfig.copy.nextStepAvailability;
   }

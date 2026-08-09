@@ -977,7 +977,7 @@ function deriveRelevanceTerms() {
   }
 
   for (const copy of Object.values(domainConfig.copy)) {
-    addTokens(copy, "copy");
+    if (copy !== null) addTokens(copy, "copy");
   }
 
   return [...terms];

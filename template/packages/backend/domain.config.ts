@@ -78,6 +78,7 @@ export type DomainCopy = {
   nextStepAvailability: string;
   nextStepHold: string;
   nextStepConfirmed: string;
+  noShow: string | null;
   policySummary: string;
 };
 
@@ -101,6 +102,7 @@ export type DomainConfig = {
     waitlist: boolean;
     customerAccounts: true;
     operatorCalendarCrud: boolean;
+    noShow: boolean;
   };
   copy: DomainCopy;
 };
@@ -154,6 +156,7 @@ export const domainConfig: DomainConfig = {
     waitlist: false,
     customerAccounts: true,
     operatorCalendarCrud: false,
+    noShow: false,
   },
   copy: {
     chatTitle: "예약 도우미",
@@ -179,6 +182,7 @@ export const domainConfig: DomainConfig = {
     nextStepAvailability: "원하는 시간을 선택해 주세요.",
     nextStepHold: "내용이 맞으면 확인한다고 답해 주세요.",
     nextStepConfirmed: "변경이나 취소가 필요하면 다시 말씀해 주세요.",
+    noShow: null,
     policySummary:
       "확정 전 임시 홀드는 10분 유지되며, 예약 시작 24시간 이내 취소는 운영자 확인이 필요합니다.",
   },

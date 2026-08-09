@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { basename } from "node:path";
 import { fileURLToPath } from "node:url";
+import { slugify } from "../../../scripts/setup/config";
 
 const templateRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const setupScript = fileURLToPath(
@@ -10,6 +12,7 @@ const setupScript = fileURLToPath(
 const clientId = "google-client-id.apps.googleusercontent.com";
 const clientSecret = "google-client-secret-sentinel";
 const adminEmail = "owner@example.invalid";
+const expectedRedirectUri = `https://${slugify(basename(templateRoot))}-dry-run.convex.site/api/auth/callback/google`;
 
 function runFreshSetup() {
   const result = spawnSync(
@@ -27,6 +30,7 @@ function runFreshSetup() {
       env: {
         ...process.env,
         NO_COLOR: "1",
+        JEOMWON_CLI_LANG: "ko",
         JEOMWON_SETUP_STUBS: JSON.stringify({
           values: {
             AUTH_GOOGLE_ID: clientId,
@@ -57,22 +61,18 @@ describe("first-success setup contract", () => {
     const result = runFreshSetup();
 
     expect(result.status).toBe(0);
-    expect(
-      result.output.includes(
-        "Redirect URI: https://template-dry-run.convex.site/api/auth/callback/google",
-      ),
-    ).toBe(true);
+    expect(result.output.includes(`Redirect URI: ${expectedRedirectUri}`)).toBe(
+      true,
+    );
     expect(result.output.includes("Redirect URI 등록 확인됨 (stub)")).toBe(
       true,
     );
     expect(
       result.output.includes("로컬 첫 성공용 익명 고객 로그인 자동 활성화"),
     ).toBe(true);
-    expect(
-      result.output.includes(
-        "DRY RUN: would write AGENT_RUNTIME to apps/app/.env.local.",
-      ),
-    ).toBe(true);
+    expect(result.output.includes("[local_env_write:app:AGENT_RUNTIME]")).toBe(
+      true,
+    );
     expect(
       result.output.includes(
         "Resend · OpenAI · Polar 설정은 첫 성공 이후로 유예",
@@ -102,6 +102,7 @@ describe("first-success setup contract", () => {
         env: {
           ...process.env,
           NO_COLOR: "1",
+          JEOMWON_CLI_LANG: "ko",
           JEOMWON_SETUP_STUBS: JSON.stringify({
             values: {
               AUTH_GOOGLE_ID: clientId,
@@ -123,17 +124,20 @@ describe("first-success setup contract", () => {
     const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
 
     expect(result.status).toBe(1);
-    expect(output.includes("Setup stopped [oauth_configuration]")).toBe(true);
-    expect(
-      output.includes(
-        "https://template-dry-run.convex.site/api/auth/callback/google",
-      ),
-    ).toBe(true);
+    expect(output.includes("[oauth_configuration]")).toBe(true);
+    expect(output.includes(expectedRedirectUri)).toBe(true);
     expect(output.includes(clientSecret)).toBe(false);
   });
 
   test("Convex commands use the active Bun executable without npx shell lookup", () => {
-    const source = readFileSync(setupScript, "utf8");
+    const indexSource = readFileSync(setupScript, "utf8");
+    const convexSource = readFileSync(
+      fileURLToPath(
+        new URL("../../../scripts/setup/convex.ts", import.meta.url),
+      ),
+      "utf8",
+    );
+    const source = `${indexSource}\n${convexSource}`;
 
     expect(
       source.includes('spawn(process.execPath, ["x", "convex", ...args]'),

@@ -71,6 +71,7 @@ function runSetup(stubs: Stubs) {
       env: {
         ...process.env,
         NO_COLOR: "1",
+        JEOMWON_CLI_LANG: "ko",
         JEOMWON_SETUP_STUBS: JSON.stringify(stubs),
       },
     },
@@ -91,7 +92,7 @@ describe("anonymous login setup matrix", () => {
     expect(result.status).toBe(0);
     expect(result.output.includes("AUTH_DEV_ANONYMOUS")).toBe(false);
     expect(
-      result.output.includes("would set Convex env AUTH_ANONYMOUS_LOGIN"),
+      result.output.includes("[convex_env_set:AUTH_ANONYMOUS_LOGIN]"),
     ).toBe(true);
     const appAgentWrites = result.output
       .split("\n")
@@ -123,12 +124,8 @@ describe("anonymous login setup matrix", () => {
     expect(result.output).toMatch(
       "Anonymous login postflight passed (Convex/app synchronized; values hidden).",
     );
-    expect(result.output).toMatch(
-      "DRY RUN: would set Convex env AUTH_ANONYMOUS_LOGIN (value hidden).",
-    );
-    expect(result.output).toMatch(
-      "DRY RUN: would write AUTH_ANONYMOUS_LOGIN to apps/app/.env.local.",
-    );
+    expect(result.output).toMatch("[convex_env_set:AUTH_ANONYMOUS_LOGIN]");
+    expect(result.output).toMatch("[local_env_write:app:AUTH_ANONYMOUS_LOGIN]");
     expect(result.output.includes("AUTH_DEV_ANONYMOUS")).toBe(false);
   });
 
@@ -146,9 +143,9 @@ describe("anonymous login setup matrix", () => {
 
       const result = runSetup(stubs);
       expect(result.status).toBe(1);
-      expect(result.output).toMatch("explicit production opt-in is required");
+      expect(result.output).toMatch("production_anonymous_opt_in_required");
       expect(
-        result.output.includes("would set Convex env AUTH_ANONYMOUS_LOGIN"),
+        result.output.includes("[convex_env_set:AUTH_ANONYMOUS_LOGIN]"),
       ).toBe(false);
     }
 
@@ -175,7 +172,7 @@ describe("anonymous login setup matrix", () => {
     const result = runSetup(stubs);
 
     expect(result.status).toBe(1);
-    expect(result.output).toMatch("JEOMWON_ADMIN_EMAILS is required");
+    expect(result.output).toMatch("admin_email_required");
   });
 
   test("a malformed allowlist refuses before anonymous enablement", () => {
@@ -186,11 +183,9 @@ describe("anonymous login setup matrix", () => {
     const result = runSetup(stubs);
 
     expect(result.status).toBe(1);
-    expect(result.output).toMatch(
-      "JEOMWON_ADMIN_EMAILS expects email addresses",
-    );
+    expect(result.output).toMatch("admin_email_invalid");
     expect(
-      result.output.includes("would set Convex env AUTH_ANONYMOUS_LOGIN"),
+      result.output.includes("[convex_env_set:AUTH_ANONYMOUS_LOGIN]"),
     ).toBe(false);
   });
 
@@ -223,7 +218,7 @@ describe("anonymous login setup matrix", () => {
       expect(result.output).toMatch("JEOMWON_ADMIN_EMAILS");
       expect(result.output.includes(existingAllowlist)).toBe(false);
       expect(
-        result.output.includes("would set Convex env AUTH_ANONYMOUS_LOGIN"),
+        result.output.includes("[convex_env_set:AUTH_ANONYMOUS_LOGIN]"),
       ).toBe(false);
       expect(result.output.includes("Anonymous login postflight passed")).toBe(
         false,
@@ -237,9 +232,9 @@ describe("anonymous login setup matrix", () => {
     const first = runSetup(providerOff);
     expect(first.status).toBe(1);
     expect(first.output).toMatch("anonymous_login_config_mismatch");
-    expect(
-      first.output.includes("would set Convex env AUTH_ANONYMOUS_LOGIN"),
-    ).toBe(false);
+    expect(first.output.includes("[convex_env_set:AUTH_ANONYMOUS_LOGIN]")).toBe(
+      false,
+    );
 
     const appOff = baseStubs(true);
     appOff.existingConvexEnv = {
@@ -250,7 +245,7 @@ describe("anonymous login setup matrix", () => {
     expect(second.status).toBe(1);
     expect(second.output).toMatch("anonymous_login_config_mismatch");
     expect(
-      second.output.includes("would set Convex env AUTH_ANONYMOUS_LOGIN"),
+      second.output.includes("[convex_env_set:AUTH_ANONYMOUS_LOGIN]"),
     ).toBe(false);
   });
 

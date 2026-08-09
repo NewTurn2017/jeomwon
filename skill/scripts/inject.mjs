@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { fail as cliFail, createCli, parseCommonArgs } from "./cli.mjs";
 
 const RESOURCE_KINDS = new Set(["person", "seat", "room", "unit"]);
 const SLOT_UNITS = new Set(["minutes:30", "hour", "day"]);
@@ -34,7 +35,7 @@ const TOP_LEVEL_KEYS = [
 ];
 // Optional kit-core features default off. customerAccounts is a compatibility
 // literal handled separately: omission materializes true and false is rejected.
-const OPTIONAL_FEATURE_KEYS = ["waitlist", "operatorCalendarCrud"];
+const OPTIONAL_FEATURE_KEYS = ["waitlist", "operatorCalendarCrud", "noShow"];
 const COPY_KEYS = [
 	"chatTitle",
 	"chatGreeting",
@@ -58,28 +59,26 @@ const COPY_KEYS = [
 ];
 
 function fail(message) {
-	console.error(`ERROR: ${message}`);
-	process.exit(1);
+	cliFail("pack_invalid", message);
 }
 
-function usage() {
-	fail("usage: bun skill/scripts/inject.mjs <target-dir> <domain-pack.json>");
+const parsed = parseCommonArgs(process.argv.slice(2));
+if (parsed.error) cliFail(parsed.error, parsed.detail);
+const cli = createCli("inject", parsed.language);
+const usage =
+	"bun inject.mjs <target-dir> <domain-pack.json> [--lang ko|en|auto]";
+if (parsed.help) {
+	cli.help(usage);
+	process.exit(0);
 }
-
-const [targetArg, packArg] = process.argv.slice(2);
-if (!targetArg || !packArg) {
-	usage();
-}
+const [targetArg, packArg, ...extra] = parsed.positional;
+if (!targetArg || !packArg || extra.length > 0) cliFail("usage", usage);
 
 const targetDir = resolve(process.cwd(), targetArg);
 const packPath = resolve(process.cwd(), packArg);
 
-if (!existsSync(targetDir)) {
-	fail(`missing target directory: ${targetDir}`);
-}
-if (!existsSync(packPath)) {
-	fail(`missing domain pack JSON: ${packPath}`);
-}
+if (!existsSync(targetDir)) cliFail("target_missing", targetDir);
+if (!existsSync(packPath)) cliFail("pack_missing", packPath);
 
 const pack = await readJson(packPath);
 validateDomainPack(pack);
@@ -96,9 +95,7 @@ if (existsSync(emailSamplePath)) {
 }
 
 formatGeneratedFiles(
-	[domainConfigPath, emailSamplePath].filter((path) =>
-		existsSync(path),
-	),
+	[domainConfigPath, emailSamplePath].filter((path) => existsSync(path)),
 );
 
 console.log(`Injected domain pack: ${pack.domainKey}`);
@@ -136,11 +133,17 @@ function formatGeneratedFiles(paths) {
 	const attempts = existsSync(localBiome)
 		? [[localBiome, ["format", "--write", ...paths]]]
 		: [
-				["bunx", ["--offline", "@biomejs/biome", "format", "--write", ...paths]],
+				[
+					"bunx",
+					["--offline", "@biomejs/biome", "format", "--write", ...paths],
+				],
 				["bunx", ["@biomejs/biome", "format", "--write", ...paths]],
 			];
 	for (const [command, args] of attempts) {
-		const result = spawnSync(command, args, { cwd: targetDir, stdio: "ignore" });
+		const result = spawnSync(command, args, {
+			cwd: targetDir,
+			stdio: "ignore",
+		});
 		if (result.status === 0) {
 			return;
 		}
@@ -165,7 +168,7 @@ function validateDomainPack(value) {
 	validateBlackouts(value.blackouts);
 	validatePolicies(value.policies);
 	validateFeatures(value.features, value.adminWidget);
-	validateCopy(value.copy);
+	validateCopy(value.copy, value.features.noShow);
 }
 
 function validateResources(resources) {
@@ -353,11 +356,21 @@ function validateFeatures(features, adminWidget) {
 	}
 }
 
-function validateCopy(copy) {
+function validateCopy(copy, noShowEnabled) {
 	assertRecord(copy, "copy");
-	requireExactKeys(copy, COPY_KEYS, "copy");
+	const requiredKeys = noShowEnabled ? [...COPY_KEYS, "noShow"] : COPY_KEYS;
+	requireAllowedKeys(copy, [...COPY_KEYS, "noShow"], "copy");
+	const missing = requiredKeys.filter((key) => copy[key] === undefined);
+	if (missing.length > 0) {
+		fail(`copy missing required keys: ${missing.join(", ")}`);
+	}
 	for (const key of COPY_KEYS) {
 		requireNonEmptyString(copy[key], `copy.${key}`);
+	}
+	if (noShowEnabled) {
+		requireNonEmptyString(copy.noShow, "copy.noShow");
+	} else {
+		copy.noShow = null;
 	}
 }
 
@@ -442,6 +455,7 @@ export type DomainCopy = {
   nextStepAvailability: string;
   nextStepHold: string;
   nextStepConfirmed: string;
+  noShow: string | null;
   policySummary: string;
 };
 
@@ -463,6 +477,7 @@ export type DomainConfig = {
     waitlist: boolean;
     customerAccounts: true;
     operatorCalendarCrud: boolean;
+    noShow: boolean;
   };
   copy: DomainCopy;
 };

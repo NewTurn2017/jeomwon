@@ -89,6 +89,7 @@ export function CustomerReservationManager() {
       held: t("status.held"),
       confirmed: t("status.confirmed"),
       rescheduled: t("status.rescheduled"),
+      no_show: t("status.no_show"),
       waitlisted: t("status.waitlisted"),
       cancelled: t("status.cancelled"),
       expired: t("status.expired"),

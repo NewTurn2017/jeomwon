@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { domainConfig } from "../domain.config";
 import type {
   AdminCancelResult,
+  AdminNoShowResult,
   AdminReservation,
   AdminReservationAction,
   AdminReservationResult,
@@ -28,6 +29,7 @@ import {
   publicReservationId,
 } from "./engine/customerReservationPublicId";
 import { adminEmailAllowlist, isOperator } from "./engine/identity";
+import { markReservationNoShow as markReservationNoShowLifecycle } from "./engine/noShow";
 import {
   appendAudit,
   auditEvent,
@@ -187,8 +189,7 @@ export const resolveEscalation = mutation({
     });
     await scheduleReservationEmail(ctx, {
       kind: decision.emailKind,
-      threadId: updated.threadId,
-      publicContext: publicContextFromReservation(updated),
+      reservationId: updated._id,
     });
     if (args.action === "approveCancel") {
       await onSlotFreed(ctx, {
@@ -216,6 +217,26 @@ export const resolveEscalation = mutation({
 // The return types are annotated rather than inferred: this module both defines
 // Convex functions and reads `api`, and an inferred return type would make the
 // generated `api` type depend on itself.
+
+export const markReservationNoShow = mutation({
+  args: {
+    reservationId: v.string(),
+  },
+  handler: async (ctx, args): Promise<AdminNoShowResult> => {
+    await ensureAdmin(ctx, "auth_required");
+    const reservation = await requireReservationByNumber(
+      ctx,
+      args.reservationId,
+    );
+    const result = await markReservationNoShowLifecycle(ctx, reservation);
+
+    return {
+      reservation: toAdminReservation(result.reservation),
+      publicContext: result.publicContext,
+      auditType: result.auditType,
+    };
+  },
+});
 
 export const createSession = mutation({
   args: {
@@ -377,10 +398,13 @@ function customerReservationRef(reservation: Doc<"reservations">) {
  * - Anonymous, missing-email, and non-matching identities: `admin_forbidden`.
  * - Only a normalized exact non-anonymous email match is accepted.
  */
-async function ensureAdmin(ctx: QueryCtx | MutationCtx) {
+async function ensureAdmin(
+  ctx: QueryCtx | MutationCtx,
+  authRequiredCode = "admin_auth_required",
+) {
   const userId = await getAuthUserId(ctx);
   if (!userId) {
-    throw new Error("admin_auth_required");
+    throw new Error(authRequiredCode);
   }
 
   if (adminEmailAllowlist().length === 0) {

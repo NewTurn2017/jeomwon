@@ -35,7 +35,7 @@ test("a Google user without a username still enters onboarding", async () => {
 });
 
 test("setup keeps Google OAuth and the required operator allowlist", async () => {
-  const setup = await readFile(`${templateRoot}scripts/setup/index.ts`, "utf8");
+  const setup = `${await readFile(`${templateRoot}scripts/setup/index.ts`, "utf8")}\n${await readFile(`${templateRoot}scripts/setup/providers.ts`, "utf8")}`;
   const google = setup.indexOf("await configureGoogleOAuth(ctx, deployment)");
   const allowlist = setup.indexOf("await configureAdminEmails(ctx)");
 

@@ -6,13 +6,14 @@ import {
 	mkdtemp,
 	readdir,
 	readFile,
+	rename,
 	rm,
+	rmdir,
 	writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join, relative, resolve } from "node:path";
-import { spawn } from "node:child_process";
+import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createCli, fail, parseCommonArgs, signalExitCode } from "./cli.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "../..");
@@ -39,7 +40,6 @@ const TEXT_EXTENSIONS = new Set([
 	".yaml",
 	".yml",
 ]);
-
 const EXCLUDED_NAMES = new Set([
 	".next",
 	".react-email",
@@ -48,391 +48,270 @@ const EXCLUDED_NAMES = new Set([
 	"qa-artifacts",
 ]);
 
-class UserFacingError extends Error {}
-
-function fail(message) {
-	console.error(`ERROR: ${message}`);
-	process.exit(1);
+class UserFacingError extends Error {
+	constructor(code, message) {
+		super(message);
+		this.code = code;
+	}
 }
 
-function usage() {
-	fail("usage: bun skill/scripts/scaffold.mjs <target-dir> <project-name>");
+const parsed = parseCommonArgs(process.argv.slice(2));
+if (parsed.error) fail(parsed.error, parsed.detail);
+const cli = createCli("scaffold", parsed.language);
+const usage =
+	"bun scaffold.mjs <target-dir> <project-name> [--lang ko|en|auto]";
+if (parsed.help) {
+	cli.help(usage);
+	process.exit(0);
 }
-
-const [targetArg, ...nameParts] = process.argv.slice(2);
-if (!targetArg || nameParts.length === 0) {
-	usage();
-}
-
+const [targetArg, ...nameParts] = parsed.positional;
+if (!targetArg || nameParts.length === 0) fail("usage", usage);
 const projectName = nameParts.join(" ").trim();
-if (!projectName) {
-	usage();
-}
-
+if (!projectName) fail("usage", usage);
 const targetDir = resolve(process.cwd(), targetArg);
 const slug = slugify(projectName);
-if (!slug) {
-	fail(`project name does not contain a valid npm scope slug: ${projectName}`);
-}
+if (!slug) fail("project_name_invalid", projectName);
 
-let templateSource;
 let scaffoldError;
-
+let stagingRoot;
+let interruptSignal;
+const recordInterrupt = (signal) => {
+	interruptSignal ||= signal;
+};
+const handleInterrupt = () => recordInterrupt("SIGINT");
+const handleTerminate = () => recordInterrupt("SIGTERM");
+const checkInterrupt = () => {
+	if (interruptSignal)
+		throw new UserFacingError("interrupted", interruptSignal);
+};
+process.on("SIGINT", handleInterrupt);
+process.on("SIGTERM", handleTerminate);
 try {
-	templateSource = await resolveTemplateSource();
-	if (existsSync(targetDir)) {
-		const entries = await readdir(targetDir);
-		if (entries.length > 0) {
-			throw new UserFacingError(
-				`target directory already exists and is not empty: ${targetDir}`,
-			);
-		}
+	if (existsSync(targetDir) && (await readdir(targetDir)).length > 0) {
+		throw new UserFacingError("target_not_empty", targetDir);
 	}
-
-	await mkdir(targetDir, { recursive: true });
-	await copyTemplate(templateSource.root, targetDir);
-	await rewriteProject(targetDir, slug);
+	await mkdir(dirname(targetDir), { recursive: true });
+	stagingRoot = await mkdtemp(
+		join(dirname(targetDir), `.${basename(targetDir)}.jeomwon-stage-`),
+	);
+	checkInterrupt();
+	const stagedTarget = join(stagingRoot, "output");
+	const templateSource = await resolveTemplateSource(stagingRoot);
+	checkInterrupt();
+	await mkdir(stagedTarget, { recursive: true });
+	await copyTemplate(templateSource.root, stagedTarget);
+	await rewriteProject(stagedTarget, slug);
+	checkInterrupt();
+	if (existsSync(targetDir)) await rmdir(targetDir);
+	await rename(stagedTarget, targetDir);
 } catch (error) {
 	scaffoldError = error;
 } finally {
-	if (templateSource) {
-		await templateSource.cleanup();
+	if (stagingRoot) await rm(stagingRoot, { recursive: true, force: true });
+	if (!scaffoldError && interruptSignal) {
+		scaffoldError = new UserFacingError("interrupted", interruptSignal);
 	}
+	process.off("SIGINT", handleInterrupt);
+	process.off("SIGTERM", handleTerminate);
 }
-
+if (interruptSignal) {
+	fail("interrupted", interruptSignal, signalExitCode(interruptSignal));
+}
+if (scaffoldError instanceof UserFacingError) {
+	fail(scaffoldError.code, scaffoldError.message);
+}
 if (scaffoldError) {
-	if (scaffoldError instanceof UserFacingError) {
-		fail(scaffoldError.message);
-	}
-	throw scaffoldError;
-}
-
-console.log(`Scaffolded ${projectName}`);
-console.log(`Target: ${targetDir}`);
-console.log(`NPM scope: @${slug}/`);
-console.log("");
-console.log("Next:");
-console.log(`  cd ${relative(process.cwd(), targetDir) || "."}`);
-console.log(`  bun ${join(SCRIPT_DIR, "inject.mjs")} . <domain-pack.json>`);
-console.log("  bun setup");
-console.log(
-	"  git init && git add . && git commit -m 'Initial jeomwon scaffold'",
-);
-
-async function resolveTemplateSource() {
-	if (existsSync(TEMPLATE_ROOT)) {
-		return {
-			root: TEMPLATE_ROOT,
-			cleanup: async () => {},
-		};
-	}
-
-	const archivePath = process.env.JEOMWON_TEMPLATE_ARCHIVE;
-	if (archivePath) {
-		return extractArchiveTemplate({
-			archivePath: resolve(process.cwd(), archivePath),
-			logLine: (resolvedPath) =>
-				`Template fallback: JEOMWON_TEMPLATE_ARCHIVE=${resolvedPath}`,
-		});
-	}
-
-	const ref = process.env.JEOMWON_TEMPLATE_REF || DEFAULT_TEMPLATE_REF;
-	const encodedRef = ref.split("/").map(encodeURIComponent).join("/");
-	const archiveUrl = `${TEMPLATE_ARCHIVE_BASE}/${encodedRef}`;
-	return downloadAndExtractTemplate(ref, archiveUrl);
-}
-
-async function downloadAndExtractTemplate(ref, archiveUrl) {
-	const tempRoot = await mkdtemp(join(tmpdir(), "jeomwon-template-"));
-	const archivePath = join(tempRoot, "jeomwon-template.tar.gz");
-
-	try {
-		await downloadArchive(archiveUrl, archivePath);
-		const templateSource = await extractArchiveTemplate({
-			archivePath,
-			tempRoot,
-			logLine: () =>
-				`Template fallback: GitHub ref ${ref} (${archiveUrl})`,
-		});
-		return templateSource;
-	} catch (error) {
-		await cleanupTempRoot(tempRoot);
-		throw error;
-	}
-}
-
-async function downloadArchive(url, destination) {
-	if (typeof fetch !== "function") {
-		throw new UserFacingError(
-			`전역 fetch를 찾을 수 없습니다. 최신 Bun/Node에서 실행하거나 \`git clone ${TEMPLATE_REPO}\` 후 레포 안에서 실행하거나 JEOMWON_TEMPLATE_ARCHIVE를 지정하세요.`,
-		);
-	}
-
-	let response;
-	try {
-		response = await fetch(url);
-	} catch (error) {
-		throw new UserFacingError(templateAccessError(error.message));
-	}
-
-	if (!response.ok) {
-		throw new UserFacingError(templateAccessError(`HTTP ${response.status}`));
-	}
-
-	let archive;
-	try {
-		archive = Buffer.from(await response.arrayBuffer());
-	} catch (error) {
-		throw new UserFacingError(templateAccessError(error.message));
-	}
-
-	await writeFile(destination, archive);
-}
-
-async function extractArchiveTemplate({ archivePath, tempRoot, logLine }) {
-	if (!existsSync(archivePath)) {
-		throw new UserFacingError(
-			`JEOMWON_TEMPLATE_ARCHIVE 파일을 찾을 수 없습니다: ${archivePath}`,
-		);
-	}
-
-	const workspace = tempRoot || (await mkdtemp(join(tmpdir(), "jeomwon-template-")));
-	const extractRoot = join(workspace, "extract");
-	await mkdir(extractRoot, { recursive: true });
-
-	try {
-		const archiveEntries = await listArchiveEntries(archivePath);
-		const { prefix, entries } = findTemplateArchiveEntries(archiveEntries);
-		await runTar([
-			"-xzf",
-			archivePath,
-			"-C",
-			extractRoot,
-			...entries.map(escapeTarMemberPattern),
-		]);
-
-		const root = join(extractRoot, ...prefix.replace(/\/$/, "").split("/"));
-		console.log(logLine(archivePath));
-		return {
-			root,
-			cleanup: () => cleanupTempRoot(workspace),
-		};
-	} catch (error) {
-		await cleanupTempRoot(workspace);
-		throw error;
-	}
-}
-
-async function listArchiveEntries(archivePath) {
-	const output = await runTar(["-tzf", archivePath]);
-	return output
-		.split("\n")
-		.map((entry) => entry.trim())
-		.filter(Boolean);
-}
-
-function findTemplateArchiveEntries(entries) {
-	const prefixes = new Set();
-
-	for (const entry of entries) {
-		const normalized = normalizeArchiveEntry(entry);
-		if (!normalized) {
-			continue;
-		}
-
-		const parts = normalized.split("/");
-		const templateIndex = parts.indexOf("template");
-		if (templateIndex === -1) {
-			continue;
-		}
-
-		prefixes.add(`${parts.slice(0, templateIndex + 1).join("/")}/`);
-	}
-
-	if (prefixes.size === 0) {
-		throw new UserFacingError(
-			`tarball 안에서 template/ 디렉터리를 찾을 수 없습니다: ${entries.length}개 항목 검사됨`,
-		);
-	}
-
-	const prefix = [...prefixes].sort(compareTemplatePrefixes)[0];
-	const selectedEntries = entries.filter((entry) => {
-		const normalized = normalizeArchiveEntry(entry);
-		return (
-			normalized === prefix.slice(0, -1) || normalized.startsWith(prefix)
-		);
-	});
-
-	return {
-		prefix,
-		entries: selectedEntries,
-	};
-}
-
-function normalizeArchiveEntry(entry) {
-	const normalized = entry
-		.replace(/\\/g, "/")
-		.replace(/^\.\//, "")
-		.replace(/\/+$/, "");
-
-	if (!normalized || normalized.startsWith("/")) {
-		return "";
-	}
-
-	if (normalized.split("/").includes("..")) {
-		return "";
-	}
-
-	return normalized;
-}
-
-function compareTemplatePrefixes(left, right) {
-	const leftDepth = left.split("/").filter(Boolean).length;
-	const rightDepth = right.split("/").filter(Boolean).length;
-	return leftDepth - rightDepth || left.localeCompare(right);
-}
-
-function escapeTarMemberPattern(entry) {
-	return entry.replace(/([\\*?\[\]])/g, "\\$1");
-}
-
-function runTar(args) {
-	return new Promise((resolveRun, rejectRun) => {
-		const child = spawn("tar", args, {
-			stdio: ["ignore", "pipe", "pipe"],
-		});
-		let stdout = "";
-		let stderr = "";
-
-		child.stdout.setEncoding("utf8");
-		child.stderr.setEncoding("utf8");
-		child.stdout.on("data", (chunk) => {
-			stdout += chunk;
-		});
-		child.stderr.on("data", (chunk) => {
-			stderr += chunk;
-		});
-		child.on("error", (error) => {
-			if (error.code === "ENOENT") {
-				rejectRun(
-					new UserFacingError(
-						"시스템 tar 명령을 찾을 수 없습니다. macOS/Linux 환경에서 tar가 있는 PATH로 다시 실행하세요.",
-					),
-				);
-				return;
-			}
-			rejectRun(error);
-		});
-		child.on("close", (code) => {
-			if (code === 0) {
-				resolveRun(stdout);
-				return;
-			}
-
-			rejectRun(
-				new UserFacingError(
-					`tar 압축 해제에 실패했습니다: ${stderr.trim() || `exit ${code}`}`,
-				),
-			);
-		});
-	});
-}
-
-async function cleanupTempRoot(tempRoot) {
-	await rm(tempRoot, { recursive: true, force: true }).catch(() => {});
-}
-
-function templateAccessError(detail) {
-	return `template 다운로드 실패 (${detail}). 레포가 비공개이거나 접근 불가. \`git clone ${TEMPLATE_REPO}\` 후 레포 안에서 실행하거나 JEOMWON_TEMPLATE_ARCHIVE를 지정하세요.`;
-}
-
-async function copyTemplate(source, destination) {
-	const entries = await readdir(source, { withFileTypes: true });
-
-	for (const entry of entries) {
-		if (shouldExclude(entry.name)) {
-			continue;
-		}
-
-		const sourcePath = join(source, entry.name);
-		const destinationPath = join(destination, entry.name);
-
-		if (entry.isDirectory()) {
-			await mkdir(destinationPath, { recursive: true });
-			await copyTemplate(sourcePath, destinationPath);
-			continue;
-		}
-
-		if (entry.isFile()) {
-			await mkdir(dirname(destinationPath), { recursive: true });
-			await copyFile(sourcePath, destinationPath);
-		}
-	}
-}
-
-function shouldExclude(name) {
-	return EXCLUDED_NAMES.has(name) || name === ".env.local";
-}
-
-async function rewriteProject(root, slugValue) {
-	const files = await listFiles(root);
-
-	for (const file of files) {
-		if (!isTextFile(file)) {
-			continue;
-		}
-
-		let text = await readFile(file, "utf8");
-		const original = text;
-		text = text
-			.replaceAll("@jeomwon/", `@${slugValue}/`)
-			.replaceAll('"name": "jeomwon-app"', `"name": "${slugValue}"`);
-
-		if (text !== original) {
-			await writeFile(file, text, "utf8");
-		}
-	}
-}
-
-async function listFiles(root) {
-	const output = [];
-	const entries = await readdir(root, { withFileTypes: true });
-
-	for (const entry of entries) {
-		const path = join(root, entry.name);
-		if (entry.isDirectory()) {
-			if (!shouldExclude(entry.name)) {
-				output.push(...(await listFiles(path)));
-			}
-			continue;
-		}
-		if (entry.isFile()) {
-			output.push(path);
-		}
-	}
-
-	return output;
-}
-
-function isTextFile(filePath) {
-	const extension = filePath.slice(filePath.lastIndexOf("."));
-	if (TEXT_EXTENSIONS.has(extension)) {
-		return true;
-	}
-
-	const baseName = filePath.slice(filePath.lastIndexOf("/") + 1);
-	return (
-		baseName === "LICENSE" ||
-		baseName === "bun.lock" ||
-		baseName === "bunfig.toml"
+	fail(
+		"scaffold_failed",
+		scaffoldError instanceof Error
+			? scaffoldError.message
+			: String(scaffoldError),
 	);
 }
 
+console.log(`[PASS scaffold_created] ${projectName}`);
+console.log(`Target: ${targetDir}`);
+console.log(`NPM scope: @${slug}/`);
+if (process.env.JEOMWON_BOOTSTRAP !== "1") {
+	cli.next([
+		`cd ${JSON.stringify(relative(process.cwd(), targetDir) || ".")}`,
+		`bun ${JSON.stringify(join(SCRIPT_DIR, "inject.mjs"))} . <domain-pack.json>`,
+		"bun setup",
+		'git init && git add . && git commit -m "Initial jeomwon scaffold"',
+	]);
+}
+
+async function resolveTemplateSource(stagingRoot) {
+	if (existsSync(TEMPLATE_ROOT)) return { root: TEMPLATE_ROOT };
+	const archivePath = process.env.JEOMWON_TEMPLATE_ARCHIVE;
+	if (archivePath)
+		return extractArchiveTemplate(
+			resolve(process.cwd(), archivePath),
+			(path) => `Template fallback: JEOMWON_TEMPLATE_ARCHIVE=${path}`,
+			join(stagingRoot, "archive-source"),
+		);
+	const ref = process.env.JEOMWON_TEMPLATE_REF || DEFAULT_TEMPLATE_REF;
+	const encodedRef = ref.split("/").map(encodeURIComponent).join("/");
+	return downloadAndExtractTemplate(
+		ref,
+		`${TEMPLATE_ARCHIVE_BASE}/${encodedRef}`,
+		join(stagingRoot, "archive-download"),
+	);
+}
+
+async function downloadAndExtractTemplate(ref, archiveUrl, root) {
+	await mkdir(root, { recursive: true });
+	const path = join(root, "jeomwon-template.tar.gz");
+	let response;
+	try {
+		response = await fetch(archiveUrl);
+	} catch (error) {
+		throw new UserFacingError(
+			"archive_download",
+			templateAccessError(error.message),
+		);
+	}
+	if (!response.ok)
+		throw new UserFacingError(
+			"archive_download",
+			templateAccessError(`HTTP ${response.status}`),
+		);
+	await writeFile(path, new Uint8Array(await response.arrayBuffer()));
+	return extractArchiveTemplate(
+		path,
+		() => `Template fallback: GitHub ref ${ref} (${archiveUrl})`,
+		join(root, "source"),
+	);
+}
+
+async function extractArchiveTemplate(archivePath, logLine, workspace) {
+	if (!existsSync(archivePath))
+		throw new UserFacingError("archive_missing", archivePath);
+	const outputRoot = join(workspace, "template");
+	let files;
+	try {
+		const bytes = await Bun.file(archivePath).bytes();
+		files = await new Bun.Archive(bytes).files();
+	} catch (error) {
+		throw new UserFacingError(
+			"archive_invalid",
+			error instanceof Error ? error.message : String(error),
+		);
+	}
+	checkInterrupt();
+	const names = [...files.keys()];
+	for (const name of names) {
+		if (isUnsafeArchivePath(name))
+			throw new UserFacingError("archive_traversal", name);
+	}
+	checkInterrupt();
+	const prefix = findTemplatePrefix(names);
+	for (const [name, file] of files) {
+		checkInterrupt();
+		if (!name.startsWith(prefix)) continue;
+		const member = name.slice(prefix.length);
+		if (!member) continue;
+		const destination = resolve(outputRoot, ...member.split("/"));
+		if (
+			destination !== outputRoot &&
+			!destination.startsWith(
+				`${outputRoot}${process.platform === "win32" ? "\\" : "/"}`,
+			)
+		)
+			throw new UserFacingError("archive_traversal", name);
+		await mkdir(dirname(destination), { recursive: true });
+		await writeFile(destination, new Uint8Array(await file.arrayBuffer()));
+	}
+	console.log(logLine(archivePath));
+	return { root: outputRoot };
+}
+
+function isUnsafeArchivePath(name) {
+	const normalized = name.replaceAll("\\", "/");
+	return (
+		normalized.startsWith("/") ||
+		normalized.startsWith("//") ||
+		/^[A-Za-z]:\//.test(normalized) ||
+		normalized.split("/").includes("..")
+	);
+}
+
+function findTemplatePrefix(names) {
+	const prefixes = new Set();
+	for (const name of names) {
+		const normalized = name.replaceAll("\\", "/").replace(/^\.\//, "");
+		const parts = normalized.split("/");
+		const index = parts.indexOf("template");
+		if (index >= 0) prefixes.add(`${parts.slice(0, index + 1).join("/")}/`);
+	}
+	if (prefixes.size === 0)
+		throw new UserFacingError(
+			"archive_template_missing",
+			`${names.length} entries`,
+		);
+	return [...prefixes].sort(
+		(left, right) =>
+			left.split("/").length - right.split("/").length ||
+			left.localeCompare(right),
+	)[0];
+}
+
+function templateAccessError(detail) {
+	return `template download failed (${detail}); clone ${TEMPLATE_REPO} or set JEOMWON_TEMPLATE_ARCHIVE`;
+}
+
+async function copyTemplate(source, destination) {
+	for (const entry of await readdir(source, { withFileTypes: true })) {
+		checkInterrupt();
+		if (shouldExclude(entry.name)) continue;
+		const sourcePath = join(source, entry.name);
+		const destinationPath = join(destination, entry.name);
+		if (entry.isDirectory()) {
+			await mkdir(destinationPath, { recursive: true });
+			await copyTemplate(sourcePath, destinationPath);
+		} else if (entry.isFile()) {
+			await mkdir(dirname(destinationPath), { recursive: true });
+			await copyFile(sourcePath, destinationPath);
+			checkInterrupt();
+		}
+	}
+}
+function shouldExclude(name) {
+	return EXCLUDED_NAMES.has(name) || name === ".env.local";
+}
+async function rewriteProject(root, slugValue) {
+	for (const file of await listFiles(root)) {
+		checkInterrupt();
+		if (!isTextFile(file)) continue;
+		const original = await readFile(file, "utf8");
+		const text = original
+			.replaceAll("@jeomwon/", `@${slugValue}/`)
+			.replaceAll('"name": "jeomwon-app"', `"name": "${slugValue}"`)
+			.replaceAll('"name":"jeomwon-app"', `"name":"${slugValue}"`);
+		if (text !== original) await writeFile(file, text, "utf8");
+	}
+}
+async function listFiles(root) {
+	const output = [];
+	for (const entry of await readdir(root, { withFileTypes: true })) {
+		const path = join(root, entry.name);
+		if (entry.isDirectory() && !shouldExclude(entry.name))
+			output.push(...(await listFiles(path)));
+		else if (entry.isFile()) output.push(path);
+	}
+	return output;
+}
+function isTextFile(filePath) {
+	return (
+		TEXT_EXTENSIONS.has(extname(filePath)) ||
+		["LICENSE", "bun.lock", "bunfig.toml"].includes(basename(filePath))
+	);
+}
 function slugify(value) {
 	return value
 		.trim()
 		.toLowerCase()
-		.replace(/['"]/g, "")
+		.replace(/["']/g, "")
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-+|-+$/g, "")
 		.slice(0, 48);

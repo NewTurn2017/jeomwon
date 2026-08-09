@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { domainConfig } from "../domain.config";
 import {
   anonymousLoginProviderPolicy,
   productAnonymousProfile,
@@ -30,7 +31,10 @@ describe("anonymous auth provider characterization", () => {
     process.env.JEOMWON_ADMIN_EMAILS = "owner@example.invalid";
 
     mock.module("../domain.config", () => ({
-      domainConfig: { features: { customerAccounts: true } },
+      domainConfig: {
+        ...domainConfig,
+        features: { ...domainConfig.features, customerAccounts: true },
+      },
     }));
     mock.module("@convex-dev/auth/server", () => ({
       convexAuth: (config: { readonly providers: readonly Provider[] }) => {

@@ -64,6 +64,7 @@ describe("customer reservation action matrix", () => {
   test("Given terminal rows When history is classified Then they have no actions", () => {
     const terminal: readonly ReservationStatus[] = [
       "cancelled",
+      "no_show",
       "expired",
       "denied",
     ];

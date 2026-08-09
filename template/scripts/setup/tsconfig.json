@@ -4,5 +4,6 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["index.ts"]
+  "include": ["*.ts"],
+  "exclude": ["*.test.ts"]
 }

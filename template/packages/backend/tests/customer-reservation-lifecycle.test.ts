@@ -78,7 +78,12 @@ const rescheduleReservation = {
     }),
 };
 
-type TableName = "reservations" | "resources" | "chatThreads" | "chatEvents";
+type TableName =
+  | "reservations"
+  | "reservationEmailDeliveries"
+  | "resources"
+  | "chatThreads"
+  | "chatEvents";
 type StoredRow = Record<string, unknown> & { _id: string };
 
 class FakeQuery {
@@ -145,6 +150,7 @@ class FakeQuery {
 class FakeDatabase {
   readonly tables: Record<TableName, StoredRow[]> = {
     reservations: [],
+    reservationEmailDeliveries: [],
     resources: [],
     chatThreads: [],
     chatEvents: [],

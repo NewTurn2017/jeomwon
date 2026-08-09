@@ -3,6 +3,7 @@ import type {
   AdminCancelResult,
   AdminCustomerRescheduleArgs,
   AdminDashboardSnapshot,
+  AdminNoShowResult,
   AdminReservation,
   AdminReservationAction,
   AdminReservationRef,
@@ -67,6 +68,11 @@ export const jeomwonConvex = {
       Record<string, never>,
       AdminDashboardSnapshot
     >("admin:dashboardSnapshot"),
+    markReservationNoShow: makeFunctionReference<
+      "mutation",
+      AdminReservationRef,
+      AdminNoShowResult
+    >("admin:markReservationNoShow"),
     resolveEscalation: makeFunctionReference<
       "mutation",
       { reservationId: string; action: AdminReservationAction },

@@ -12,6 +12,7 @@ export const customerDomainFixture: DomainPublicSnapshot = {
     waitlist: false,
     customerAccounts: true,
     operatorCalendarCrud: false,
+    noShow: false,
   },
   copy: {
     chatTitle: "",
@@ -32,6 +33,7 @@ export const customerDomainFixture: DomainPublicSnapshot = {
     nextStepAvailability: "",
     nextStepHold: "",
     nextStepConfirmed: "",
+    noShow: null,
     policySummary: "",
   },
   resources: [

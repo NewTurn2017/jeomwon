@@ -25,6 +25,7 @@ import {
 import { useState } from "react";
 import { useScopedI18n } from "@/locales/client";
 import { AdminWidgetBoard } from "./admin-widget-board";
+import { OperatorCalendarControls } from "./operator-calendar-controls";
 
 type ReservationNumberValue = string | number | null | undefined;
 type ReservationWithDisplayNumber = AdminReservation & {
@@ -40,6 +41,7 @@ const statusStyles = {
   held: "border-chart-3/30 bg-chart-3/10 text-chart-3",
   confirmed: "border-chart-2/30 bg-chart-2/10 text-chart-2",
   rescheduled: "border-chart-1/30 bg-chart-1/10 text-chart-1",
+  no_show: "border-border bg-muted text-muted-foreground",
   waitlisted: "border-chart-4/30 bg-chart-4/10 text-chart-4",
   cancelled: "border-border bg-secondary text-secondary-foreground",
   expired: "border-border bg-muted text-muted-foreground",
@@ -72,6 +74,10 @@ export function AdminDashboard() {
       <div className="mx-auto grid w-full max-w-screen-xl gap-6">
         <EscalationQueue snapshot={snapshot} />
         <AdminWidgetBoard snapshot={snapshot} />
+        {snapshot.domain.adminWidget === "calendar" &&
+        snapshot.domain.features.operatorCalendarCrud ? (
+          <OperatorCalendarControls snapshot={snapshot} />
+        ) : null}
         <ReservationsPanel snapshot={snapshot} />
         <AgentTimeline
           events={snapshot.events}

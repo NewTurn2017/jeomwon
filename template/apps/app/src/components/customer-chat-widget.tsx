@@ -46,6 +46,10 @@ const reservationStatusView: Record<
     label: "일정 변경됨",
     className: "bg-sky-100 text-sky-900",
   },
+  no_show: {
+    label: "노쇼",
+    className: "bg-muted text-muted-foreground",
+  },
   waitlisted: {
     label: "대기 등록",
     className: "bg-amber-100 text-amber-900",

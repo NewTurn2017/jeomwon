@@ -46,7 +46,9 @@ export const snapshot = query({
         .filter(
           (reservation) =>
             reservation.domainKey === domainConfig.domainKey &&
-            reservation.origin !== "operator",
+            reservation.origin !== "operator" &&
+            (reservation.customerUserId === undefined ||
+              reservation.customerUserId === userId),
         )
         .sort((left, right) => left.startMs - right.startMs)
         .map(toCustomerReservation),
@@ -80,6 +82,7 @@ export const createHold = mutation({
     return await createCustomerReservationHold(ctx, {
       actor: "customer",
       threadId: customerThreadId(userId),
+      customerUserId: userId,
       displayName: customerDisplayName(user),
       ...args,
     });
@@ -93,6 +96,7 @@ export const confirmReservation = mutation({
     return await confirmCustomerReservation(ctx, {
       actor: "customer",
       threadId: customerThreadId(userId),
+      customerUserId: userId,
       reservationId: args.reservationId,
     });
   },
@@ -105,6 +109,7 @@ export const cancelReservation = mutation({
     return await cancelCustomerReservation(ctx, {
       actor: "customer",
       threadId: customerThreadId(userId),
+      customerUserId: userId,
       reservationId: args.reservationId,
     });
   },
@@ -122,6 +127,7 @@ export const rescheduleReservation = mutation({
     return await rescheduleCustomerReservation(ctx, {
       actor: "customer",
       threadId: customerThreadId(userId),
+      customerUserId: userId,
       ...args,
     });
   },
@@ -140,7 +146,7 @@ export async function ensureCustomer(ctx: QueryCtx | MutationCtx) {
 }
 
 function customerDisplayName(user: Doc<"users">): string | null {
-  const displayName = user.name?.trim() || user.username?.trim();
+  const displayName = user.username?.trim() || user.name?.trim();
   return displayName === undefined || displayName.length === 0
     ? null
     : displayName;

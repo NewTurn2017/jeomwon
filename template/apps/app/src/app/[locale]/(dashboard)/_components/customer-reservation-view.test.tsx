@@ -276,6 +276,7 @@ const copy: CustomerReservationCopy = {
     held: "임시 홀드",
     confirmed: "확정",
     rescheduled: "변경됨",
+    no_show: "노쇼",
     waitlisted: "대기",
     cancelled: "취소",
     expired: "만료",

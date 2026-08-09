@@ -6,111 +6,114 @@ import {
 } from "@jeomwon/email/reservation";
 import { v } from "convex/values";
 import { domainConfig } from "../../domain.config";
+import type { PublicContext } from "../../src/agent-contract";
 import { internal } from "../_generated/api";
-import { internalAction } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { type ActionCtx, internalAction } from "../_generated/server";
 import { env } from "../env";
 import { reservationEmailMode } from "./deliveryMode";
 import { sendEmail } from "./index";
-import {
-  publicContextValidator,
-  reservationEmailKindValidator,
-} from "./validators";
+
+type DeliveryMode = "capture" | "sent";
+type Prepared =
+  | { readonly state: "noop" }
+  | { readonly state: "invalid" }
+  | {
+      readonly state: "ready";
+      readonly audience: "operator" | "customer";
+      readonly template: ReservationEmailKind;
+      readonly recipient: string;
+      readonly idempotencyKey: string;
+      readonly threadId: string;
+      readonly publicReservationId: string;
+      readonly publicContext: PublicContext;
+    };
+
+type DeliveryDependencies = {
+  readonly mode: DeliveryMode;
+  readonly render: typeof renderDelivery;
+  readonly send: (input: {
+    readonly to: string;
+    readonly subject: string;
+    readonly html: string;
+    readonly text: string;
+    readonly idempotencyKey: string;
+  }) => Promise<unknown>;
+};
 
 export const sendReservationEmail = internalAction({
-  args: {
-    kind: reservationEmailKindValidator,
-    threadId: v.string(),
-    to: v.string(),
-    publicContext: publicContextValidator,
-  },
+  args: { deliveryId: v.id("reservationEmailDeliveries") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    if (!domainConfig.features.email) {
-      return null;
-    }
-
-    const content = await renderReservationEmail({
-      kind: args.kind,
-      context: {
-        storeName: domainConfig.storeName,
-        displayName: args.publicContext.displayName,
-        reservationId: args.publicContext.reservationId,
-        serviceLabel: args.publicContext.serviceLabel,
-        resourceLabel: args.publicContext.resourceLabel,
-        timeWindow: args.publicContext.timeWindow,
-        policySummary: args.publicContext.policySummary,
-        nextStep: args.publicContext.nextStep,
-        copy: {
-          confirmed: domainConfig.copy.confirmed,
-          rescheduled: domainConfig.copy.rescheduled,
-          cancelled: domainConfig.copy.cancelled,
-          cancelEscalated: domainConfig.copy.cancelEscalated,
-        },
-      },
-    });
-    // QA and public demo deployments always capture instead of sending so a
-    // configured production RESEND_API_KEY can never trigger a real delivery.
-    const deliveryMode = reservationEmailMode({
-      resendApiKey: env.RESEND_API_KEY,
-      qaResetFlag: process.env.JEOMWON_QA_RESET,
-      demoResetFlag: process.env.JEOMWON_DEMO_RESET,
-    });
-    const captureMode = deliveryMode === "capture";
-    const payload = {
-      mode: deliveryMode,
-      subject: content.subject,
-      summary: content.summary,
-      reservationId: args.publicContext.reservationId,
-      template: args.kind,
-    } as const;
-
-    if (captureMode) {
-      await ctx.runMutation(
-        internal.email.reservationEvents.recordReservationEmailEvent,
-        {
-          threadId: args.threadId,
-          type: "email.captured",
-          agent: agentForKind(args.kind),
-          publicPayload: payload,
-        },
-      );
-      return null;
-    }
-
-    await sendEmail({
-      to: args.to,
-      subject: content.subject,
-      html: content.html,
-      text: content.text,
-    });
-    await ctx.runMutation(
-      internal.email.reservationEvents.recordReservationEmailEvent,
-      {
-        threadId: args.threadId,
-        type: "email.sent",
-        agent: agentForKind(args.kind),
-        publicPayload: payload,
-      },
-    );
-
+    await executeReservationEmailDelivery(ctx, args, productionDependencies());
     return null;
   },
 });
 
-function agentForKind(kind: ReservationEmailKind) {
-  switch (kind) {
-    case "reservation.confirmed":
-    case "reservation.rescheduled":
-    case "reservation.cancelled":
-    case "reservation.waitlist_opened":
-      return "reservation";
-    case "reservation.escalated":
-      return "escalation";
-    default:
-      return assertNever(kind);
+export async function executeReservationEmailDelivery(
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
+  args: { readonly deliveryId: Id<"reservationEmailDeliveries"> },
+  dependencies: DeliveryDependencies,
+) {
+  const prepared: Prepared = await ctx.runQuery(
+    internal.reservationEmailScheduler.prepareReservationEmailDelivery,
+    { deliveryId: args.deliveryId },
+  );
+  if (prepared.state === "noop") return;
+  if (prepared.state === "invalid") {
+    await ctx.runMutation(
+      internal.reservationEmailScheduler.invalidateReservationEmailDelivery,
+      { deliveryId: args.deliveryId },
+    );
+    return;
   }
+
+  const content = await dependencies.render(prepared);
+  if (dependencies.mode === "sent") {
+    await dependencies.send({
+      to: prepared.recipient,
+      subject: content.subject,
+      html: content.html,
+      text: content.text,
+      idempotencyKey: prepared.idempotencyKey,
+    });
+  }
+  await ctx.runMutation(
+    internal.reservationEmailScheduler.completeReservationEmailDelivery,
+    { deliveryId: args.deliveryId, mode: dependencies.mode },
+  );
 }
 
-function assertNever(value: never): never {
-  throw new Error(`Unexpected reservation email kind: ${String(value)}`);
+function productionDependencies(): DeliveryDependencies {
+  return {
+    mode: reservationEmailMode({
+      resendApiKey: env.RESEND_API_KEY,
+      qaResetFlag: process.env.JEOMWON_QA_RESET,
+      demoResetFlag: process.env.JEOMWON_DEMO_RESET,
+    }),
+    render: renderDelivery,
+    send: sendEmail,
+  };
+}
+
+async function renderDelivery(prepared: Extract<Prepared, { state: "ready" }>) {
+  return await renderReservationEmail({
+    kind: prepared.template,
+    context: {
+      storeName: domainConfig.storeName,
+      displayName: prepared.publicContext.displayName,
+      reservationId: prepared.publicContext.reservationId,
+      serviceLabel: prepared.publicContext.serviceLabel,
+      resourceLabel: prepared.publicContext.resourceLabel,
+      timeWindow: prepared.publicContext.timeWindow,
+      policySummary: prepared.publicContext.policySummary,
+      nextStep: prepared.publicContext.nextStep,
+      copy: {
+        confirmed: domainConfig.copy.confirmed,
+        rescheduled: domainConfig.copy.rescheduled,
+        cancelled: domainConfig.copy.cancelled,
+        cancelEscalated: domainConfig.copy.cancelEscalated,
+      },
+    },
+  });
 }

@@ -18,6 +18,7 @@ import {
   isLegacyPublicReservationId,
   publicReservationId,
 } from "./customerReservationPublicId";
+import { customerThreadId } from "./identity";
 import {
   appendAudit,
   auditEvent,
@@ -34,6 +35,7 @@ import { onSlotFreed } from "./waitlist";
 type CreateHoldInput = {
   actor?: ReservationLifecycleActor;
   threadId: string;
+  customerUserId?: Id<"users">;
   displayName: string | null;
   serviceKey: string;
   resourceKey: string;
@@ -43,6 +45,7 @@ type CreateHoldInput = {
 type ReservationActionInput = {
   actor?: ReservationLifecycleActor;
   threadId: string;
+  customerUserId?: Id<"users">;
   reservationId: string;
 };
 
@@ -59,6 +62,12 @@ export async function createCustomerReservationHold(
   input: CreateHoldInput,
 ) {
   const now = Date.now();
+  if (
+    input.customerUserId !== undefined &&
+    input.threadId !== customerThreadId(input.customerUserId)
+  ) {
+    throw new Error("reservation_owner_mismatch");
+  }
   const resources = await publicResources(ctx);
   const service = strictServiceByKey(input.serviceKey);
   const resource = strictResourceByKey(input.resourceKey, service, resources);
@@ -101,6 +110,7 @@ export async function createCustomerReservationHold(
     status: "held",
     holdExpiresAtMs,
     origin: "customer",
+    customerUserId: input.customerUserId,
     auditHistory: [
       auditEvent(
         "reservation.held",
@@ -193,8 +203,7 @@ export async function confirmCustomerReservation(
   });
   await scheduleReservationEmail(ctx, {
     kind: "reservation.confirmed",
-    threadId: input.threadId,
-    publicContext,
+    reservationId: confirmed._id,
   });
 
   return { publicContext };
@@ -272,8 +281,7 @@ export async function cancelCustomerReservation(
   });
   await scheduleReservationEmail(ctx, {
     kind: escalated ? "reservation.escalated" : "reservation.cancelled",
-    threadId: input.threadId,
-    publicContext,
+    reservationId: updated._id,
   });
   if (freesActiveSlot && !escalated) {
     await onSlotFreed(ctx, {
@@ -391,8 +399,7 @@ export async function rescheduleCustomerReservation(
   });
   await scheduleReservationEmail(ctx, {
     kind: "reservation.rescheduled",
-    threadId: input.threadId,
-    publicContext,
+    reservationId: updated._id,
   });
   await onSlotFreed(ctx, freedSlot);
 
@@ -522,6 +529,7 @@ export async function resolveThreadReservation(
   ctx: MutationCtx,
   threadId: string,
   reservationId: string,
+  customerUserId?: Id<"users">,
 ) {
   const normalized = normalizeReservationNumber(reservationId);
   const byNumber = await ctx.db
@@ -543,7 +551,11 @@ export async function resolveThreadReservation(
     !reservation ||
     reservation.domainKey !== domainConfig.domainKey ||
     reservation.threadId !== threadId ||
-    reservation.origin === "operator"
+    reservation.origin === "operator" ||
+    (customerUserId !== undefined &&
+      (threadId !== customerThreadId(customerUserId) ||
+        (reservation.customerUserId !== undefined &&
+          reservation.customerUserId !== customerUserId)))
   ) {
     return null;
   }
@@ -627,6 +639,7 @@ async function requireThreadReservation(
     ctx,
     input.threadId,
     input.reservationId,
+    input.customerUserId,
   );
   if (!reservation) {
     throw new Error("reservation_not_found");

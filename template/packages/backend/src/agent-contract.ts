@@ -10,6 +10,7 @@ export const reservationStatuses = [
   "held",
   "confirmed",
   "rescheduled",
+  "no_show",
   "waitlisted",
   "cancelled",
   "expired",
@@ -346,6 +347,11 @@ export type AdminReservationRef = {
 
 export type AdminReservationResult = {
   reservation: AdminReservation;
+};
+
+export type AdminNoShowResult = AdminReservationResult & {
+  publicContext: PublicContext;
+  auditType: "reservation.no_show";
 };
 
 /**

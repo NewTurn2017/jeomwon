@@ -79,11 +79,6 @@ export async function onSlotFreed(
     },
     createdAtMs: Date.now(),
   });
-  await scheduleReservationEmail(ctx, {
-    kind: "reservation.waitlist_opened",
-    threadId: waitlisted.threadId,
-    publicContext,
-  });
   await ctx.db.patch(waitlisted._id, {
     auditHistory: appendAudit(
       waitlisted.auditHistory,
@@ -95,5 +90,9 @@ export async function onSlotFreed(
       ),
     ),
     updatedAtMs: Date.now(),
+  });
+  await scheduleReservationEmail(ctx, {
+    kind: "reservation.waitlist_opened",
+    reservationId: waitlisted._id,
   });
 }
