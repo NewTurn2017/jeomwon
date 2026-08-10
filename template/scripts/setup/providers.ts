@@ -1,4 +1,9 @@
-import { requireStep, requireVariable, validateUrl } from "./config";
+import {
+  type DomainFeatures,
+  requireStep,
+  requireVariable,
+  validateUrl,
+} from "./config";
 import {
   ensureConvexEnv,
   isConvexEnvConfigured,
@@ -53,6 +58,16 @@ export async function configureSiteUrl(ctx: RuntimeContext) {
 
   await setLocalEnv(ctx, "backend", "SITE_URL", siteUrl);
   return siteUrl;
+}
+
+export async function configureApplicationOrigins(ctx: RuntimeContext) {
+  const appOrigin = new URL(
+    validateUrl(readLocalEnv(ctx, "web").get("NEXT_PUBLIC_APP_URL") ?? ""),
+  ).origin;
+  await ensureConvexEnv(ctx, "JEOMWON_APP_ORIGINS", appOrigin, {
+    secret: false,
+    force: true,
+  });
 }
 
 export async function configureLocalDefaults(
@@ -426,10 +441,19 @@ export function isLocalDevelopmentUrl(value: string) {
   );
 }
 
-export async function configureFirstSuccessDefaults(ctx: RuntimeContext) {
+export async function configureFirstSuccessDefaults(
+  ctx: RuntimeContext,
+  features: DomainFeatures,
+) {
   section(tr("첫 성공 런타임", "First-success runtime"));
   const openAiKey = readLocalEnv(ctx, "app").get("OPENAI_API_KEY");
   await setLocalEnv(ctx, "app", "AGENT_RUNTIME", openAiKey ? "openai" : "mock");
+  if (features.email) {
+    await ensureConvexEnv(ctx, "RESERVATION_EMAIL_MODE", "capture", {
+      secret: false,
+      force: true,
+    });
+  }
   ui.skip(
     tr(
       "Resend · OpenAI · Polar 설정은 첫 성공 이후로 유예",
@@ -642,6 +666,14 @@ export async function configureResend(ctx: RuntimeContext) {
     });
     if (!overwrite) {
       await maybeConfigureResendSender(ctx, step);
+      const existingMode = await readConvexEnvValue(
+        ctx,
+        "RESERVATION_EMAIL_MODE",
+      );
+      await setReservationEmailMode(
+        ctx,
+        existingMode === "sent" ? "sent" : "capture",
+      );
       return;
     }
   } else {
@@ -655,6 +687,7 @@ export async function configureResend(ctx: RuntimeContext) {
       defaultValue: false,
     });
     if (!configure) {
+      await setReservationEmailMode(ctx, "capture");
       ui.skip(
         localized(
           ctx.locale,
@@ -671,6 +704,7 @@ export async function configureResend(ctx: RuntimeContext) {
     requireVariable(step, "RESEND_API_KEY"),
   );
   if (!apiKey) {
+    await setReservationEmailMode(ctx, "capture");
     console.log(
       localized(
         ctx.locale,
@@ -686,6 +720,7 @@ export async function configureResend(ctx: RuntimeContext) {
   });
 
   const sender = await maybeConfigureResendSender(ctx, step);
+  await setReservationEmailMode(ctx, "sent");
 
   const runProbe = await promptConfirm(ctx, {
     key: "resend:test",
@@ -715,6 +750,17 @@ export async function configureResend(ctx: RuntimeContext) {
       "onboarding@resend.dev";
     await probeResend(ctx, apiKey, from, to);
   }
+}
+
+async function setReservationEmailMode(
+  ctx: RuntimeContext,
+  mode: "capture" | "sent",
+) {
+  await ensureConvexEnv(ctx, "RESERVATION_EMAIL_MODE", mode, {
+    secret: false,
+    force: true,
+  });
+  ui.ok(`RESERVATION_EMAIL_MODE=${mode}`);
 }
 
 export async function maybeConfigureResendSender(
@@ -929,6 +975,32 @@ export async function configurePolar(
 
   await configureConvexSecretVariable(ctx, step, "POLAR_WEBHOOK_SECRET");
   await configureConvexSecretVariable(ctx, step, "POLAR_ORGANIZATION_TOKEN");
+  const productIds = normalizePolarProductIds(
+    await promptText(ctx, {
+      key: "POLAR_PRODUCT_IDS",
+      message:
+        requireVariable(step, "POLAR_PRODUCT_IDS").details ??
+        "Polar product IDs (comma-separated)",
+      defaultValue: "",
+      secret: false,
+      required: true,
+    }),
+  );
+  await ensureConvexEnv(ctx, "POLAR_PRODUCT_IDS", productIds, {
+    secret: false,
+    force: true,
+  });
+}
+
+export function normalizePolarProductIds(value: string) {
+  const ids = value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  if (ids.length === 0 || new Set(ids).size !== ids.length) {
+    throw new Error("polar_product_ids_invalid");
+  }
+  return ids.join(",");
 }
 
 export async function configureOptionalLocalSteps(ctx: RuntimeContext) {

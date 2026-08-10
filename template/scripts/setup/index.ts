@@ -19,6 +19,7 @@ import { installSignalHandlers } from "./prompts";
 import {
   configureAdminEmails,
   configureAnonymousLogin,
+  configureApplicationOrigins,
   configureFirstSuccessDefaults,
   configureGoogleOAuth,
   configureOpenAI,
@@ -113,18 +114,19 @@ async function main() {
     await assertSetupPrerequisites(ctx);
     const siteUrl = await configureSiteUrl(ctx);
     const deployment = await configureConvex(ctx);
+    await configureApplicationOrigins(ctx);
     await configureConvexAuth(ctx, deployment, siteUrl);
     await configureGoogleOAuth(ctx, deployment);
     await configureAdminEmails(ctx);
     await configureAnonymousLogin(ctx, siteUrl);
+    const domainFeatures = await readDomainFeatures(ctx);
     if (ctx.options.optionalProviders) {
-      const domainFeatures = await readDomainFeatures(ctx);
-      await configureResend(ctx);
+      if (domainFeatures.email) await configureResend(ctx);
       await configureOpenAI(ctx);
       if (domainFeatures.polar) await configurePolar(ctx, deployment);
       await configureOptionalLocalSteps(ctx);
     } else {
-      await configureFirstSuccessDefaults(ctx);
+      await configureFirstSuccessDefaults(ctx, domainFeatures);
     }
     await finalizeEnvFiles(ctx);
     printCompletion(ctx, deployment);

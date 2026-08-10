@@ -43,6 +43,13 @@
           "details": "Use localhost for Next dev. 127.0.0.1 is blocked by Next 16 dev cross-origin checks.",
           "defaultValue": "http://localhost:3000",
           "secret": false
+        },
+        {
+          "name": "JEOMWON_APP_ORIGINS",
+          "projects": ["convex"],
+          "details": "Exact authenticated application origins accepted by account-subscription checkout.",
+          "defaultValue": "http://localhost:3000",
+          "secret": false
         }
       ],
       "interactive": false
@@ -192,9 +199,17 @@
           "details": "A verified sender email address used for authentication and reservation emails.",
           "required": false,
           "secret": false
+        },
+        {
+          "name": "RESERVATION_EMAIL_MODE",
+          "projects": ["convex"],
+          "details": "Explicit reservation delivery state: capture or sent. QA and demo always force capture.",
+          "required": false,
+          "secret": false
         }
       ],
       "required": false,
+      "whenFeature": "email",
       "skipMode": "capture",
       "requiredMessage": "Skipping Resend leaves lifecycle email in capture mode."
     },
@@ -242,6 +257,13 @@
           "projects": ["convex"],
           "details": "Generate an Organization Access Token with product, checkout, customer, subscription, and portal permissions.",
           "secret": true
+        },
+        {
+          "name": "POLAR_PRODUCT_IDS",
+          "projects": ["convex"],
+          "details": "Comma-separated Polar account-subscription product IDs allowed for checkout.",
+          "required": true,
+          "secret": false
         }
       ],
       "required": false,

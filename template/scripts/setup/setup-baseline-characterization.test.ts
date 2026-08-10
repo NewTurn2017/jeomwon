@@ -65,6 +65,61 @@ describe("setup baseline characterization", () => {
     expect(output.includes("Setup stopped [")).toBe(false);
   });
 
+  test("optional provider prompts follow the domain email and Polar features", () => {
+    const disabled = run(
+      [
+        "--dry-run",
+        "--fresh-dry-run",
+        "--non-interactive",
+        "--optional-providers",
+        "--lang",
+        "en",
+      ],
+      {
+        ...happyStubs,
+        answers: {
+          ...happyStubs.answers,
+          "resend:configure": false,
+          "openai:configure": false,
+        },
+        domainFeatures: { email: false, polar: false },
+      },
+    );
+    const enabled = run(
+      [
+        "--dry-run",
+        "--fresh-dry-run",
+        "--non-interactive",
+        "--optional-providers",
+        "--lang",
+        "en",
+      ],
+      {
+        ...happyStubs,
+        values: {
+          ...happyStubs.values,
+          POLAR_PRODUCT_IDS: "product-monthly,product-yearly",
+          POLAR_WEBHOOK_SECRET: "polar-webhook-secret",
+          POLAR_ORGANIZATION_TOKEN: "polar-organization-token",
+        },
+        answers: {
+          ...happyStubs.answers,
+          "resend:configure": false,
+          "openai:configure": false,
+        },
+        domainFeatures: { email: true, polar: true },
+      },
+    );
+
+    expect(disabled.status).toBe(0);
+    expect(disabled.stdout.includes("Configure Resend now?")).toBe(false);
+    expect(disabled.stdout.includes("POLAR_ORGANIZATION_TOKEN")).toBe(false);
+    expect(enabled.status).toBe(0);
+    expect(enabled.stdout.includes("Configure Resend now?")).toBe(true);
+    expect(enabled.stdout.includes("POLAR_ORGANIZATION_TOKEN")).toBe(true);
+    expect(enabled.stdout.includes("POLAR_PRODUCT_IDS")).toBe(true);
+  });
+
   test("OAuth registration refusal remains categorized and redacted", () => {
     const result = run(["--dry-run", "--fresh-dry-run", "--non-interactive"], {
       ...happyStubs,

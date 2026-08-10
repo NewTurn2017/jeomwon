@@ -87,6 +87,7 @@ export async function executeReservationEmailDelivery(
 function productionDependencies(): DeliveryDependencies {
   return {
     mode: reservationEmailMode({
+      configuredMode: process.env.RESERVATION_EMAIL_MODE,
       resendApiKey: env.RESEND_API_KEY,
       qaResetFlag: process.env.JEOMWON_QA_RESET,
       demoResetFlag: process.env.JEOMWON_DEMO_RESET,

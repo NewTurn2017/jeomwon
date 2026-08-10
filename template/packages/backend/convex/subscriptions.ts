@@ -24,10 +24,55 @@ const REQUIRED_POLAR_ENV = [
     key: "POLAR_WEBHOOK_SECRET",
     reason: "verification of raw webhook payloads at /polar/events",
   },
+  {
+    key: "POLAR_PRODUCT_IDS",
+    reason: "allowlisted account-subscription products",
+  },
+  {
+    key: "JEOMWON_APP_ORIGINS",
+    reason: "trusted application origins for checkout return URLs",
+  },
 ] as const;
 
 type PolarEnvKey = (typeof REQUIRED_POLAR_ENV)[number]["key"];
 type PolarEnv = Record<PolarEnvKey, string>;
+
+type CheckoutConfiguration = {
+  readonly applicationOrigins: readonly string[];
+  readonly productIds: readonly string[];
+};
+
+type CheckoutInput = {
+  readonly productIds: readonly string[];
+  readonly origin: string;
+  readonly successUrl: string;
+  readonly metadata?: Readonly<Record<string, string>>;
+};
+
+type ValidatedCheckoutInput<T extends CheckoutInput> = Omit<
+  T,
+  "origin" | "successUrl"
+> & {
+  readonly origin: string;
+  readonly successUrl: string;
+};
+
+const RESERVED_CHECKOUT_METADATA = new Set([
+  "amount",
+  "currency",
+  "customerid",
+  "email",
+  "origin",
+  "payment",
+  "productid",
+  "productids",
+  "recipient",
+  "reservationid",
+  "subscriptionid",
+  "successurl",
+  "userid",
+]);
+const ENCODED_ASCII_CONTROL = /%(?:0[0-9a-f]|1[0-9a-f]|7f)/i;
 
 let polarClient: PolarClient | null = null;
 
@@ -61,7 +106,117 @@ function getRequiredPolarEnv(surface: string): PolarEnv {
   return {
     POLAR_ORGANIZATION_TOKEN: process.env.POLAR_ORGANIZATION_TOKEN!,
     POLAR_WEBHOOK_SECRET: process.env.POLAR_WEBHOOK_SECRET!,
+    POLAR_PRODUCT_IDS: process.env.POLAR_PRODUCT_IDS!,
+    JEOMWON_APP_ORIGINS: process.env.JEOMWON_APP_ORIGINS!,
   };
+}
+
+function configuredValues(value: string, errorCode: string) {
+  const values = value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  if (values.length === 0 || new Set(values).size !== values.length) {
+    throw new Error(errorCode);
+  }
+  return values;
+}
+
+function checkoutConfiguration(env: PolarEnv): CheckoutConfiguration {
+  const applicationOrigins = configuredValues(
+    env.JEOMWON_APP_ORIGINS,
+    "polar_application_origins_invalid",
+  ).map((value) => {
+    let url: URL;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new Error("polar_application_origins_invalid");
+    }
+    if (
+      (url.protocol !== "https:" && url.protocol !== "http:") ||
+      url.username ||
+      url.password ||
+      url.origin !== value ||
+      url.pathname !== "/" ||
+      url.search ||
+      url.hash
+    ) {
+      throw new Error("polar_application_origins_invalid");
+    }
+    return url.origin;
+  });
+  return {
+    applicationOrigins,
+    productIds: configuredValues(
+      env.POLAR_PRODUCT_IDS,
+      "polar_product_ids_invalid",
+    ),
+  };
+}
+
+export function assertCheckoutInput<T extends CheckoutInput>(
+  input: T,
+  configuration: CheckoutConfiguration,
+): ValidatedCheckoutInput<T> {
+  if (
+    input.productIds.length !== 1 ||
+    !configuration.productIds.includes(input.productIds[0] ?? "")
+  ) {
+    throw new Error("polar_product_invalid");
+  }
+  let origin: URL;
+  try {
+    origin = new URL(input.origin);
+  } catch {
+    throw new Error("polar_checkout_origin_forbidden");
+  }
+  if (
+    (origin.protocol !== "https:" && origin.protocol !== "http:") ||
+    origin.origin !== input.origin ||
+    origin.pathname !== "/" ||
+    origin.search ||
+    origin.hash ||
+    ENCODED_ASCII_CONTROL.test(input.origin) ||
+    !configuration.applicationOrigins.includes(origin.origin)
+  ) {
+    throw new Error("polar_checkout_origin_forbidden");
+  }
+  let successUrl: URL;
+  try {
+    successUrl = new URL(input.successUrl);
+  } catch {
+    throw new Error("polar_checkout_success_url_forbidden");
+  }
+  if (
+    (successUrl.protocol !== "https:" && successUrl.protocol !== "http:") ||
+    successUrl.username ||
+    successUrl.password ||
+    input.successUrl !== successUrl.href ||
+    ENCODED_ASCII_CONTROL.test(input.successUrl) ||
+    !configuration.applicationOrigins.includes(successUrl.origin)
+  ) {
+    throw new Error("polar_checkout_success_url_forbidden");
+  }
+  for (const key of Object.keys(input.metadata ?? {})) {
+    const normalized = key.toLowerCase().replace(/[^a-z]/g, "");
+    if (RESERVED_CHECKOUT_METADATA.has(normalized)) {
+      throw new Error("polar_checkout_metadata_reserved");
+    }
+  }
+  return {
+    ...input,
+    origin: origin.origin,
+    successUrl: successUrl.href,
+  };
+}
+
+export function filterConfiguredProducts<T extends { readonly id: string }>(
+  products: readonly T[],
+  configuredProductIds: readonly string[],
+) {
+  const allowed = new Set(configuredProductIds);
+  return products.filter((product) => allowed.has(product.id));
 }
 
 function getPolarComponent(surface: string) {
@@ -137,6 +292,10 @@ export const changeCurrentSubscription = action({
     productId: v.string(),
   },
   handler: async (ctx, args) => {
+    const polarEnv = getRequiredPolarEnv("subscription change");
+    if (!checkoutConfiguration(polarEnv).productIds.includes(args.productId)) {
+      throw new Error("polar_product_invalid");
+    }
     return await getPolarClient("subscription change").changeSubscription(ctx, {
       productId: args.productId,
     });
@@ -163,7 +322,11 @@ export const listAllProducts = query({
     if (!domainConfig.features.polar) {
       return [];
     }
-    return await getPolarClient("product listing").listProducts(ctx);
+    const polarEnv = getRequiredPolarEnv("product listing");
+    return filterConfiguredProducts(
+      await getPolarClient("product listing").listProducts(ctx),
+      checkoutConfiguration(polarEnv).productIds,
+    );
   },
 });
 
@@ -192,16 +355,21 @@ export const generateCheckoutLink = action({
   ): Promise<{
     url: string;
   }> => {
+    const polarEnv = getRequiredPolarEnv("checkout link generation");
+    const checkoutArgs = assertCheckoutInput(
+      args,
+      checkoutConfiguration(polarEnv),
+    );
     const client = getPolarClient("checkout link generation");
     const { userId, email } = await getUserInfo(ctx);
     const { url: baseUrl } = await client.createCheckoutSession(ctx, {
-      productIds: args.productIds,
+      productIds: checkoutArgs.productIds,
       userId,
       email,
       subscriptionId: args.subscriptionId,
-      origin: args.origin,
-      successUrl: args.successUrl,
-      metadata: args.metadata,
+      origin: checkoutArgs.origin,
+      successUrl: checkoutArgs.successUrl,
+      metadata: checkoutArgs.metadata,
       trialInterval: args.trialInterval as TrialInterval | null | undefined,
       trialIntervalCount: args.trialIntervalCount,
     });

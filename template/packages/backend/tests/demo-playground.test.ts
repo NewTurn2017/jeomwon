@@ -52,6 +52,7 @@ describe("reservationEmailMode", () => {
   test("captures mail in a demo deployment even when Resend is configured", () => {
     // Given / When
     const mode = reservationEmailMode({
+      configuredMode: "sent",
       resendApiKey: "configured",
       qaResetFlag: undefined,
       demoResetFlag: "1",
@@ -65,16 +66,19 @@ describe("reservationEmailMode", () => {
     // Given / When
     const modes = [
       reservationEmailMode({
+        configuredMode: "capture",
         resendApiKey: undefined,
         qaResetFlag: undefined,
         demoResetFlag: undefined,
       }),
       reservationEmailMode({
+        configuredMode: "sent",
         resendApiKey: "configured",
         qaResetFlag: "1",
         demoResetFlag: undefined,
       }),
       reservationEmailMode({
+        configuredMode: "sent",
         resendApiKey: "configured",
         qaResetFlag: undefined,
         demoResetFlag: undefined,
@@ -83,5 +87,28 @@ describe("reservationEmailMode", () => {
 
     // Then
     expect(modes.join(",")).toBe("capture,capture,sent");
+  });
+
+  test("production delivery requires an explicit valid mode and Resend for send", () => {
+    const failure = (
+      configuredMode: string | undefined,
+      resendApiKey?: string,
+    ) => {
+      try {
+        reservationEmailMode({
+          configuredMode,
+          resendApiKey,
+          qaResetFlag: undefined,
+          demoResetFlag: undefined,
+        });
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      }
+      return "accepted";
+    };
+
+    expect(failure(undefined)).toBe("reservation_email_mode_required");
+    expect(failure("invalid")).toBe("reservation_email_mode_required");
+    expect(failure("sent")).toBe("reservation_email_send_requires_resend");
   });
 });

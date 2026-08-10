@@ -91,7 +91,7 @@
       "maturity": "implemented"
     },
     {
-      "id": "delivery.reservationEmail",
+      "id": "delivery.reservationEmail.capture",
       "ownership": "core",
       "enablement": { "mode": "feature", "default": true },
       "surfaces": [
@@ -114,8 +114,33 @@
         "qaGate": 8,
         "liveGate": null
       },
-      "sideEffects": ["delivery-ledger", "email-capture-or-send"],
+      "sideEffects": ["delivery-ledger", "email-capture"],
       "maturity": "qa-proven"
+    },
+    {
+      "id": "delivery.reservationEmail.resend",
+      "ownership": "integration",
+      "enablement": { "mode": "feature", "default": false },
+      "surfaces": [
+        "template/packages/backend/convex/email/index.ts",
+        "template/packages/backend/convex/email/reservationActions.ts"
+      ],
+      "symbols": [
+        {
+          "path": "template/packages/backend/convex/email/index.ts",
+          "name": "sendEmail"
+        }
+      ],
+      "evidence": {
+        "level": "test",
+        "paths": [
+          "template/packages/backend/tests/reservation-email-delivery.test.ts"
+        ],
+        "qaGate": null,
+        "liveGate": null
+      },
+      "sideEffects": ["resend-delivery"],
+      "maturity": "implemented"
     },
     {
       "id": "waitlist.notifyOnly",
@@ -185,7 +210,9 @@
       ],
       "evidence": {
         "level": "test",
-        "paths": ["template/packages/backend/tests/account-deletion.test.ts"],
+        "paths": [
+          "template/packages/backend/tests/account-subscription-boundary.test.ts"
+        ],
         "qaGate": null,
         "liveGate": null
       },

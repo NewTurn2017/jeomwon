@@ -25,12 +25,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import type { ViewerRole } from "@/lib/admin-routing";
 import {
   useChangeLocale,
   useCurrentLocale,
   useScopedI18n,
 } from "@/locales/client";
-import type { ViewerRole } from "@/lib/admin-routing";
 
 const PolarCheckoutLink = dynamic(
   () =>
@@ -297,9 +297,7 @@ function PolarUpgradeMenuItem({
   return (
     <DropdownMenuItem className="p-0 focus:bg-transparent">
       <Button size="sm" className="w-full" asChild>
-        <PolarCheckoutLink
-          productIds={[monthlyProProduct.id, yearlyProProduct.id]}
-        >
+        <PolarCheckoutLink productIds={[monthlyProProduct.id]}>
           {t("upgradePro")}
         </PolarCheckoutLink>
       </Button>

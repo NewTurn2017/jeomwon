@@ -62,8 +62,16 @@ describe("capability release metadata", () => {
 	test("validates the canonical manifest and every declared source/evidence path", () => {
 		expect(validateCapabilities(manifestPath)).toEqual({
 			schemaVersion: 1,
-			capabilities: 9,
+			capabilities: 10,
 		});
+	});
+
+	test("keeps capture, Resend delivery, and account subscription evidence distinct", () => {
+		const ids = capabilities(manifest()).map(({ id }) => id);
+		expect(ids).toContain("delivery.reservationEmail.capture");
+		expect(ids).toContain("delivery.reservationEmail.resend");
+		expect(ids).toContain("billing.accountSubscription.polar");
+		expect(ids).not.toContain("delivery.reservationEmail");
 	});
 
 	test("keeps Polar account subscription distinct from absent reservation commerce", () => {
@@ -189,7 +197,7 @@ describe("capability CLI output", () => {
 		expect(result.status).toBe(0);
 		expect(result.stderr).toBe("");
 		expect(result.stdout.trim()).toBe(
-			'CAPABILITIES PASS {"schemaVersion":1,"capabilities":9}',
+			'CAPABILITIES PASS {"schemaVersion":1,"capabilities":10}',
 		);
 	});
 

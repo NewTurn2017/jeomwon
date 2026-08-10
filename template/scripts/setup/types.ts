@@ -82,7 +82,7 @@ export type SetupStubs = {
   convexAuthenticated?: boolean;
   convexUrl?: string;
   convexSiteUrl?: string;
-  domainFeatures?: { polar?: boolean };
+  domainFeatures?: { email?: boolean; polar?: boolean };
   probes?: { openaiModels?: boolean; resendEmail?: boolean };
 };
 

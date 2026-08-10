@@ -17,6 +17,7 @@
   },
   "convexAuthenticated": true,
   "domainFeatures": {
+    "email": false,
     "polar": false
   },
   "probes": {

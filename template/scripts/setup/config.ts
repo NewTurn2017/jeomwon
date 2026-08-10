@@ -39,7 +39,10 @@ const CORE_STEP_KINDS = [
 ] as const satisfies readonly StepKind[];
 
 const CORE_STEP_VARIABLES = [
-  [{ name: "NEXT_PUBLIC_APP_URL", projects: ["web"] }],
+  [
+    { name: "NEXT_PUBLIC_APP_URL", projects: ["web"] },
+    { name: "JEOMWON_APP_ORIGINS", projects: ["convex"] },
+  ],
   [{ name: "SITE_URL", projects: ["backend", "convex"] }],
   [
     { name: "CONVEX_URL", projects: ["backend"] },
@@ -59,6 +62,7 @@ const CORE_STEP_VARIABLES = [
   [
     { name: "RESEND_API_KEY", projects: ["convex"] },
     { name: "RESEND_SENDER_EMAIL_AUTH", projects: ["convex"] },
+    { name: "RESERVATION_EMAIL_MODE", projects: ["convex"] },
   ],
   [
     { name: "OPENAI_API_KEY", projects: ["app"] },
@@ -67,6 +71,7 @@ const CORE_STEP_VARIABLES = [
   [
     { name: "POLAR_WEBHOOK_SECRET", projects: ["convex"] },
     { name: "POLAR_ORGANIZATION_TOKEN", projects: ["convex"] },
+    { name: "POLAR_PRODUCT_IDS", projects: ["convex"] },
   ],
 ] as const;
 
@@ -347,6 +352,7 @@ export function readJsonFile<T>(filePath: string): T {
 }
 
 export type DomainFeatures = {
+  email: boolean;
   polar: boolean;
 };
 
@@ -355,6 +361,7 @@ export async function readDomainFeatures(
 ): Promise<DomainFeatures> {
   if (ctx.stubs.domainFeatures) {
     return {
+      email: ctx.stubs.domainFeatures.email === true,
       polar: ctx.stubs.domainFeatures.polar === true,
     };
   }
@@ -366,11 +373,12 @@ export async function readDomainFeatures(
   const moduleUrl = pathToFileURL(domainConfigPath).href;
   const imported = (await import(moduleUrl)) as {
     domainConfig?: {
-      features?: { polar?: boolean };
+      features?: { email?: boolean; polar?: boolean };
     };
   };
 
   return {
+    email: imported.domainConfig?.features?.email === true,
     polar: imported.domainConfig?.features?.polar === true,
   };
 }
