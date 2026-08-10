@@ -5,6 +5,7 @@ import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
+let validationRoot = repoRoot;
 const MAX_MANIFEST_BYTES = 1024 * 1024;
 const ID_PATTERN = /^[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*)+$/;
 const SYMBOL_PATTERN = /^[A-Za-z_$][\w$]*$/;
@@ -27,7 +28,8 @@ export class CapabilityValidationError extends Error {
 	}
 }
 
-export function validateCapabilities(manifestPath) {
+export function validateCapabilities(manifestPath, repositoryRoot = repoRoot) {
+	validationRoot = realpathSync(resolve(repositoryRoot));
 	const absoluteManifestPath = resolve(String(manifestPath));
 	if (!existsSync(absoluteManifestPath)) {
 		fail("capability_manifest_missing", "manifest does not exist");
@@ -272,7 +274,7 @@ function validateMaturityShape(capability) {
 	if (
 		capability.enablement.mode === "feature" &&
 		capability.enablement.default !== false &&
-		capability.id !== "delivery.reservationEmail"
+		capability.id !== "delivery.reservationEmail.capture"
 	) {
 		fail(
 			"capability_default_invalid",
@@ -302,15 +304,15 @@ function validateRepositoryFile(path, label) {
 	) {
 		fail("capability_path_invalid", `${label} contains an unsafe path`);
 	}
-	const absolutePath = resolve(repoRoot, path);
-	if (!isInside(repoRoot, absolutePath) || !existsSync(absolutePath)) {
+	const absolutePath = resolve(validationRoot, path);
+	if (!isInside(validationRoot, absolutePath) || !existsSync(absolutePath)) {
 		fail("capability_path_missing", `${label} path does not exist: ${path}`);
 	}
 	const stat = lstatSync(absolutePath);
 	if (
 		!stat.isFile() ||
 		stat.isSymbolicLink() ||
-		!isInside(repoRoot, realpathSync(absolutePath))
+		!isInside(validationRoot, realpathSync(absolutePath))
 	) {
 		fail(
 			"capability_path_invalid",
@@ -323,7 +325,7 @@ function validateRepositoryFile(path, label) {
 function qaGateExists(gate, evidencePaths) {
 	for (const path of evidencePaths) {
 		if (!path.endsWith("qa-contract.ts")) continue;
-		const source = readFileSync(resolve(repoRoot, path), "utf8");
+		const source = readFileSync(resolve(validationRoot, path), "utf8");
 		if (new RegExp(`\\bid:\\s*${gate}\\b`).test(source)) return true;
 	}
 	return false;

@@ -1,0 +1,15 @@
+{
+	"extends": "../template/tooling/typescript/base.json",
+	"compilerOptions": {
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"noEmit": true,
+		"types": ["bun", "node"],
+		"typeRoots": ["../template/node_modules/@types"]
+	},
+	"files": [
+		"scripts/capability-contract.test.ts",
+		"scripts/generator-contract.test.ts",
+		"scripts/skills-install-smoke.test.ts"
+	]
+}

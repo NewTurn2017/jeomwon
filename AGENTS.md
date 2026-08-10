@@ -53,6 +53,7 @@ canonical Bun/Turbo/Next.js/Convex workspace in `template/`.
 - Store-timezone calendar parts drive booking time. Do not substitute browser/local `getHours()` logic.
 - `threadId` is routing context, never identity or authorization. Public and internal context shapes stay separated.
 - Bun is the package manager. Biome is the sole formatter/linter; tests use `bun:test`.
+- `skill/assets/jeomwon-template-v0.1.0.tar.gz` is the immutable installed-skill source derived from canonical `template/`. Every included template change must rebuild it with `bun skill/scripts/build-template-archive.mjs`, update both hashes in `skill/jeomwon-skill.json`, and pass `bun skill/scripts/build-template-archive.mjs --check`. The builder excludes only `.DS_Store`, `.env.local`, `.next`, `.react-email`, `.turbo`, `node_modules`, and `qa-artifacts` by basename.
 
 ## ANTI-PATTERNS (THIS PROJECT)
 
@@ -79,6 +80,7 @@ Generator contract from the repository root:
 
 ```bash
 bun test skill/scripts/generator-contract.test.ts
+bun skill/scripts/build-template-archive.mjs --check
 bun skill/scripts/bootstrap.mjs <fresh-target> <project-name> <domain-pack.json>
 ```
 

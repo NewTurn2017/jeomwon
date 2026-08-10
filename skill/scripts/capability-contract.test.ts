@@ -28,6 +28,13 @@ function capabilities(value: Record<string, unknown>) {
 	return value.capabilities as Array<Record<string, unknown>>;
 }
 
+function firstCapability(value: Record<string, unknown>) {
+	const capability = capabilities(value)[0];
+	if (capability === undefined)
+		throw new Error("missing first test capability");
+	return capability;
+}
+
 function requireCapability(value: Record<string, unknown>, id: string) {
 	const capability = capabilities(value).find((entry) => entry.id === id);
 	if (capability === undefined) {
@@ -125,19 +132,19 @@ describe("strict capability validation", () => {
 
 	test("rejects duplicate IDs, unknown fields, and unsafe paths", () => {
 		const duplicate = manifest();
-		capabilities(duplicate).push(structuredClone(capabilities(duplicate)[0]));
+		capabilities(duplicate).push(structuredClone(firstCapability(duplicate)));
 		expect(errorCode(temporaryManifest(duplicate))).toBe(
 			"capability_id_duplicate",
 		);
 
 		const unknown = manifest();
-		capabilities(unknown)[0].unknownField = true;
+		firstCapability(unknown).unknownField = true;
 		expect(errorCode(temporaryManifest(unknown))).toBe(
 			"capability_manifest_invalid",
 		);
 
 		const unsafe = manifest();
-		capabilities(unsafe)[0].surfaces = ["../outside.ts"];
+		firstCapability(unsafe).surfaces = ["../outside.ts"];
 		expect(errorCode(temporaryManifest(unsafe))).toBe(
 			"capability_path_invalid",
 		);
@@ -162,7 +169,7 @@ describe("strict capability validation", () => {
 			},
 		]) {
 			const value = manifest();
-			mutate(capabilities(value)[0]);
+			mutate(firstCapability(value));
 			const code = errorCode(temporaryManifest(value));
 			expect([
 				"capability_path_missing",

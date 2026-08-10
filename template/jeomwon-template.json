@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "templateVersion": "0.1.0",
+  "templateApi": 1,
+  "contracts": {
+    "domainPackWriter": 0,
+    "capabilitySchema": 1,
+    "setupSchema": 2,
+    "qaContract": 1
+  }
+}

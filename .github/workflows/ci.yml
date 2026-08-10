@@ -25,7 +25,9 @@ jobs:
       - run: bun run typecheck
       - run: bun run lint
       - run: bun test
-      - run: cd .. && bun test skill/scripts/generator-contract.test.ts
+      - run: cd .. && bun skill/scripts/build-template-archive.mjs --check
+      - run: cd .. && ./template/node_modules/.bin/tsc -p skill/tsconfig.json
+      - run: cd .. && bun test skill/scripts/skills-install-smoke.test.ts skill/scripts/generator-contract.test.ts
 
   setup-portability:
     name: setup contract (${{ matrix.os }})

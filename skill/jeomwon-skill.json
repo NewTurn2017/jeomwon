@@ -1,0 +1,18 @@
+{
+	"schemaVersion": 1,
+	"skillVersion": "0.1.0",
+	"compatibility": {
+		"templateVersion": "0.1.0",
+		"templateApi": 1,
+		"domainPackWriter": 0,
+		"capabilitySchema": 1,
+		"setupSchema": 2,
+		"qaContract": 1
+	},
+	"templateSource": {
+		"kind": "bundled-archive",
+		"archivePath": "assets/jeomwon-template-v0.1.0.tar.gz",
+		"archiveSha256": "666efb34cbea8e4d8d74c9c4e8b79718b45a69990e21589972640aa4ca32d6e2",
+		"contentSha256": "e8da060dbfbd1b92e016e981ffca1ec197c05e6510418e5b148ca1ccd17ce1a3"
+	}
+}

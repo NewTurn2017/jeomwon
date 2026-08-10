@@ -31,6 +31,18 @@ const templateSeedPath = join(
 );
 const temporaryRoots: string[] = [];
 
+function localTemplateEnvironment(
+	overrides: NodeJS.ProcessEnv = {},
+): NodeJS.ProcessEnv {
+	const environment = { ...process.env };
+	delete environment.JEOMWON_TEMPLATE_ARCHIVE;
+	delete environment.JEOMWON_TEMPLATE_ARCHIVE_SHA256;
+	delete environment.JEOMWON_TEMPLATE_REF;
+	delete environment.JEOMWON_TEMPLATE_GIT_REPOSITORY;
+	delete environment.JEOMWON_TEMPLATE_SOURCE_COMMIT;
+	return { ...environment, ...overrides };
+}
+
 describe("authenticated app operator guidance", () => {
 	test("Given the live QA guidance When an operator follows it Then every target is apps/app on port 3000", () => {
 		expect(skillSource).toContain(
@@ -134,6 +146,45 @@ function inject(pack = readExamplePack()) {
 }
 
 describe("generator retained contract", () => {
+	test("Given a repository checkout When scaffolded without an override Then the local template source is used", () => {
+		const parent = mkdtempSync(
+			join(tmpdir(), "jeomwon local template baseline "),
+		);
+		temporaryRoots.push(parent);
+		const target = join(parent, "generated app");
+
+		const result = spawnSync("bun", [scaffoldPath, target, "Local Template"], {
+			cwd: repoRoot,
+			encoding: "utf8",
+			timeout: 30_000,
+			env: localTemplateEnvironment(),
+		});
+
+		expect(result.status).toBe(0);
+		expect(readFileSync(join(target, "package.json"), "utf8")).toContain(
+			'"name": "local-template"',
+		);
+		const receipt = JSON.parse(
+			readFileSync(join(target, "jeomwon-project.json"), "utf8"),
+		) as {
+			templateApi: number;
+			templateSource: {
+				kind: string;
+				sourceCommit?: string;
+				contentHash: string;
+				[key: string]: unknown;
+			};
+		};
+		expect(receipt.templateApi).toBe(1);
+		expect(receipt.templateSource.kind).toBe("local");
+		if (receipt.templateSource.sourceCommit !== undefined) {
+			expect(receipt.templateSource.sourceCommit).toMatch(/^[a-f0-9]{40}$/);
+		}
+		expect(receipt.templateSource).not.toHaveProperty("releaseTag");
+		expect(receipt.templateSource).not.toHaveProperty("archiveSha256");
+		expect(receipt.templateSource.contentHash).toMatch(/^[a-f0-9]{64}$/);
+	});
+
 	test("Given a target path with spaces When scaffolded Then the package scope is rewritten", () => {
 		const parent = mkdtempSync(join(tmpdir(), "jeomwon scaffold baseline "));
 		temporaryRoots.push(parent);
@@ -143,6 +194,7 @@ describe("generator retained contract", () => {
 			cwd: repoRoot,
 			encoding: "utf8",
 			timeout: 30_000,
+			env: localTemplateEnvironment(),
 		});
 
 		expect(result.status).toBe(0);
@@ -251,7 +303,10 @@ describe("customer accounts baseline contract", () => {
 
 	for (const [locale, publicCopy] of [
 		["ko-KR", "예약 불이행 처리되었습니다. 매장에 문의해 주세요."],
-		["en-US", "This reservation was marked no-show. Contact the store for help."],
+		[
+			"en-US",
+			"This reservation was marked no-show. Contact the store for help.",
+		],
 	] as const) {
 		test(`Given no-show is enabled for ${locale} When injected Then public next-step copy is required and preserved`, () => {
 			const pack = readExamplePack();
@@ -265,7 +320,9 @@ describe("customer accounts baseline contract", () => {
 			expect(result.status).toBe(0);
 			expect(generated).toContain('"noShow": true');
 			expect(generated).toContain(JSON.stringify(publicCopy));
-			expect(generated).not.toMatch(/operatorMemo|privateDecision|riskSignals|costBasisCents/);
+			expect(generated).not.toMatch(
+				/operatorMemo|privateDecision|riskSignals|costBasisCents/,
+			);
 		});
 	}
 
@@ -344,13 +401,12 @@ describe("customer accounts baseline contract", () => {
 				cwd: repoRoot,
 				encoding: "utf8",
 				timeout: 180_000,
-				env: {
-					...process.env,
+				env: localTemplateEnvironment({
 					...(writableCache === undefined
 						? {}
 						: { BUN_INSTALL_CACHE_DIR: writableCache }),
 					JEOMWON_QA_BASE_URL: "http://127.0.0.1:9",
-				},
+				}),
 			},
 		);
 

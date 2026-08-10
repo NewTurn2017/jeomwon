@@ -31,8 +31,32 @@ type InvalidArchive = {
 	entries: Record<string, string> | null;
 };
 
+type TemplateManifestOverrides = {
+	templateApi?: number;
+	domainPackWriter?: number;
+};
+
+type CompatibilityCase = {
+	label: string;
+	code: string;
+	entries: Record<string, string>;
+};
+
+const MATCHING_TEMPLATE_MANIFEST = {
+	schemaVersion: 1,
+	templateVersion: "0.1.0",
+	templateApi: 1,
+	contracts: {
+		domainPackWriter: 0,
+		capabilitySchema: 1,
+		setupSchema: 2,
+		qaContract: 1,
+	},
+};
+
 const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const skillPath = join(repoRoot, "skill");
+const rootWorkflowPath = join(repoRoot, ".github/workflows/ci.yml");
 const temporaryRoots: string[] = [];
 
 function temporaryRoot(prefix: string): string {
@@ -49,7 +73,99 @@ function installedScaffold(root: string): string {
 		join(scripts, "scaffold.mjs"),
 	);
 	cpSync(join(skillPath, "scripts/cli.mjs"), join(scripts, "cli.mjs"));
+	cpSync(
+		join(skillPath, "scripts/validate-capabilities.mjs"),
+		join(scripts, "validate-capabilities.mjs"),
+	);
+	const assets = join(skillPath, "assets");
+	if (existsSync(assets)) {
+		cpSync(assets, join(root, "installed skill/assets"), { recursive: true });
+	}
+	const skillManifest = join(skillPath, "jeomwon-skill.json");
+	if (existsSync(skillManifest)) {
+		cpSync(skillManifest, join(root, "installed skill/jeomwon-skill.json"));
+	}
 	return join(scripts, "scaffold.mjs");
+}
+
+function writeTemplateEntries(root: string, entries: Record<string, string>) {
+	for (const [archivePath, content] of Object.entries(entries)) {
+		const templateIndex = archivePath.indexOf("/template/");
+		if (templateIndex < 0) continue;
+		const destination = join(root, archivePath.slice(templateIndex + 1));
+		mkdirSync(dirname(destination), { recursive: true });
+		writeFileSync(destination, content);
+	}
+}
+
+function git(root: string, args: string[]): ReturnType<typeof spawnSync> {
+	return spawnSync("git", ["-C", root, ...args], {
+		encoding: args[0] === "archive" ? undefined : "utf8",
+	});
+}
+
+function compatibleTemplateEntries(
+	overrides: TemplateManifestOverrides = {},
+): Record<string, string> {
+	const manifest = structuredClone(MATCHING_TEMPLATE_MANIFEST);
+	if (overrides.templateApi !== undefined) {
+		manifest.templateApi = overrides.templateApi;
+	}
+	if (overrides.domainPackWriter !== undefined) {
+		manifest.contracts.domainPackWriter = overrides.domainPackWriter;
+	}
+	const capabilitySource = readFileSync(
+		join(repoRoot, "template/jeomwon-capabilities.json"),
+		"utf8",
+	);
+	const capabilityManifest = JSON.parse(capabilitySource) as {
+		capabilities: Array<{
+			surfaces: string[];
+			symbols: Array<{ path: string }>;
+			evidence: { paths: string[]; liveGate: string | null };
+		}>;
+	};
+	const entries: Record<string, string> = {
+		"jeomwon-v0.1.0/template/jeomwon-template.json": `${JSON.stringify(manifest)}\n`,
+		"jeomwon-v0.1.0/template/package.json":
+			'{"name":"jeomwon-app","dependencies":{"backend":"@jeomwon/backend"}}\n',
+		"jeomwon-v0.1.0/template/apps/app/package.json":
+			'{"name":"@jeomwon/app","dependencies":{"backend":"@jeomwon/backend"}}\n',
+		"jeomwon-v0.1.0/template/packages/backend/domain.config.ts":
+			"export const domainConfig = {};\n",
+		"jeomwon-v0.1.0/template/jeomwon-capabilities.json": capabilitySource,
+		"jeomwon-v0.1.0/template/setup-config.json": readFileSync(
+			join(repoRoot, "template/setup-config.json"),
+			"utf8",
+		),
+		"jeomwon-v0.1.0/template/scripts/qa-contract.ts": readFileSync(
+			join(repoRoot, "template/scripts/qa-contract.ts"),
+			"utf8",
+		),
+		"jeomwon-v0.1.0/template/scripts/setup/config.ts": readFileSync(
+			join(repoRoot, "template/scripts/setup/config.ts"),
+			"utf8",
+		),
+		"jeomwon-v0.1.0/template/scripts/setup/types.ts": readFileSync(
+			join(repoRoot, "template/scripts/setup/types.ts"),
+			"utf8",
+		),
+	};
+	for (const capability of capabilityManifest.capabilities) {
+		const paths = [
+			...capability.surfaces,
+			...capability.symbols.map(({ path }) => path),
+			...capability.evidence.paths,
+			...(capability.evidence.liveGate ? [capability.evidence.liveGate] : []),
+		];
+		for (const path of paths) {
+			entries[`jeomwon-v0.1.0/${path}`] ||= readFileSync(
+				join(repoRoot, path),
+				"utf8",
+			);
+		}
+	}
+	return entries;
 }
 
 async function writeArchive(
@@ -96,11 +212,19 @@ function runScaffold(
 	target: string,
 	archive: string,
 ): ReturnType<typeof spawnSync> {
+	const archiveSha256 = existsSync(archive)
+		? createHash("sha256").update(readFileSync(archive)).digest("hex")
+		: "0".repeat(64);
 	return spawnSync("bun", [script, target, "Archive Scope"], {
 		cwd: dirname(target),
 		encoding: "utf8",
 		timeout: 15_000,
-		env: { ...process.env, JEOMWON_TEMPLATE_ARCHIVE: archive, NO_COLOR: "1" },
+		env: {
+			...process.env,
+			JEOMWON_TEMPLATE_ARCHIVE: archive,
+			JEOMWON_TEMPLATE_ARCHIVE_SHA256: archiveSha256,
+			NO_COLOR: "1",
+		},
 	});
 }
 
@@ -118,7 +242,14 @@ function interruptScaffold(
 	return new Promise((resolveResult, reject) => {
 		const child = spawn("bun", [script, target, "Interrupted Scope"], {
 			cwd: dirname(target),
-			env: { ...process.env, JEOMWON_TEMPLATE_ARCHIVE: archive, NO_COLOR: "1" },
+			env: {
+				...process.env,
+				JEOMWON_TEMPLATE_ARCHIVE: archive,
+				JEOMWON_TEMPLATE_ARCHIVE_SHA256: createHash("sha256")
+					.update(readFileSync(archive))
+					.digest("hex"),
+				NO_COLOR: "1",
+			},
 			stdio: ["ignore", "pipe", "pipe"],
 		});
 		let output = "";
@@ -223,22 +354,219 @@ describe("public skill installation", () => {
 				entry.startsWith("f .claude/skills/jeomwon/"),
 			),
 		).toBe(false);
+		expect(
+			installedManifest.some((entry) =>
+				entry.startsWith(
+					"f .agents/skills/jeomwon/assets/jeomwon-template-v0.1.0.tar.gz ",
+				),
+			),
+		).toBe(true);
+
+		const target = join(root, "installed-default-target");
+		const scaffold = spawnSync(
+			"bun",
+			[join(canonical, "scripts/scaffold.mjs"), target, "Installed Default"],
+			{
+				cwd: root,
+				encoding: "utf8",
+				timeout: 30_000,
+				env: {
+					...process.env,
+					JEOMWON_TEMPLATE_ARCHIVE: undefined,
+					JEOMWON_TEMPLATE_ARCHIVE_SHA256: undefined,
+					JEOMWON_TEMPLATE_REF: undefined,
+				},
+			},
+		);
+		expect(scaffold.status).toBe(0);
+		expect(
+			JSON.parse(readFileSync(join(target, "jeomwon-project.json"), "utf8"))
+				.templateSource.kind,
+		).toBe("bundled-archive");
 	}, 90_000);
+
+	test("the bundled template archive is reproducible and matches its manifest checksum", () => {
+		const root = temporaryRoot("jeomwon bundled reproducibility ");
+		const first = join(root, "first.tar.gz");
+		const second = join(root, "second.tar.gz");
+		for (const output of [first, second]) {
+			const result = spawnSync(
+				"bun",
+				[join(skillPath, "scripts/build-template-archive.mjs"), output],
+				{ cwd: repoRoot, encoding: "utf8", timeout: 30_000 },
+			);
+			expect(result.status).toBe(0);
+		}
+		const digest = (path: string) =>
+			createHash("sha256").update(readFileSync(path)).digest("hex");
+		expect(digest(first)).toBe(digest(second));
+		const manifest = JSON.parse(
+			readFileSync(join(skillPath, "jeomwon-skill.json"), "utf8"),
+		) as { templateSource: { archivePath: string; archiveSha256: string } };
+		const bundled = join(skillPath, manifest.templateSource.archivePath);
+		expect(digest(bundled)).toBe(manifest.templateSource.archiveSha256);
+	}, 60_000);
+
+	test("the bundled template freshness check rejects any included template byte mutation", () => {
+		const root = temporaryRoot("jeomwon bundled freshness ");
+		const fixtureSkill = join(root, "skill");
+		mkdirSync(join(fixtureSkill, "scripts"), { recursive: true });
+		mkdirSync(join(fixtureSkill, "assets"), { recursive: true });
+		cpSync(
+			join(skillPath, "scripts/build-template-archive.mjs"),
+			join(fixtureSkill, "scripts/build-template-archive.mjs"),
+		);
+		cpSync(
+			join(skillPath, "jeomwon-skill.json"),
+			join(fixtureSkill, "jeomwon-skill.json"),
+		);
+		cpSync(
+			join(skillPath, "assets/jeomwon-template-v0.1.0.tar.gz"),
+			join(fixtureSkill, "assets/jeomwon-template-v0.1.0.tar.gz"),
+		);
+		cpSync(join(repoRoot, "template"), join(root, "template"), {
+			recursive: true,
+			filter: (path) =>
+				![
+					".DS_Store",
+					".env.local",
+					".next",
+					".react-email",
+					".turbo",
+					"node_modules",
+					"qa-artifacts",
+				].includes(path.slice(path.lastIndexOf("/") + 1)),
+		});
+		const script = join(fixtureSkill, "scripts/build-template-archive.mjs");
+
+		const baseline = spawnSync("bun", [script, "--check"], {
+			cwd: root,
+			encoding: "utf8",
+		});
+		expect(baseline.status).toBe(0);
+		expect(`${baseline.stdout}${baseline.stderr}`).toContain(
+			"BUNDLED TEMPLATE CHECK PASS",
+		);
+
+		writeFileSync(
+			join(root, "template/README.md"),
+			`${readFileSync(join(root, "template/README.md"), "utf8")}\nmutation\n`,
+		);
+		const mutated = spawnSync("bun", [script, "--check"], {
+			cwd: root,
+			encoding: "utf8",
+		});
+		expect(mutated.status).toBe(1);
+		expect(`${mutated.stdout}${mutated.stderr}`).toContain(
+			"BUNDLED TEMPLATE CHECK FAIL",
+		);
+	}, 60_000);
+
+	test("root CI enforces the bundled template freshness check and full scaffold contract", () => {
+		const workflow = readFileSync(rootWorkflowPath, "utf8");
+		expect(workflow).toContain(
+			"bun skill/scripts/build-template-archive.mjs --check",
+		);
+		expect(workflow).toContain(
+			"./template/node_modules/.bin/tsc -p skill/tsconfig.json",
+		);
+		expect(workflow).toContain(
+			"bun test skill/scripts/skills-install-smoke.test.ts skill/scripts/generator-contract.test.ts",
+		);
+	});
 });
 
 describe("archive-backed installed scaffold", () => {
+	test("a local git repository cannot substitute bytes from an unrelated commit", async () => {
+		const root = temporaryRoot("jeomwon unrelated git commit ");
+		const repository = join(root, "repository");
+		mkdirSync(repository, { recursive: true });
+		writeTemplateEntries(repository, compatibleTemplateEntries());
+		expect(git(repository, ["init", "-q"]).status).toBe(0);
+		expect(git(repository, ["config", "user.name", "Jeomwon QA"]).status).toBe(
+			0,
+		);
+		expect(
+			git(repository, ["config", "user.email", "qa.invalid@example.invalid"])
+				.status,
+		).toBe(0);
+		expect(git(repository, ["add", "template"]).status).toBe(0);
+		expect(git(repository, ["commit", "-qm", "first"]).status).toBe(0);
+		const firstCommit = String(
+			git(repository, ["rev-parse", "HEAD"]).stdout,
+		).trim();
+		writeFileSync(join(repository, "unrelated.txt"), "second commit\n");
+		expect(git(repository, ["add", "unrelated.txt"]).status).toBe(0);
+		expect(git(repository, ["commit", "-qm", "second"]).status).toBe(0);
+		const secondCommit = String(
+			git(repository, ["rev-parse", "HEAD"]).stdout,
+		).trim();
+		const firstArchive = git(repository, [
+			"archive",
+			"--format=tar.gz",
+			`--prefix=jeomwon-${firstCommit}/`,
+			firstCommit,
+		]);
+		expect(firstArchive.status).toBe(0);
+		const firstArchiveSha = createHash("sha256")
+			.update(firstArchive.stdout as Buffer)
+			.digest("hex");
+		const script = installedScaffold(root);
+		const target = join(root, "target");
+
+		const result = spawnSync("bun", [script, target, "Unrelated Commit"], {
+			cwd: root,
+			encoding: "utf8",
+			env: {
+				...process.env,
+				JEOMWON_TEMPLATE_REF: secondCommit,
+				JEOMWON_TEMPLATE_GIT_REPOSITORY: repository,
+				JEOMWON_TEMPLATE_ARCHIVE_SHA256: firstArchiveSha,
+			},
+		});
+
+		expect(result.status).toBe(1);
+		expect(`${result.stdout}${result.stderr}`).toContain(
+			"ERROR [archive_checksum_mismatch]",
+		);
+		expect(existsSync(target)).toBe(false);
+		expect(stagingEntries(target)).toEqual([]);
+	});
+
+	test("an installed skill scaffolds from its verified bundled immutable archive by default", () => {
+		const root = temporaryRoot("jeomwon bundled default ");
+		const script = installedScaffold(root);
+		const target = join(root, "target");
+
+		const result = spawnSync("bun", [script, target, "Bundled Default"], {
+			cwd: root,
+			encoding: "utf8",
+			timeout: 30_000,
+			env: {
+				...process.env,
+				JEOMWON_TEMPLATE_ARCHIVE: undefined,
+				JEOMWON_TEMPLATE_ARCHIVE_SHA256: undefined,
+				JEOMWON_TEMPLATE_REF: undefined,
+			},
+		});
+
+		expect(result.status).toBe(0);
+		const receipt = JSON.parse(
+			readFileSync(join(target, "jeomwon-project.json"), "utf8"),
+		) as { templateSource: Record<string, unknown> };
+		expect(receipt.templateSource.kind).toBe("bundled-archive");
+		expect(receipt.templateSource.archiveSha256).toMatch(/^[a-f0-9]{64}$/);
+		expect(receipt.templateSource).not.toHaveProperty("releaseTag");
+		expect(receipt.templateSource).not.toHaveProperty("sourceCommit");
+	});
+
 	test("a valid archive supports quoted paths and rewrites the generated package scope", async () => {
 		const root = temporaryRoot("jeomwon archive happy ");
 		const script = installedScaffold(root);
 		const archive = join(root, "template archive.tar");
 		const target = join(root, "unrelated cwd/generated app");
 		mkdirSync(dirname(target), { recursive: true });
-		await writeArchive(archive, {
-			"jeomwon-main/template/package.json":
-				'{"name":"jeomwon-app","dependencies":{"backend":"@jeomwon/backend"}}\n',
-			"jeomwon-main/template/apps/app/package.json":
-				'{"name":"@jeomwon/app","dependencies":{"backend":"@jeomwon/backend"}}\n',
-		});
+		await writeArchive(archive, compatibleTemplateEntries());
 
 		const result = runScaffold(script, target, archive);
 
@@ -253,6 +581,134 @@ describe("archive-backed installed scaffold", () => {
 		expect(
 			readFileSync(join(target, "apps/app/package.json"), "utf8"),
 		).toContain("@archive-scope/backend");
+		const receipt = JSON.parse(
+			readFileSync(join(target, "jeomwon-project.json"), "utf8"),
+		) as {
+			templateApi: number;
+			templateSource: {
+				archiveSha256: string;
+				contentHash: string;
+				[key: string]: unknown;
+			};
+		};
+		expect(receipt.templateApi).toBe(1);
+		expect(receipt.templateSource.kind).toBe("archive");
+		expect(receipt.templateSource).not.toHaveProperty("releaseTag");
+		expect(receipt.templateSource).not.toHaveProperty("sourceCommit");
+		expect(receipt.templateSource.archiveSha256).toBe(
+			createHash("sha256").update(readFileSync(archive)).digest("hex"),
+		);
+		expect(receipt.templateSource.contentHash).toMatch(/^[a-f0-9]{64}$/);
+	});
+
+	test("a checksum mismatch fails before archive parsing or target publication", async () => {
+		const root = temporaryRoot("jeomwon checksum mismatch ");
+		const script = installedScaffold(root);
+		const archive = join(root, "template.tar");
+		const target = join(root, "target");
+		await writeArchive(archive, compatibleTemplateEntries());
+
+		const result = spawnSync("bun", [script, target, "Checksum Failure"], {
+			cwd: root,
+			encoding: "utf8",
+			env: {
+				...process.env,
+				JEOMWON_TEMPLATE_ARCHIVE: archive,
+				JEOMWON_TEMPLATE_ARCHIVE_SHA256: "0".repeat(64),
+				NO_COLOR: "1",
+			},
+		});
+
+		expect(result.status).toBe(1);
+		expect(`${result.stdout}${result.stderr}`).toContain(
+			"ERROR [archive_checksum_mismatch]",
+		);
+		expect(`${result.stdout}${result.stderr}`).not.toContain(
+			"[PASS scaffold_created]",
+		);
+		expect(existsSync(target)).toBe(false);
+		expect(stagingEntries(target)).toEqual([]);
+	});
+
+	const incompatibleTemplates: CompatibilityCase[] = [
+		{
+			label: "missing manifest",
+			code: "template_manifest_missing",
+			entries: {
+				"jeomwon-v0.1.0/template/package.json": '{"name":"jeomwon-app"}\n',
+			},
+		},
+		{
+			label: "malformed manifest",
+			code: "template_manifest_invalid",
+			entries: {
+				...compatibleTemplateEntries(),
+				"jeomwon-v0.1.0/template/jeomwon-template.json": "{not-json\n",
+			},
+		},
+		{
+			label: "unsupported template API",
+			code: "template_api_unsupported",
+			entries: compatibleTemplateEntries({ templateApi: 999 }),
+		},
+		{
+			label: "mismatched domain pack writer",
+			code: "domain_pack_writer_mismatch",
+			entries: compatibleTemplateEntries({ domainPackWriter: 999 }),
+		},
+	];
+
+	const placeholderContracts: CompatibilityCase[] = [
+		{
+			label: "schema-only capability manifest",
+			code: "capability_schema_mismatch",
+			entries: {
+				...compatibleTemplateEntries(),
+				"jeomwon-v0.1.0/template/jeomwon-capabilities.json":
+					'{"schemaVersion":1}\n',
+			},
+		},
+		{
+			label: "schema-only setup config",
+			code: "setup_schema_mismatch",
+			entries: {
+				...compatibleTemplateEntries(),
+				"jeomwon-v0.1.0/template/setup-config.json": '{"schemaVersion":2}\n',
+			},
+		},
+		{
+			label: "comment-only QA marker",
+			code: "qa_contract_mismatch",
+			entries: {
+				...compatibleTemplateEntries(),
+				"jeomwon-v0.1.0/template/scripts/qa-contract.ts":
+					"// QA_GATE_CONTRACT\n",
+			},
+		},
+	];
+
+	test.each([
+		...incompatibleTemplates,
+		...placeholderContracts,
+	])("$label fails compatibility before target publication", async ({
+		code,
+		entries,
+	}) => {
+		const root = temporaryRoot("jeomwon compatibility invalid ");
+		const script = installedScaffold(root);
+		const archive = join(root, "template.tar");
+		const target = join(root, "target");
+		await writeArchive(archive, entries);
+
+		const result = runScaffold(script, target, archive);
+
+		expect(result.status).toBe(1);
+		expect(`${result.stdout}${result.stderr}`).toContain(`ERROR [${code}]`);
+		expect(`${result.stdout}${result.stderr}`).not.toContain(
+			"[PASS scaffold_created]",
+		);
+		expect(existsSync(target)).toBe(false);
+		expect(stagingEntries(target)).toEqual([]);
 	});
 
 	const invalidArchives: InvalidArchive[] = [
