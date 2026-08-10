@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fail as cliFail, createCli, parseCommonArgs } from "./cli.mjs";
 
@@ -9,6 +9,10 @@ const RESOURCE_KINDS = new Set(["person", "seat", "room", "unit"]);
 const SLOT_UNITS = new Set(["minutes:30", "hour", "day"]);
 const ADMIN_WIDGETS = new Set(["calendar", "seatGrid"]);
 const LOCALES = new Set(["ko-KR", "en-US"]);
+const DOMAIN_PACK_SCHEMA_VERSION = 1;
+const MAX_PACK_BYTES = 1024 * 1024;
+const MAX_JSON_DEPTH = 64;
+const MAX_JSON_VALUES = 100_000;
 const WEEKDAYS = [
 	"monday",
 	"tuesday",
@@ -18,7 +22,7 @@ const WEEKDAYS = [
 	"saturday",
 	"sunday",
 ];
-const TOP_LEVEL_KEYS = [
+const LEGACY_TOP_LEVEL_KEYS = [
 	"domainKey",
 	"storeName",
 	"storeTimezone",
@@ -33,6 +37,7 @@ const TOP_LEVEL_KEYS = [
 	"features",
 	"copy",
 ];
+const TOP_LEVEL_KEYS = ["schemaVersion", ...LEGACY_TOP_LEVEL_KEYS];
 // Optional kit-core features default off. customerAccounts is a compatibility
 // literal handled separately: omission materializes true and false is rejected.
 const OPTIONAL_FEATURE_KEYS = ["waitlist", "operatorCalendarCrud", "noShow"];
@@ -62,54 +67,217 @@ function fail(message) {
 	cliFail("pack_invalid", message);
 }
 
-const parsed = parseCommonArgs(process.argv.slice(2));
-if (parsed.error) cliFail(parsed.error, parsed.detail);
-const cli = createCli("inject", parsed.language);
-const usage =
-	"bun inject.mjs <target-dir> <domain-pack.json> [--lang ko|en|auto]";
-if (parsed.help) {
-	cli.help(usage);
-	process.exit(0);
-}
-const [targetArg, packArg, ...extra] = parsed.positional;
-if (!targetArg || !packArg || extra.length > 0) cliFail("usage", usage);
+async function main() {
+	const parsed = parseCommonArgs(process.argv.slice(2));
+	if (parsed.error) cliFail(parsed.error, parsed.detail);
+	const cli = createCli("inject", parsed.language);
+	const usage =
+		"bun inject.mjs <target-dir> <domain-pack.json> [--lang ko|en|auto]";
+	if (parsed.help) {
+		cli.help(usage);
+		process.exit(0);
+	}
+	const [targetArg, packArg, ...extra] = parsed.positional;
+	if (!targetArg || !packArg || extra.length > 0) cliFail("usage", usage);
 
-const targetDir = resolve(process.cwd(), targetArg);
-const packPath = resolve(process.cwd(), packArg);
+	const targetDir = resolve(process.cwd(), targetArg);
+	const packPath = resolve(process.cwd(), packArg);
 
-if (!existsSync(targetDir)) cliFail("target_missing", targetDir);
-if (!existsSync(packPath)) cliFail("pack_missing", packPath);
+	if (!existsSync(targetDir)) cliFail("target_missing", targetDir);
+	if (!existsSync(packPath)) cliFail("pack_missing", packPath);
 
-const pack = await readJson(packPath);
-validateDomainPack(pack);
+	const pack = normalizeDomainPack(await readJson(packPath));
+	const renderablePack = withoutSchemaVersion(pack);
+	const domainConfigPath = join(targetDir, "packages/backend/domain.config.ts");
+	const emailSamplePath = join(
+		targetDir,
+		"packages/email/src/reservation-sample.ts",
+	);
 
-const domainConfigPath = join(targetDir, "packages/backend/domain.config.ts");
-const emailSamplePath = join(
-	targetDir,
-	"packages/email/src/reservation-sample.ts",
-);
+	await writeProjectFile(domainConfigPath, renderDomainConfig(renderablePack));
+	if (existsSync(emailSamplePath)) {
+		await writeProjectFile(
+			emailSamplePath,
+			renderReservationSample(renderablePack),
+		);
+	}
 
-await writeProjectFile(domainConfigPath, renderDomainConfig(pack));
-if (existsSync(emailSamplePath)) {
-	await writeProjectFile(emailSamplePath, renderReservationSample(pack));
-}
+	formatGeneratedFiles(
+		targetDir,
+		[domainConfigPath, emailSamplePath].filter((path) => existsSync(path)),
+	);
 
-formatGeneratedFiles(
-	[domainConfigPath, emailSamplePath].filter((path) => existsSync(path)),
-);
-
-console.log(`Injected domain pack: ${pack.domainKey}`);
-console.log(`Wrote ${domainConfigPath}`);
-if (existsSync(emailSamplePath)) {
-	console.log(`Wrote ${emailSamplePath}`);
+	console.log(`Injected domain pack: ${pack.domainKey}`);
+	console.log(`Wrote ${domainConfigPath}`);
+	if (existsSync(emailSamplePath)) {
+		console.log(`Wrote ${emailSamplePath}`);
+	}
 }
 
 async function readJson(path) {
 	try {
-		return JSON.parse(await readFile(path, "utf8"));
+		const metadata = await stat(path);
+		if (!metadata.isFile()) {
+			fail("domain pack must be a regular file");
+		}
+		if (metadata.size > MAX_PACK_BYTES) {
+			fail(`domain pack exceeds ${MAX_PACK_BYTES} bytes`);
+		}
+		const bytes = await readFile(path);
+		if (bytes.byteLength > MAX_PACK_BYTES) {
+			fail(`domain pack exceeds ${MAX_PACK_BYTES} bytes`);
+		}
+		const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+		validateJsonStructure(source);
+		return JSON.parse(source);
 	} catch (error) {
 		const detail = error instanceof Error ? error.message : String(error);
 		fail(`invalid JSON in ${path}: ${detail}`);
+	}
+}
+
+function validateJsonStructure(source) {
+	new JsonStructureValidator(source).validate();
+}
+
+class JsonStructureValidator {
+	constructor(source) {
+		this.source = source;
+		this.index = 0;
+		this.values = 0;
+	}
+
+	validate() {
+		this.skipWhitespace();
+		this.parseValue(0);
+		this.skipWhitespace();
+		if (this.index !== this.source.length) {
+			this.invalid("unexpected trailing content");
+		}
+	}
+
+	parseValue(depth) {
+		if (depth > MAX_JSON_DEPTH) {
+			this.invalid(`JSON nesting exceeds ${MAX_JSON_DEPTH}`);
+		}
+		this.values++;
+		if (this.values > MAX_JSON_VALUES) {
+			this.invalid(`JSON value count exceeds ${MAX_JSON_VALUES}`);
+		}
+		this.skipWhitespace();
+		const token = this.source[this.index];
+		if (token === "{") {
+			this.parseObject(depth + 1);
+			return;
+		}
+		if (token === "[") {
+			this.parseArray(depth + 1);
+			return;
+		}
+		if (token === '"') {
+			this.parseString();
+			return;
+		}
+		if (token === "-" || (token >= "0" && token <= "9")) {
+			this.parseNumber();
+			return;
+		}
+		for (const literal of ["true", "false", "null"]) {
+			if (this.source.startsWith(literal, this.index)) {
+				this.index += literal.length;
+				return;
+			}
+		}
+		this.invalid("expected a JSON value");
+	}
+
+	parseObject(depth) {
+		this.index++;
+		this.skipWhitespace();
+		if (this.consume("}")) return;
+		const keys = new Set();
+		while (true) {
+			if (this.source[this.index] !== '"') {
+				this.invalid("expected an object key");
+			}
+			const key = this.parseString();
+			if (keys.has(key)) {
+				this.invalid(`duplicate key ${JSON.stringify(key)}`);
+			}
+			keys.add(key);
+			this.skipWhitespace();
+			this.expect(":");
+			this.parseValue(depth);
+			this.skipWhitespace();
+			if (this.consume("}")) return;
+			this.expect(",");
+			this.skipWhitespace();
+		}
+	}
+
+	parseArray(depth) {
+		this.index++;
+		this.skipWhitespace();
+		if (this.consume("]")) return;
+		while (true) {
+			this.parseValue(depth);
+			this.skipWhitespace();
+			if (this.consume("]")) return;
+			this.expect(",");
+			this.skipWhitespace();
+		}
+	}
+
+	parseString() {
+		const start = this.index;
+		this.index++;
+		let escaped = false;
+		while (this.index < this.source.length) {
+			const character = this.source[this.index++];
+			if (escaped) {
+				escaped = false;
+				continue;
+			}
+			if (character === "\\") {
+				escaped = true;
+				continue;
+			}
+			if (character === '"') {
+				return JSON.parse(this.source.slice(start, this.index));
+			}
+			if (character.charCodeAt(0) < 0x20) {
+				this.invalid("unescaped control character in string");
+			}
+		}
+		this.invalid("unterminated string");
+	}
+
+	parseNumber() {
+		const match = this.source
+			.slice(this.index)
+			.match(/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/);
+		if (!match) this.invalid("invalid number");
+		this.index += match[0].length;
+	}
+
+	skipWhitespace() {
+		while (/\s/.test(this.source[this.index] ?? "")) this.index++;
+	}
+
+	consume(character) {
+		if (this.source[this.index] !== character) return false;
+		this.index++;
+		return true;
+	}
+
+	expect(character) {
+		if (!this.consume(character)) {
+			this.invalid(`expected ${JSON.stringify(character)}`);
+		}
+	}
+
+	invalid(message) {
+		throw new SyntaxError(`${message} (offset ${this.index})`);
 	}
 }
 
@@ -123,7 +291,7 @@ async function writeProjectFile(path, content) {
 // width, so long copy strings would otherwise fail `bun run lint` on a fresh
 // project. Run the project formatter here so injected files are lint-clean at
 // rest. cwd = targetDir so biome resolves the project biome.json (2-space).
-function formatGeneratedFiles(paths) {
+function formatGeneratedFiles(targetDir, paths) {
 	if (paths.length === 0) {
 		return;
 	}
@@ -153,9 +321,37 @@ function formatGeneratedFiles(paths) {
 	);
 }
 
+export function normalizeDomainPack(value) {
+	assertRecord(value, "domain pack");
+	const migrated = Object.hasOwn(value, "schemaVersion")
+		? structuredClone(value)
+		: migrateLegacyDomainPack(value);
+	if (migrated.schemaVersion !== DOMAIN_PACK_SCHEMA_VERSION) {
+		cliFail(
+			"pack_schema_unsupported",
+			`schemaVersion must be ${DOMAIN_PACK_SCHEMA_VERSION}`,
+		);
+	}
+	validateDomainPack(migrated);
+	return canonicalizeDomainPack(migrated);
+}
+
+function migrateLegacyDomainPack(value) {
+	return {
+		schemaVersion: DOMAIN_PACK_SCHEMA_VERSION,
+		...structuredClone(value),
+	};
+}
+
 function validateDomainPack(value) {
 	assertRecord(value, "domain pack");
 	requireExactKeys(value, TOP_LEVEL_KEYS, "domain pack");
+	if (value.schemaVersion !== DOMAIN_PACK_SCHEMA_VERSION) {
+		cliFail(
+			"pack_schema_unsupported",
+			`schemaVersion must be ${DOMAIN_PACK_SCHEMA_VERSION}`,
+		);
+	}
 	requireSlug(value.domainKey, "domainKey");
 	requireNonEmptyString(value.storeName, "storeName");
 	requireNonEmptyString(value.storeTimezone, "storeTimezone");
@@ -169,6 +365,82 @@ function validateDomainPack(value) {
 	validatePolicies(value.policies);
 	validateFeatures(value.features, value.adminWidget);
 	validateCopy(value.copy, value.features.noShow);
+}
+
+function canonicalizeDomainPack(value) {
+	return {
+		schemaVersion: DOMAIN_PACK_SCHEMA_VERSION,
+		domainKey: value.domainKey,
+		storeName: value.storeName,
+		storeTimezone: value.storeTimezone,
+		locale: value.locale,
+		resources: value.resources.map((resource) => ({
+			key: resource.key,
+			label: resource.label,
+			kind: resource.kind,
+		})),
+		services: value.services.map((service) => ({
+			key: service.key,
+			label: service.label,
+			...(service.durationMinutes === undefined
+				? {}
+				: { durationMinutes: service.durationMinutes }),
+			...(service.slotUnit === undefined ? {} : { slotUnit: service.slotUnit }),
+			...(service.dayUnit === undefined
+				? {}
+				: {
+						dayUnit: {
+							checkInTime: service.dayUnit.checkInTime,
+							checkOutTime: service.dayUnit.checkOutTime,
+							checkInLabel: service.dayUnit.checkInLabel,
+							checkOutLabel: service.dayUnit.checkOutLabel,
+						},
+					}),
+			...(service.price === undefined ? {} : { price: service.price }),
+			resourceKind: service.resourceKind,
+		})),
+		businessHours: Object.fromEntries(
+			WEEKDAYS.map((weekday) => {
+				const window = value.businessHours[weekday];
+				return [
+					weekday,
+					window.closed === true
+						? { closed: true }
+						: { open: window.open, close: window.close },
+				];
+			}),
+		),
+		blackouts: value.blackouts.map((blackout) => ({
+			startIso: blackout.startIso,
+			endIso: blackout.endIso,
+			...(blackout.reason === undefined ? {} : { reason: blackout.reason }),
+		})),
+		policies: {
+			cancelWindowHours: value.policies.cancelWindowHours,
+			holdMinutes: value.policies.holdMinutes,
+			confirmationRequired: true,
+		},
+		adminWidget: value.adminWidget,
+		notificationEmail: value.notificationEmail,
+		features: {
+			email: value.features.email,
+			polar: value.features.polar,
+			customerAccounts: true,
+			waitlist: value.features.waitlist ?? false,
+			operatorCalendarCrud: value.features.operatorCalendarCrud ?? false,
+			noShow: value.features.noShow ?? false,
+		},
+		copy: {
+			...Object.fromEntries(COPY_KEYS.map((key) => [key, value.copy[key]])),
+			noShow: value.features.noShow ? value.copy.noShow : null,
+		},
+	};
+}
+
+function withoutSchemaVersion(pack) {
+	return Object.fromEntries(
+		LEGACY_TOP_LEVEL_KEYS.map((key) => [key, pack[key]]),
+	);
 }
 
 function validateResources(resources) {
@@ -333,7 +605,7 @@ function validateFeatures(features, adminWidget) {
 		fail("features.polar must be boolean");
 	}
 	if (features.customerAccounts === undefined) {
-		features.customerAccounts = true;
+		// Omission migrates to the baseline literal during canonicalization.
 	} else if (features.customerAccounts === false) {
 		fail(
 			"features.customerAccounts=false is no longer supported; omit it or set true",
@@ -341,12 +613,8 @@ function validateFeatures(features, adminWidget) {
 	} else if (features.customerAccounts !== true) {
 		fail("features.customerAccounts must be true");
 	}
-	// Materialize optional defaults because emitted DomainConfig fields are
-	// non-optional even when the pack omits them.
 	for (const key of OPTIONAL_FEATURE_KEYS) {
-		if (features[key] === undefined) {
-			features[key] = false;
-		} else if (typeof features[key] !== "boolean") {
+		if (features[key] !== undefined && typeof features[key] !== "boolean") {
 			fail(`features.${key} must be boolean`);
 		}
 	}
@@ -369,8 +637,6 @@ function validateCopy(copy, noShowEnabled) {
 	}
 	if (noShowEnabled) {
 		requireNonEmptyString(copy.noShow, "copy.noShow");
-	} else {
-		copy.noShow = null;
 	}
 }
 
@@ -640,4 +906,8 @@ function clockMinutes(clock) {
 		.split(":")
 		.map((part) => Number.parseInt(part, 10));
 	return hour * 60 + minute;
+}
+
+if (import.meta.main) {
+	await main();
 }
