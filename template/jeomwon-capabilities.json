@@ -1,0 +1,236 @@
+{
+  "schemaVersion": 1,
+  "kind": "jeomwon-release-capabilities",
+  "capabilities": [
+    {
+      "id": "reservation.customerLifecycle",
+      "ownership": "core",
+      "enablement": { "mode": "always", "default": true },
+      "surfaces": [
+        "template/packages/backend/convex/customerReservations.ts",
+        "template/packages/backend/convex/schema.ts"
+      ],
+      "symbols": [
+        {
+          "path": "template/packages/backend/convex/customerReservations.ts",
+          "name": "snapshot"
+        },
+        {
+          "path": "template/packages/backend/convex/customerReservations.ts",
+          "name": "createHold"
+        }
+      ],
+      "evidence": {
+        "level": "qa",
+        "paths": [
+          "template/packages/backend/tests/customer-reservation-lifecycle.test.ts",
+          "template/scripts/qa-contract.ts"
+        ],
+        "qaGate": 1,
+        "liveGate": null
+      },
+      "sideEffects": ["reservation-write", "audit", "email-intent"],
+      "maturity": "qa-proven"
+    },
+    {
+      "id": "accounts.customer",
+      "ownership": "core",
+      "enablement": { "mode": "always", "default": true },
+      "surfaces": [
+        "template/packages/backend/convex/customerReservations.ts",
+        "template/packages/backend/convex/users.ts"
+      ],
+      "symbols": [
+        {
+          "path": "template/packages/backend/convex/customerReservations.ts",
+          "name": "ensureCustomer"
+        },
+        {
+          "path": "template/packages/backend/convex/users.ts",
+          "name": "getUser"
+        }
+      ],
+      "evidence": {
+        "level": "qa",
+        "paths": [
+          "template/packages/backend/tests/customer-reservations-ownership.test.ts",
+          "template/scripts/qa-contract.ts"
+        ],
+        "qaGate": 11,
+        "liveGate": null
+      },
+      "sideEffects": ["authenticated-read", "customer-owned-write"],
+      "maturity": "qa-proven"
+    },
+    {
+      "id": "accounts.deletion",
+      "ownership": "core",
+      "enablement": { "mode": "always", "default": true },
+      "surfaces": [
+        "template/packages/backend/convex/users.ts",
+        "template/packages/backend/convex/schema.ts"
+      ],
+      "symbols": [
+        {
+          "path": "template/packages/backend/convex/users.ts",
+          "name": "requestAccountDeletion"
+        }
+      ],
+      "evidence": {
+        "level": "test",
+        "paths": ["template/packages/backend/tests/account-deletion.test.ts"],
+        "qaGate": null,
+        "liveGate": null
+      },
+      "sideEffects": [
+        "subscription-cancel",
+        "storage-delete",
+        "record-redaction",
+        "auth-delete"
+      ],
+      "maturity": "implemented"
+    },
+    {
+      "id": "delivery.reservationEmail",
+      "ownership": "core",
+      "enablement": { "mode": "feature", "default": true },
+      "surfaces": [
+        "template/packages/backend/convex/reservationEmailScheduler.ts",
+        "template/packages/backend/convex/email/reservationActions.ts",
+        "template/packages/backend/convex/schema.ts"
+      ],
+      "symbols": [
+        {
+          "path": "template/packages/backend/convex/reservationEmailScheduler.ts",
+          "name": "scheduleReservationEmail"
+        }
+      ],
+      "evidence": {
+        "level": "qa",
+        "paths": [
+          "template/packages/backend/tests/reservation-email-delivery.test.ts",
+          "template/scripts/qa-contract.ts"
+        ],
+        "qaGate": 8,
+        "liveGate": null
+      },
+      "sideEffects": ["delivery-ledger", "email-capture-or-send"],
+      "maturity": "qa-proven"
+    },
+    {
+      "id": "waitlist.notifyOnly",
+      "ownership": "kit-core",
+      "enablement": { "mode": "feature", "default": false },
+      "surfaces": [
+        "template/packages/backend/convex/engine/waitlist.ts",
+        "template/packages/backend/convex/agentTools.ts"
+      ],
+      "symbols": [
+        {
+          "path": "template/packages/backend/convex/engine/waitlist.ts",
+          "name": "onSlotFreed"
+        }
+      ],
+      "evidence": {
+        "level": "qa",
+        "paths": [
+          "template/packages/backend/tests/engine.test.ts",
+          "template/scripts/qa-contract.ts"
+        ],
+        "qaGate": 9,
+        "liveGate": null
+      },
+      "sideEffects": ["waitlist-row", "chat-event", "email-intent"],
+      "maturity": "qa-proven"
+    },
+    {
+      "id": "operator.calendarCrud",
+      "ownership": "kit-core",
+      "enablement": { "mode": "feature", "default": false },
+      "surfaces": [
+        "template/packages/backend/convex/admin.ts",
+        "template/packages/backend/convex/engine/adminBooking.ts"
+      ],
+      "symbols": [
+        {
+          "path": "template/packages/backend/convex/engine/adminBooking.ts",
+          "name": "createOperatorSession"
+        }
+      ],
+      "evidence": {
+        "level": "test",
+        "paths": [
+          "template/packages/backend/tests/operator-calendar-crud.test.ts",
+          "template/scripts/qa-contract.ts"
+        ],
+        "qaGate": null,
+        "liveGate": null
+      },
+      "sideEffects": ["reservation-write", "audit", "waitlist-notification"],
+      "maturity": "implemented"
+    },
+    {
+      "id": "billing.accountSubscription.polar",
+      "ownership": "integration",
+      "enablement": { "mode": "feature", "default": false },
+      "surfaces": [
+        "template/packages/backend/convex/subscriptions.ts",
+        "template/apps/app/src/app/[locale]/(dashboard)/(onboarded)/settings/billing/page.tsx"
+      ],
+      "symbols": [
+        {
+          "path": "template/packages/backend/convex/subscriptions.ts",
+          "name": "generateCheckoutLink"
+        }
+      ],
+      "evidence": {
+        "level": "test",
+        "paths": ["template/packages/backend/tests/account-deletion.test.ts"],
+        "qaGate": null,
+        "liveGate": null
+      },
+      "sideEffects": ["account-subscription", "polar-checkout"],
+      "maturity": "implemented"
+    },
+    {
+      "id": "attendance.noShow",
+      "ownership": "kit-core",
+      "enablement": { "mode": "feature", "default": false },
+      "surfaces": [
+        "template/packages/backend/convex/admin.ts",
+        "template/packages/backend/convex/engine/noShow.ts"
+      ],
+      "symbols": [
+        {
+          "path": "template/packages/backend/convex/engine/noShow.ts",
+          "name": "markReservationNoShow"
+        }
+      ],
+      "evidence": {
+        "level": "test",
+        "paths": [
+          "template/packages/backend/tests/reservation-no-show.test.ts"
+        ],
+        "qaGate": null,
+        "liveGate": null
+      },
+      "sideEffects": ["reservation-status", "audit", "public-context"],
+      "maturity": "implemented"
+    },
+    {
+      "id": "payment.reservationDeposit",
+      "ownership": "planned",
+      "enablement": { "mode": "unavailable", "default": false },
+      "surfaces": [],
+      "symbols": [],
+      "evidence": {
+        "level": "none",
+        "paths": [],
+        "qaGate": null,
+        "liveGate": null
+      },
+      "sideEffects": [],
+      "maturity": "planned"
+    }
+  ]
+}
