@@ -2,7 +2,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { createCli, fail, parseCommonArgs, signalExitCode } from "./cli.mjs";
 
 const parsed = parseCommonArgs(process.argv.slice(2), { allowQa: true });
@@ -39,9 +39,11 @@ const steps = [
 	{ name: "typecheck", command: "bun", args: ["run", "typecheck"] },
 	{ name: "lint", command: "bun", args: ["run", "lint"] },
 	{ name: "test", command: "bun", args: ["test"] },
+	{ name: "build_email", command: "bun", args: ["run", "build:email"] },
+	{ name: "build_app", command: "bun", args: ["run", "build:app"] },
+	{ name: "build_web", command: "bun", args: ["run", "build:web"] },
 ];
 for (const step of steps) await runStep(step, targetDir);
-await runBuildSteps(targetDir);
 
 if (parsed.qa || process.env.JEOMWON_QA_BASE_URL) {
 	await runStep({ name: "qa", command: "bun", args: ["run", "qa"] }, targetDir);
@@ -51,36 +53,6 @@ if (parsed.qa || process.env.JEOMWON_QA_BASE_URL) {
 	);
 }
 console.log("VERIFY PASS");
-
-async function runBuildSteps(root) {
-	const buildSteps = [
-		{
-			name: "build_email",
-			cwd: join(root, "packages/email"),
-			command: "bun",
-			args: ["run", "build"],
-		},
-		{
-			name: "build_app",
-			cwd: join(root, "apps/app"),
-			command: "bun",
-			args: ["run", "build", "--", "--webpack"],
-		},
-		{
-			name: "build_web",
-			cwd: join(root, "apps/web"),
-			command: "bun",
-			args: ["run", "build", "--", "--webpack"],
-		},
-	];
-	for (const step of buildSteps) {
-		if (!existsSync(join(step.cwd, "package.json"))) {
-			console.log(`[SKIP verify_${step.name}] missing package`);
-			continue;
-		}
-		await runStep(step, step.cwd);
-	}
-}
 
 async function runStep(step, cwd) {
 	const code = `verify_${step.name}`;
