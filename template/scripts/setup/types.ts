@@ -1,43 +1,60 @@
 export type ProjectType = "convex" | "envFile";
 
 export type ProjectConfig = {
-  id: string;
-  type?: ProjectType;
-  workingDirectory?: string;
-  envFile?: string;
-  exampleFile?: string;
+  readonly id: string;
+  readonly type: ProjectType;
+  readonly workingDirectory?: string;
+  readonly envFile?: string;
+  readonly exampleFile?: string;
+  readonly exportCommand?: string;
+  readonly importCommand?: string;
+  readonly suppressCommandOutput?: boolean;
+  readonly ignoreLogs?: readonly string[];
 };
 
 export type StepVariable = {
-  name: string;
-  projects: string[];
-  details?: string;
-  defaultValue?: string;
-  template?: string;
-  required?: boolean;
-  secret?: boolean;
-  info?: string[];
+  readonly name: string;
+  readonly projects: readonly string[];
+  readonly details?: string;
+  readonly defaultValue?: string;
+  readonly template?: string;
+  readonly required?: boolean;
+  readonly secret?: boolean;
+  readonly info?: readonly string[];
 };
 
+export type StepKind =
+  | "local-env"
+  | "convex-env-with-local-default"
+  | "convex-provision"
+  | "convex-auth-keys"
+  | "google-oauth"
+  | "admin-emails"
+  | "anonymous-login"
+  | "resend"
+  | "openai"
+  | "polar";
+
 export type StepConfig = {
-  id: string;
-  kind: string;
-  title: string;
-  description?: string;
-  instructions?: string;
-  variables: StepVariable[];
-  required?: boolean;
-  interactive?: boolean;
-  skipMode?: string;
-  whenFeature?: string;
-  requiredMessage?: string;
-  additionalInstructions?: string[];
+  readonly id: string;
+  readonly kind: StepKind;
+  readonly title: string;
+  readonly description?: string;
+  readonly instructions?: string;
+  readonly variables: readonly StepVariable[];
+  readonly required?: boolean;
+  readonly interactive?: boolean;
+  readonly skipMode?: string;
+  readonly whenFeature?: string;
+  readonly requiredMessage?: string;
+  readonly additionalInstructions?: readonly string[];
 };
 
 export type SetupConfig = {
-  introMessage: string;
-  projects: ProjectConfig[];
-  steps: StepConfig[];
+  readonly schemaVersion: 2;
+  readonly introMessage: string;
+  readonly projects: readonly ProjectConfig[];
+  readonly steps: readonly StepConfig[];
 };
 
 export type Locale = "ko" | "en";
@@ -52,6 +69,7 @@ export type CliOptions = {
   optionalProviders: boolean;
   lang?: LocaleOption;
   stubFile?: string;
+  configFile?: string;
   convexUrl?: string;
   projectName?: string;
 };

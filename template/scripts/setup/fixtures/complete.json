@@ -1,0 +1,26 @@
+{
+  "values": {
+    "AUTH_GOOGLE_ID": "dry-run-google-client-id",
+    "AUTH_GOOGLE_SECRET": "dry-run-google-client-secret",
+    "JEOMWON_ADMIN_EMAILS": "operator@example.invalid"
+  },
+  "answers": {
+    "google-oauth:redirect-registered": true,
+    "resend:configure": false,
+    "openai:configure": false
+  },
+  "existingConvexEnv": {},
+  "existingLocalEnv": {
+    "app": {
+      "AUTH_ANONYMOUS_LOGIN": "0"
+    }
+  },
+  "convexAuthenticated": true,
+  "domainFeatures": {
+    "polar": false
+  },
+  "probes": {
+    "openaiModels": false,
+    "resendEmail": false
+  }
+}

@@ -13,11 +13,12 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { readSetupConfig } from "./config";
 import { cleanupConvexCommands, runCommand } from "./convex";
 import { atomicWriteEnvFile, parseEnv, upsertEnvText } from "./env-files";
 import { resolveLocale } from "./locales";
 import { parseCliOptions } from "./options";
-import type { RuntimeContext } from "./types";
+import type { RuntimeContext, StepVariable } from "./types";
 import { contentWidth, displayWidth, stripAnsi } from "./ui";
 
 const templateRoot = existsSync(path.join(process.cwd(), "setup-config.json"))
@@ -57,6 +58,52 @@ function thrownMessage(callback: () => void) {
   } catch (error) {
     return error instanceof Error ? error.message : String(error);
   }
+}
+
+const setupConfigText = readFileSync(
+  path.join(templateRoot, "setup-config.json"),
+  "utf8",
+);
+
+function writeSetupConfig(contents: string) {
+  const configPath = path.join(tempRoot(), "setup-config.json");
+  writeFileSync(configPath, contents);
+  return configPath;
+}
+
+function runWithConfig(contents: string) {
+  return spawnSync(
+    process.execPath,
+    [
+      "scripts/setup/index.ts",
+      "--config-file",
+      writeSetupConfig(contents),
+      "--dry-run",
+      "--fresh-dry-run",
+      "--non-interactive",
+      "--lang",
+      "en",
+    ],
+    {
+      cwd: templateRoot,
+      encoding: "utf8",
+      env: { ...process.env, NO_COLOR: "" },
+    },
+  );
+}
+
+function withGoogleVariables(
+  transform: (variables: readonly StepVariable[]) => readonly StepVariable[],
+) {
+  const config = readSetupConfig(path.join(templateRoot, "setup-config.json"));
+  return JSON.stringify({
+    ...config,
+    steps: config.steps.map((step) =>
+      step.id === "google-oauth"
+        ? { ...step, variables: transform(step.variables) }
+        : step,
+    ),
+  });
 }
 
 const oauthFailureStubs = JSON.stringify({
@@ -129,6 +176,149 @@ describe("setup options and locale contract", () => {
       resolveLocale(undefined, { ...base, LC_MESSAGES: "ko_KR.UTF-8" }),
     ).toBe("ko");
     expect(resolveLocale(undefined, { ...base, LANG: "C" })).toBe("en");
+  });
+});
+
+describe("setup config v2 boundary", () => {
+  test("accepts the committed schema and rejects strict structural violations", () => {
+    expect(
+      readSetupConfig(path.join(templateRoot, "setup-config.json"))
+        .schemaVersion,
+    ).toBe(2);
+
+    const malformedConfigs = [
+      setupConfigText.replace(
+        '"schemaVersion": 2,',
+        '"schemaVersion": 2,\n  "unexpected": true,',
+      ),
+      setupConfigText.replace('"type": "envFile"', '"type": "unknown"'),
+      setupConfigText.replace('"kind": "local-env"', '"kind": "unknown"'),
+      setupConfigText.replace('"projects": ["web"]', '"projects": ["missing"]'),
+      setupConfigText.replace('"id": "backend"', '"id": "convex"'),
+      setupConfigText.replace('"id": "app-url"', '"id": "renamed-app-url"'),
+      setupConfigText.replace(
+        '"name": "NEXT_PUBLIC_CONVEX_URL"',
+        '"name": "CONVEX_URL"',
+      ),
+      "{",
+    ];
+
+    for (const contents of malformedConfigs) {
+      expect(
+        thrownMessage(() => readSetupConfig(writeSetupConfig(contents))),
+      ).toBe("setup_config_invalid");
+    }
+  });
+
+  test("rejects renamed, missing, extra, reordered, or rebound required variables before orchestration", () => {
+    const renamed = withGoogleVariables((variables) =>
+      variables.map((variable, index) =>
+        index === 0
+          ? { ...variable, name: "AUTH_GOOGLE_ID_RENAMED" }
+          : variable,
+      ),
+    );
+    const missing = withGoogleVariables((variables) => variables.slice(1));
+    const extra = withGoogleVariables((variables) => {
+      const first = variables[0];
+      if (!first) throw new Error("google_oauth_fixture_variable_missing");
+      return [...variables, { ...first, name: "AUTH_GOOGLE_EXTRA" }];
+    });
+    const reordered = withGoogleVariables((variables) => {
+      const first = variables[0];
+      const second = variables[1];
+      if (!first || !second) {
+        throw new Error("google_oauth_fixture_variable_missing");
+      }
+      return [second, first];
+    });
+    const rebound = withGoogleVariables((variables) =>
+      variables.map((variable, index) =>
+        index === 0 ? { ...variable, projects: ["app"] } : variable,
+      ),
+    );
+
+    for (const contents of [renamed, missing, extra, reordered, rebound]) {
+      const result = runWithConfig(contents);
+      const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(output.includes("setup_config_invalid")).toBe(true);
+      expect(output.includes("[RUN]")).toBe(false);
+      expect(output.includes("[local_env_write:")).toBe(false);
+      expect(output.includes("[convex_env_set:")).toBe(false);
+    }
+  });
+
+  test("future and malformed configs fail before orchestration or env changes", () => {
+    const envPaths = [
+      "packages/backend/.env.local",
+      "apps/web/.env.local",
+      "apps/app/.env.local",
+    ].map((relativePath) => path.join(templateRoot, relativePath));
+    const before = envPaths.map((envPath) =>
+      existsSync(envPath) ? readFileSync(envPath, "utf8") : undefined,
+    );
+    const cases = [
+      {
+        contents: setupConfigText.replace(
+          '"schemaVersion": 2',
+          '"schemaVersion": 999',
+        ),
+        code: "setup_config_schema_unsupported",
+      },
+      {
+        contents: setupConfigText.replace(
+          '"projects": ["web"]',
+          '"projects": ["missing"]',
+        ),
+        code: "setup_config_invalid",
+      },
+    ];
+
+    for (const scenario of cases) {
+      const result = runWithConfig(scenario.contents);
+      const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(output.includes(scenario.code)).toBe(true);
+      expect(output.includes("[RUN]")).toBe(false);
+      expect(output.includes("[local_env_write:")).toBe(false);
+      expect(output.includes("[convex_env_set:")).toBe(false);
+    }
+    expect(
+      JSON.stringify(
+        envPaths.map((envPath) =>
+          existsSync(envPath) ? readFileSync(envPath, "utf8") : undefined,
+        ),
+      ),
+    ).toBe(JSON.stringify(before));
+  });
+
+  test("committed complete fixture finishes a fresh non-interactive dry run", () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        "scripts/setup/index.ts",
+        "--dry-run",
+        "--fresh-dry-run",
+        "--non-interactive",
+        "--stub-file",
+        "scripts/setup/fixtures/complete.json",
+        "--lang",
+        "ko",
+      ],
+      {
+        cwd: templateRoot,
+        encoding: "utf8",
+        env: { ...process.env, NO_COLOR: "" },
+      },
+    );
+    const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+    expect(result.status).toBe(0);
+    expect(output.includes("[preview_complete]")).toBe(true);
+    expect(output.includes("dry-run-google-client-secret")).toBe(false);
+    expect(output.includes("operator@example.invalid")).toBe(false);
   });
 });
 

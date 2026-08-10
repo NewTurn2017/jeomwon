@@ -1,5 +1,10 @@
 import path from "node:path";
-import { readDomainFeatures, readJsonFile, readStubs } from "./config";
+import {
+  readDomainFeatures,
+  readSetupConfig,
+  readStubs,
+  SetupConfigError,
+} from "./config";
 import {
   assertSetupPrerequisites,
   cleanupConvexCommands,
@@ -22,7 +27,7 @@ import {
   configureResend,
   configureSiteUrl,
 } from "./providers";
-import type { CliOptions, RuntimeContext, SetupConfig } from "./types";
+import type { CliOptions, RuntimeContext } from "./types";
 import { SetupFailure } from "./types";
 import { glyph, initializeUi, RULE, redact, style } from "./ui";
 
@@ -55,9 +60,10 @@ async function main() {
   const root = process.cwd();
   let ctx: RuntimeContext;
   try {
-    const config = readJsonFile<SetupConfig>(
-      path.join(root, "setup-config.json"),
-    );
+    const configPath = options.configFile
+      ? path.resolve(root, options.configFile)
+      : path.join(root, "setup-config.json");
+    const config = readSetupConfig(configPath);
     const stubs = readStubs(root, options);
     ctx = {
       root,
@@ -73,9 +79,11 @@ async function main() {
       knownSecrets: new Set(),
       deferredKeys: new Set(),
     };
-  } catch {
+  } catch (error) {
+    const detail =
+      error instanceof SetupConfigError ? error.code : "malformed_setup_input";
     process.stderr.write(
-      `[locale:${locale}]\n${failureLabel(locale)} [product_failure]: malformed_setup_input\n`,
+      `[locale:${locale}]\n${failureLabel(locale)} [product_failure]: ${detail}\n`,
     );
     process.exitCode = 1;
     return;

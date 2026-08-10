@@ -66,6 +66,11 @@ export function parseCliOptions(
       index += 1;
     } else if (arg.startsWith("--stub-file=")) {
       options.stubFile = arg.slice("--stub-file=".length);
+    } else if (arg === "--config-file") {
+      options.configFile = optionValue(args, index, arg);
+      index += 1;
+    } else if (arg.startsWith("--config-file=")) {
+      options.configFile = arg.slice("--config-file=".length);
     } else if (arg === "--convex-url") {
       options.convexUrl = optionValue(args, index, arg);
       index += 1;
@@ -91,8 +96,8 @@ export function parseCliOptions(
 }
 
 const help = {
-  ko: `사용법: bun setup [옵션]\n\n[info] 옵션:\n  --lang ko|en|auto     출력 언어 (명시값, 환경, 영어 순)\n  --dry-run             외부 명령과 .env.local 쓰기 없이 미리보기\n  --fresh-dry-run       기존 .env.local을 무시하는 dry-run\n  --non-interactive     기본값과 제공값 사용\n  --yes, -y             기본 응답 수락\n  --optional-providers  Resend, OpenAI, Polar 설정\n  --stub-file <path>    리허설 JSON 값\n  --convex-url <url>    기존 Convex 배포 재사용\n  --project-name <name> 새 Convex 프로젝트 이름\n  --help, -h            도움말\n`,
-  en: `Usage: bun setup [options]\n\n[info] Options:\n  --lang ko|en|auto     Output language (explicit, environment, then English)\n  --dry-run             Preview without commands or .env.local writes\n  --fresh-dry-run       Ignore existing .env.local files during dry-run\n  --non-interactive     Use defaults and supplied values\n  --yes, -y             Accept default answers\n  --optional-providers  Configure Resend, OpenAI, and Polar\n  --stub-file <path>    Rehearsal JSON values\n  --convex-url <url>    Reuse a Convex deployment\n  --project-name <name> New Convex project name\n  --help, -h            Show help\n`,
+  ko: `사용법: bun setup [옵션]\n\n[info] 옵션:\n  --lang ko|en|auto     출력 언어 (명시값, 환경, 영어 순)\n  --dry-run             외부 명령과 .env.local 쓰기 없이 미리보기\n  --fresh-dry-run       기존 .env.local을 무시하는 dry-run\n  --non-interactive     기본값과 제공값 사용\n  --yes, -y             기본 응답 수락\n  --optional-providers  Resend, OpenAI, Polar 설정\n  --stub-file <path>    리허설 JSON 값\n  --config-file <path>  검증할 setup config JSON 경로\n  --convex-url <url>    기존 Convex 배포 재사용\n  --project-name <name> 새 Convex 프로젝트 이름\n  --help, -h            도움말\n`,
+  en: `Usage: bun setup [options]\n\n[info] Options:\n  --lang ko|en|auto     Output language (explicit, environment, then English)\n  --dry-run             Preview without commands or .env.local writes\n  --fresh-dry-run       Ignore existing .env.local files during dry-run\n  --non-interactive     Use defaults and supplied values\n  --yes, -y             Accept default answers\n  --optional-providers  Configure Resend, OpenAI, and Polar\n  --stub-file <path>    Rehearsal JSON values\n  --config-file <path>  Setup config JSON path to validate\n  --convex-url <url>    Reuse a Convex deployment\n  --project-name <name> New Convex project name\n  --help, -h            Show help\n`,
 } satisfies Record<Locale, string>;
 
 export function printHelp(locale: Locale) {
