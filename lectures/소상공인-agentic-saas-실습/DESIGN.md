@@ -68,4 +68,3 @@
 - No external URLs, web fonts, image CDNs, or runtime generation.
 - Generated visuals explain concepts; they never impersonate verified screenshots.
 - Real terminal output and implementation evidence remain HTML where accuracy matters.
-
