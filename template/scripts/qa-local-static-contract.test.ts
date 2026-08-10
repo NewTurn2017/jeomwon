@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "..");
-const localSource = readFileSync(join(root, "scripts/qa-local.ts"), "utf8");
+const localSource = ["qa-local.ts", "qa-local-environment.ts"]
+  .map((file) => readFileSync(join(root, "scripts", file), "utf8"))
+  .join("\n");
 const runtimeContractSource = readFileSync(
   join(root, "scripts/qa-runtime-contract.ts"),
   "utf8",

@@ -12,6 +12,7 @@ export const resetDomain = internalMutation({
     reservations: v.number(),
     chatThreads: v.number(),
     chatEvents: v.number(),
+    reservationEmailDeliveries: v.number(),
   }),
   handler: async (ctx, args) => {
     // Dev-only QA reset guard. Never set JEOMWON_QA_RESET in production.
@@ -37,6 +38,15 @@ export const resetDomain = internalMutation({
 });
 
 export async function resetDomainData(ctx: MutationCtx, domainKey: string) {
+  // Delivery rows do not carry domainKey and can outlive a prior partial reset.
+  // The existing dev-only mutation guard makes clearing this QA-only ledger safe.
+  const reservationEmailDeliveries = await ctx.db
+    .query("reservationEmailDeliveries")
+    .collect();
+  for (const delivery of reservationEmailDeliveries) {
+    await ctx.db.delete(delivery._id);
+  }
+
   const reservations = await ctx.db
     .query("reservations")
     .withIndex("by_domain_status_time", (q) => q.eq("domainKey", domainKey))
@@ -64,5 +74,6 @@ export async function resetDomainData(ctx: MutationCtx, domainKey: string) {
     reservations: reservations.length,
     chatThreads: chatThreads.length,
     chatEvents: chatEvents.length,
+    reservationEmailDeliveries: reservationEmailDeliveries.length,
   };
 }

@@ -1,3 +1,5 @@
+export const QA_CONTRACT_VERSION = 1 as const;
+
 export const QA_GATE_CONTRACT = [
   { id: 1, name: "해피 패스", artifact: "01-happy-path.json" },
   {

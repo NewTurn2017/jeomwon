@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { validateBrowserArtifactBundle } from "./qa-browser-artifact-contract";
-import { QA_GATE_CONTRACT } from "./qa-contract";
+import { QA_CONTRACT_VERSION, QA_GATE_CONTRACT } from "./qa-contract";
 
 type QaArtifactValidation =
   | { readonly ok: true }
@@ -26,6 +26,9 @@ function validateManifest(
   manifest: Readonly<Record<string, unknown>>,
   issues: string[],
 ): void {
+  if (manifest.qaContractVersion !== QA_CONTRACT_VERSION) {
+    issues.push("manifest:qa-contract-version");
+  }
   if (
     !isRecord(manifest.runner) ||
     manifest.runner.status !== "PASS" ||
@@ -92,6 +95,7 @@ function validateGateArtifacts(
     const result = resultArray[index];
     if (
       !isRecord(result) ||
+      artifact.qaContractVersion !== QA_CONTRACT_VERSION ||
       artifact.id !== gate.id ||
       artifact.name !== gate.name ||
       artifact.status !== result.status ||
@@ -174,6 +178,7 @@ function isValidQaReset(value: unknown): boolean {
     isNonnegativeInteger(value.reset.reservations) &&
     isNonnegativeInteger(value.reset.chatThreads) &&
     isNonnegativeInteger(value.reset.chatEvents) &&
+    isNonnegativeInteger(value.reset.reservationEmailDeliveries) &&
     isPositiveInteger(value.seed.resources)
   );
 }

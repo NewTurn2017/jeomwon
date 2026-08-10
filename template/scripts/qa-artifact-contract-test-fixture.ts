@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { validateQaRuntimeArtifacts } from "./qa-artifact-contract";
-import { QA_GATE_CONTRACT } from "./qa-contract";
+import { QA_CONTRACT_VERSION, QA_GATE_CONTRACT } from "./qa-contract";
 
 type GateStatus = "PASS" | "SKIP";
 
@@ -35,6 +35,7 @@ export function writeArtifactFixture(
   writeFileSync(
     join(artifactDir, "manifest.json"),
     JSON.stringify({
+      qaContractVersion: QA_CONTRACT_VERSION,
       runner: { status: "PASS" },
       qaReset: {
         reset: {
@@ -42,6 +43,7 @@ export function writeArtifactFixture(
           reservations: 0,
           chatThreads: 0,
           chatEvents: 0,
+          reservationEmailDeliveries: 0,
         },
         seed: { resources: 3 },
       },
@@ -82,6 +84,7 @@ export function writeArtifactFixture(
     writeFileSync(
       join(artifactDir, gate.artifact),
       JSON.stringify({
+        qaContractVersion: QA_CONTRACT_VERSION,
         id: result.id,
         name: result.name,
         status: result.status,

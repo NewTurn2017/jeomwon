@@ -7,9 +7,16 @@
 // always restores the temporary QA env + stops the app on exit.
 import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { validateQaRuntimeArtifacts } from "./qa-artifact-contract";
+import { qaOverallStatus } from "./qa-cleanup-contract";
 import { configureTemporaryConvexEnvironment } from "./qa-convex-env-lifecycle";
+import {
+  recoverQaEnvironment,
+  removeQaEnvRecoveryJournal,
+  writeQaEnvRecoveryJournal,
+} from "./qa-env-recovery";
 import {
   bold,
   fail,
@@ -20,6 +27,11 @@ import {
   reportCleanupFailures,
   step,
 } from "./qa-local-console";
+import {
+  holdMs,
+  TEMP_CONVEX_ENV_NAMES,
+  temporaryConvexEnv,
+} from "./qa-local-environment";
 import type { OwnedQaProcess } from "./qa-port-lifecycle";
 import {
   ownQaProcess,
@@ -46,34 +58,12 @@ const appEnvFile = join(appDir, ".env.local");
 const convexEnvFile = join(backendDir, ".env.local");
 const port = Number(process.env.JEOMWON_QA_PORT ?? "3999");
 const baseUrl = `http://localhost:${port}`;
-const holdMs = process.env.JEOMWON_TEST_HOLD_MS ?? "1500";
+const qaArtifactRoot = join(root, "qa-artifacts");
+const qaEnvRecoveryFile = join(qaArtifactRoot, ".qa-env-recovery.json");
 const qaArtifactDir = join(
-  root,
-  "qa-artifacts",
+  qaArtifactRoot,
   `jeomwon-${new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-")}`,
 );
-const DEFAULT_QA_ADMIN_EMAIL = "jeomwon-qa-nonoperator@reserved.invalid";
-type TempConvexEnv = {
-  readonly AUTH_ANONYMOUS_LOGIN: string;
-  readonly JEOMWON_ADMIN_EMAILS: string;
-  readonly JEOMWON_QA_RESET: string;
-  readonly JEOMWON_TEST_HOLD_MS: string;
-};
-const TEMP_CONVEX_ENV_NAMES = [
-  "AUTH_ANONYMOUS_LOGIN",
-  "JEOMWON_ADMIN_EMAILS",
-  "JEOMWON_QA_RESET",
-  "JEOMWON_TEST_HOLD_MS",
-] as const;
-function temporaryConvexEnv(): TempConvexEnv {
-  return {
-    AUTH_ANONYMOUS_LOGIN: "1",
-    JEOMWON_ADMIN_EMAILS: DEFAULT_QA_ADMIN_EMAIL,
-    JEOMWON_QA_RESET: "1",
-    JEOMWON_TEST_HOLD_MS: holdMs,
-  };
-}
-
 function convexEnv(target: QaConvexTarget, args: readonly string[]) {
   return spawnSync("npx", convexEnvArgs(target, args), {
     cwd: backendDir,
@@ -106,6 +96,12 @@ function teardown(): readonly string[] {
       ),
     );
   }
+  if (
+    cleanupFailures.length === 0 &&
+    !removeQaEnvRecoveryJournal(qaEnvRecoveryFile)
+  ) {
+    cleanupFailures.push("recovery-journal:remove");
+  }
   teardownFailures = cleanupFailures;
   return teardownFailures;
 }
@@ -136,16 +132,34 @@ async function runQaWorkflow(): Promise<number> {
   validateQaAppConvexUrl(target, appEnvFile);
   const tempConvexEnv = temporaryConvexEnv();
   qaTarget = target;
+  mkdirSync(qaArtifactRoot, { recursive: true });
+  const recoveryFailures = recoverQaEnvironment(qaEnvRecoveryFile, (args) =>
+    convexEnv(target, args),
+  );
+  if (recoveryFailures.length > 0) {
+    throw new QaRuntimeContractError(
+      "Safety stop: interrupted QA env recovery failed.",
+    );
+  }
   console.log(`${bold("jeomwon")} QA ${gray("· verified dev · mock+capture")}`);
 
   step(1, "Convex 임시 auth/QA env 설정 + 함수 배포");
-  const configured = configureTemporaryConvexEnvironment(
+  configureTemporaryConvexEnvironment(
     TEMP_CONVEX_ENV_NAMES,
     tempConvexEnv,
     (args) => convexEnv(target, args),
+    {
+      onPrepared: (names, previousValues) => {
+        configuredConvexEnv = [...names];
+        previousConvexEnv = new Map(previousValues);
+        writeQaEnvRecoveryJournal(
+          qaEnvRecoveryFile,
+          configuredConvexEnv,
+          previousConvexEnv,
+        );
+      },
+    },
   );
-  configuredConvexEnv = configured.configuredNames;
-  previousConvexEnv = new Map(configured.previousValues);
   const convexDev = spawnSync("npx", convexDevArgs(target), {
     cwd: backendDir,
     env: sanitizeConvexChildEnv(process.env),
@@ -215,15 +229,19 @@ async function runQaWorkflow(): Promise<number> {
       `  ${red("✗")} QA 증거 검증 실패 (${artifacts.issues.join(", ")})`,
     );
   }
-  const code =
-    qaCode === 0 && cleanupFailures.length === 0 && artifacts.ok ? 0 : 1;
+  const overallStatus = qaOverallStatus({
+    functionalSucceeded: qaCode === 0,
+    artifactsValid: artifacts.ok,
+    cleanupFailures,
+  });
+  const code = overallStatus === "PASS" ? 0 : 1;
   if (code === 0) {
     console.log(
       `\n  ${green("✓")} ${bold("QA 통과")} ${gray("— 모든 게이트")}`,
     );
   } else {
     console.log(
-      `\n  ${red("✗")} ${bold("QA 실패")} ${gray(`(exit ${code})`)} — 위 로그 확인`,
+      `\n  ${red("✗")} ${bold("QA 실패")} ${gray(`(${overallStatus}, exit ${code})`)} — 위 로그 확인`,
     );
   }
   return code;

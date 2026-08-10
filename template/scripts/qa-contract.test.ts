@@ -4,8 +4,22 @@ import { join } from "node:path";
 import ts from "typescript";
 
 const root = join(import.meta.dir, "..");
-const qaSource = readFileSync(join(root, "scripts/qa.ts"), "utf8");
-const localSource = readFileSync(join(root, "scripts/qa-local.ts"), "utf8");
+const qaSource = [
+  "qa.ts",
+  "qa-artifact-writer.ts",
+  "qa-gates-basic.ts",
+  "qa-gates-email.ts",
+  "qa-gate-waitlist.ts",
+  "qa-gate-operator.ts",
+  "qa-gate-accounts.ts",
+  "qa-account-flow.ts",
+  "qa-transport.ts",
+]
+  .map((file) => readFileSync(join(root, "scripts", file), "utf8"))
+  .join("\n");
+const localSource = ["qa-local.ts", "qa-local-environment.ts"]
+  .map((file) => readFileSync(join(root, "scripts", file), "utf8"))
+  .join("\n");
 const runtimeContractSource = readFileSync(
   join(root, "scripts/qa-runtime-contract.ts"),
   "utf8",
@@ -238,8 +252,11 @@ describe("Todo 15 authenticated-app QA contract", () => {
     expect(browserSource).toContain(
       'error: stableCode ?? "canonical_call_failed"',
     );
-    expect(qaSource).not.toContain("output: runnerFailure");
-    expect(qaSource).toContain('runnerFailure = "qa_runner_failed"');
+    expect(readFileSync(join(root, "scripts/qa.ts"), "utf8")).not.toContain(
+      "error.message",
+    );
+    expect(qaSource).toContain('wrapperCode: "qa_runner_failed"');
+    expect(qaSource).toContain("cause,");
     expect(qaSource).not.toContain("console.error(`FAIL QA-RUNNER");
   });
 

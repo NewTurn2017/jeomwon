@@ -12,6 +12,7 @@ import type {
   CustomerSnapshot,
   PublicContext,
   PublicSlot,
+  PublicThreadState,
 } from "./agent-contract";
 
 export const qaBrowserBridgeKey = "__JEOMWON_QA_CANONICAL__" as const;
@@ -121,7 +122,49 @@ export type QaCanonicalCallResult =
   | { readonly kind: "success"; readonly value: unknown }
   | { readonly kind: "failure"; readonly error: QaCanonicalFailureCode };
 
+export type QaPublicStateExpectation =
+  | {
+      readonly kind: "status";
+      readonly status: PublicContext["status"];
+    }
+  | {
+      readonly kind: "messages";
+      readonly messages: readonly {
+        readonly type: string;
+        readonly template?: string;
+        readonly reservationId?: string;
+      }[];
+    };
+
+export function matchesQaPublicState(
+  state: PublicThreadState,
+  expectation: QaPublicStateExpectation,
+): boolean {
+  if (expectation.kind === "status") {
+    return state.publicContext.status === expectation.status;
+  }
+  return expectation.messages.every((expected) =>
+    state.messages.some((message) => {
+      if (message.type !== expected.type) return false;
+      const payload = message.publicPayload;
+      return (
+        (expected.template === undefined ||
+          payload?.["template"] === expected.template) &&
+        (expected.reservationId === undefined ||
+          payload?.["reservationId"] === expected.reservationId)
+      );
+    }),
+  );
+}
+
 export type QaBrowserBridgeContract = {
+  readonly startPublicStateWait: (
+    id: string,
+    expectation: QaPublicStateExpectation,
+    timeoutMs: number,
+  ) => void;
+  readonly finishPublicStateWait: (id: string) => Promise<PublicThreadState>;
+  readonly cancelPublicStateWait: (id: string) => void;
   readonly snapshot: (args: Record<string, never>) => Promise<CustomerSnapshot>;
   readonly availableSlots: (
     args: CustomerAvailableSlotsArgs,

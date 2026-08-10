@@ -7,7 +7,7 @@ import {
   tempArtifactDir,
   writeArtifactFixture,
 } from "./qa-artifact-contract-test-fixture";
-import { QA_GATE_CONTRACT } from "./qa-contract";
+import { QA_CONTRACT_VERSION, QA_GATE_CONTRACT } from "./qa-contract";
 
 describe("QA runtime artifact contract", () => {
   test("Given exact linked gate/browser/cleanup artifacts, When validation runs, Then runtime evidence passes", () => {
@@ -95,6 +95,7 @@ describe("QA runtime artifact contract", () => {
     writeFileSync(
       join(artifactDir, gate.artifact),
       JSON.stringify({
+        qaContractVersion: QA_CONTRACT_VERSION,
         id: gate.id,
         name: gate.name,
         status: "PASS",
@@ -114,6 +115,7 @@ describe("QA runtime artifact contract", () => {
     writeFileSync(
       join(artifactDir, gate.artifact),
       JSON.stringify({
+        qaContractVersion: QA_CONTRACT_VERSION,
         id,
         name: gate.name,
         status: "SKIP",

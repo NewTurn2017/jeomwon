@@ -12,6 +12,7 @@ import {
   QA_CANONICAL_FAILURE_CODES,
   qaBrowserBridgeKey,
 } from "../packages/backend/src/qa-browser-contract";
+import { QaStableAssertionError } from "./qa-run-outcome";
 
 type QaBrowserAction = {
   readonly identity: "A" | "B";
@@ -50,26 +51,39 @@ export async function launchQaBrowser(
   artifactDir: string,
 ): Promise<QaBrowserHarness> {
   const actions: QaBrowserAction[] = [];
-  const browser = await chromium.launch();
+  const browser = await chromium.launch().catch(() => {
+    throw new QaStableAssertionError("browser_chromium_launch_failed");
+  });
+  let stage = "contexts";
   try {
     const contextA = await browser.newContext();
     const contextB = await browser.newContext();
     const pageA = await contextA.newPage();
     const pageB = await contextB.newPage();
 
+    stage = "identity_a_login_page";
     await pageA.goto(`${baseUrl}/login`);
+    stage = "identity_a_admin_boundary";
     const unauthenticatedAdminRoute = await pageRequestRoute(pageA, "/admin");
+    stage = "identity_a_login_action";
     await pageA.getByRole("button", { name: anonymousButtonName }).click();
+    stage = "identity_a_authenticated_root";
     await waitForAuthenticatedRoot(pageA);
+    stage = "identity_a_bridge";
     await waitForQaBridge(pageA);
     actions.push({ identity: "A", action: "login", artifact: null });
 
+    stage = "identity_b_login_page";
     await pageB.goto(`${baseUrl}/login`);
+    stage = "identity_b_login_action";
     await pageB.getByRole("button", { name: anonymousButtonName }).click();
+    stage = "identity_b_authenticated_root";
     await waitForAuthenticatedRoot(pageB);
+    stage = "identity_b_bridge";
     await waitForQaBridge(pageB);
     actions.push({ identity: "B", action: "login", artifact: null });
 
+    stage = "screenshots";
     const screenshotA = "browser-a-login.png";
     const screenshotB = "browser-b-login.png";
     await pageA.screenshot({
@@ -100,9 +114,9 @@ export async function launchQaBrowser(
       unauthenticatedAdminRoute,
       actions,
     };
-  } catch (error) {
+  } catch {
     await browser.close();
-    throw error;
+    throw new QaStableAssertionError(`browser_${stage}_failed`);
   }
 }
 
