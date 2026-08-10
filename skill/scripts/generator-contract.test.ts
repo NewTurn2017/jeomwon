@@ -2,228 +2,30 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import {
 	accessSync,
-	chmodSync,
 	constants,
 	cpSync,
-	mkdirSync,
 	mkdtempSync,
 	readFileSync,
-	rmSync,
 	writeFileSync,
 } from "node:fs";
-import { homedir, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
-const injectPath = join(repoRoot, "skill/scripts/inject.mjs");
-const scaffoldPath = join(repoRoot, "skill/scripts/scaffold.mjs");
-const bootstrapPath = join(repoRoot, "skill/scripts/bootstrap.mjs");
-const skillSource = readFileSync(join(repoRoot, "skill/SKILL.md"), "utf8");
-const verifySource = readFileSync(
-	join(repoRoot, "skill/scripts/verify.mjs"),
-	"utf8",
-);
-const qaSource = readFileSync(join(repoRoot, "template/scripts/qa.ts"), "utf8");
-const templateSeedPath = join(
+import { homedir } from "node:os";
+import { join } from "node:path";
+import {
+	bootstrapPath,
+	cleanupFixtures,
+	copyRecord,
+	createInjectFixture,
+	featureRecord,
+	inject,
+	injectPath,
+	localTemplateEnvironment,
+	readExamplePack,
 	repoRoot,
-	"template/packages/backend/convex/jeomwonSeed.ts",
-);
-const temporaryRoots: string[] = [];
+	templateSeedPath,
+	temporaryRoots,
+} from "./generator-test-helpers";
 
-function localTemplateEnvironment(
-	overrides: NodeJS.ProcessEnv = {},
-): NodeJS.ProcessEnv {
-	const environment = { ...process.env };
-	delete environment.JEOMWON_TEMPLATE_ARCHIVE;
-	delete environment.JEOMWON_TEMPLATE_ARCHIVE_SHA256;
-	delete environment.JEOMWON_TEMPLATE_REF;
-	delete environment.JEOMWON_TEMPLATE_GIT_REPOSITORY;
-	delete environment.JEOMWON_TEMPLATE_SOURCE_COMMIT;
-	return { ...environment, ...overrides };
-}
-
-describe("authenticated app operator guidance", () => {
-	test("Given the live QA guidance When an operator follows it Then every target is apps/app on port 3000", () => {
-		expect(skillSource).toContain(
-			"the command verifies one canonical dev deployment and starts the authenticated app itself",
-		);
-		expect(skillSource).toContain(
-			"running generated authenticated app (`apps/app`)",
-		);
-		expect(skillSource).not.toContain("Convex/web");
-		expect(skillSource).not.toContain("generated web app");
-		expect(verifySource).toContain(
-			"JEOMWON_QA_BASE_URL=http://localhost:3000 after Convex and the authenticated app are running",
-		);
-		expect(verifySource).not.toContain(
-			"JEOMWON_QA_BASE_URL=http://localhost:3001",
-		);
-		expect(qaSource).toContain(
-			'process.env.JEOMWON_QA_BASE_URL ?? "http://localhost:3000"',
-		);
-		expect(qaSource).not.toContain(
-			'process.env.JEOMWON_QA_BASE_URL ?? "http://localhost:3001"',
-		);
-	});
-});
-
-afterEach(() => {
-	for (const root of temporaryRoots.splice(0)) {
-		rmSync(root, { recursive: true, force: true });
-	}
-}, 30_000);
-
-function assertRecord(
-	value: unknown,
-	label: string,
-): asserts value is Record<string, unknown> {
-	if (value === null || typeof value !== "object" || Array.isArray(value)) {
-		throw new TypeError(`${label} must be an object`);
-	}
-}
-
-function readExamplePack(): Record<string, unknown> {
-	const examples = readFileSync(join(repoRoot, "skill/EXAMPLES.md"), "utf8");
-	const jsonBlock = examples.match(/```json\n([\s\S]*?)\n```/);
-	if (!jsonBlock?.[1]) {
-		throw new Error("EXAMPLES.md must contain a JSON domain pack");
-	}
-	const pack: unknown = JSON.parse(jsonBlock[1]);
-	assertRecord(pack, "example pack");
-	return structuredClone(pack);
-}
-
-function featureRecord(pack: Record<string, unknown>): Record<string, unknown> {
-	const features = pack.features;
-	assertRecord(features, "features");
-	return features;
-}
-
-function copyRecord(pack: Record<string, unknown>): Record<string, unknown> {
-	const copy = pack.copy;
-	assertRecord(copy, "copy");
-	return copy;
-}
-
-function createInjectFixture(pack = readExamplePack()): {
-	readonly root: string;
-	readonly packPath: string;
-	readonly seedPath: string;
-	readonly configPath: string;
-} {
-	const root = mkdtempSync("/tmp/jeomwon-generator-contract-");
-	temporaryRoots.push(root);
-	const seedPath = join(root, "packages/backend/convex/jeomwonSeed.ts");
-	mkdirSync(dirname(seedPath), { recursive: true });
-	cpSync(templateSeedPath, seedPath);
-	const biomePath = join(root, "node_modules/.bin/biome");
-	mkdirSync(dirname(biomePath), { recursive: true });
-	writeFileSync(biomePath, "#!/bin/sh\nexit 0\n");
-	chmodSync(biomePath, 0o755);
-	const packPath = join(root, "domain-pack.json");
-	writeFileSync(packPath, JSON.stringify(pack));
-	return {
-		root,
-		packPath,
-		seedPath,
-		configPath: join(root, "packages/backend/domain.config.ts"),
-	};
-}
-
-function inject(pack = readExamplePack()) {
-	const fixture = createInjectFixture(pack);
-	const result = spawnSync(
-		"bun",
-		[injectPath, fixture.root, fixture.packPath],
-		{
-			cwd: repoRoot,
-			encoding: "utf8",
-			timeout: 15_000,
-		},
-	);
-	return { fixture, result, output: `${result.stdout}${result.stderr}` };
-}
-
-describe("generator retained contract", () => {
-	test("Given a repository checkout When scaffolded without an override Then the local template source is used", () => {
-		const parent = mkdtempSync(
-			join(tmpdir(), "jeomwon local template baseline "),
-		);
-		temporaryRoots.push(parent);
-		const target = join(parent, "generated app");
-
-		const result = spawnSync("bun", [scaffoldPath, target, "Local Template"], {
-			cwd: repoRoot,
-			encoding: "utf8",
-			timeout: 30_000,
-			env: localTemplateEnvironment(),
-		});
-
-		expect(result.status).toBe(0);
-		expect(readFileSync(join(target, "package.json"), "utf8")).toContain(
-			'"name": "local-template"',
-		);
-		const receipt = JSON.parse(
-			readFileSync(join(target, "jeomwon-project.json"), "utf8"),
-		) as {
-			templateApi: number;
-			templateSource: {
-				kind: string;
-				sourceCommit?: string;
-				contentHash: string;
-				[key: string]: unknown;
-			};
-		};
-		expect(receipt.templateApi).toBe(1);
-		expect(receipt.templateSource.kind).toBe("local");
-		if (receipt.templateSource.sourceCommit !== undefined) {
-			expect(receipt.templateSource.sourceCommit).toMatch(/^[a-f0-9]{40}$/);
-		}
-		expect(receipt.templateSource).not.toHaveProperty("releaseTag");
-		expect(receipt.templateSource).not.toHaveProperty("archiveSha256");
-		expect(receipt.templateSource.contentHash).toMatch(/^[a-f0-9]{64}$/);
-	});
-
-	test("Given a target path with spaces When scaffolded Then the package scope is rewritten", () => {
-		const parent = mkdtempSync(join(tmpdir(), "jeomwon scaffold baseline "));
-		temporaryRoots.push(parent);
-		const target = join(parent, "generated app");
-
-		const result = spawnSync("bun", [scaffoldPath, target, "Quoted Scope"], {
-			cwd: repoRoot,
-			encoding: "utf8",
-			timeout: 30_000,
-			env: localTemplateEnvironment(),
-		});
-
-		expect(result.status).toBe(0);
-		expect(readFileSync(join(target, "package.json"), "utf8")).toContain(
-			'"name": "quoted-scope"',
-		);
-		expect(
-			readFileSync(join(target, "apps/app/package.json"), "utf8"),
-		).toContain('"@quoted-scope/backend"');
-	}, 30_000);
-
-	test("Given the template seed When a valid pack is injected Then seed bytes remain compatible", () => {
-		const fixture = createInjectFixture();
-		const before = readFileSync(fixture.seedPath);
-
-		const result = spawnSync(
-			"bun",
-			[injectPath, fixture.root, fixture.packPath],
-			{
-				cwd: repoRoot,
-				encoding: "utf8",
-				timeout: 15_000,
-			},
-		);
-
-		expect(result.status).toBe(0);
-		expect(readFileSync(fixture.seedPath)).toEqual(before);
-	});
-});
+afterEach(cleanupFixtures, 30_000);
 
 describe("customer accounts baseline contract", () => {
 	test("Given customerAccounts is omitted When injected Then the emitted value is true", () => {

@@ -9,7 +9,16 @@
 	},
 	"files": [
 		"scripts/capability-contract.test.ts",
+		"scripts/domain-pack-contract.test.ts",
+		"scripts/domain-pack-input-contract.test.ts",
+		"scripts/domain-pack-test-helpers.ts",
 		"scripts/generator-contract.test.ts",
+		"scripts/generator-guidance-contract.test.ts",
+		"scripts/generator-scaffold-contract.test.ts",
+		"scripts/generator-test-helpers.ts",
+		"scripts/inject-lock-contract.test.ts",
+		"scripts/inject-publication-contract.test.ts",
+		"scripts/inject-test-helpers.ts",
 		"scripts/skills-install-smoke.test.ts"
 	]
 }
