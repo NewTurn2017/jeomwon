@@ -12,7 +12,7 @@
 	"templateSource": {
 		"kind": "bundled-archive",
 		"archivePath": "assets/jeomwon-template-v0.1.0.tar.gz",
-		"archiveSha256": "666efb34cbea8e4d8d74c9c4e8b79718b45a69990e21589972640aa4ca32d6e2",
-		"contentSha256": "e8da060dbfbd1b92e016e981ffca1ec197c05e6510418e5b148ca1ccd17ce1a3"
+		"archiveSha256": "1bb27d645b9d5a3b17f5a0f1d8fc047175ec5e0d6d9b39fd7fa0442e3843c1d3",
+		"contentSha256": "63abc0d75e61a4642358413199ba286c205f8a18cf84ea4f0235b14fcbf69f3b"
 	}
 }

@@ -12,6 +12,7 @@
 		"scripts/domain-pack-contract.test.ts",
 		"scripts/domain-pack-input-contract.test.ts",
 		"scripts/domain-pack-test-helpers.ts",
+		"scripts/extension-config-contract.test.ts",
 		"scripts/generator-contract.test.ts",
 		"scripts/generator-guidance-contract.test.ts",
 		"scripts/generator-scaffold-contract.test.ts",

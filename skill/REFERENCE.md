@@ -212,66 +212,86 @@ is continuity only, not identity or authorization.
 
 ### Inject-Safe Extension Toggles
 
-Use generated-app `packages/backend/extension.config.ts` for extension settings.
-The file is owned by extension code, and feature flags must default off, for
-example `extensionConfig.features.<featureKey> = false`. Extension modules and
-extension QA gates import this file rather than reading generated domain config.
+Every scaffold and bundled archive contains
+`packages/backend/extension.config.ts`. It is project-owned source: scaffold
+copies it once, while `inject.mjs` never rewrites it, hashes it as a managed
+output, or restores it from a pack. Its schema is closed at version 1 and starts
+with `features: {}`, so every generated-app extension is off by default.
 
-Chosen: a separate generated-app extension setting file. It survives reinject
-because `inject.mjs` writes only `domain.config.ts` and the email sample through
-paths such as `writeProjectFile` and `renderDomainConfig`. It
-keeps the pack schema strict and adds no new machinery.
+Before importing an extension module or running its QA gate, validate the config
+through its real module boundary:
 
-Rejected: an inject preservation block. It would add generator complexity and
-turn a full-file generated artifact into a partially hand-owned file.
+```sh
+bun -e 'import "./packages/backend/extension.config.ts"'
+```
 
-Rejected: adding toggles to the pack schema or a `features.noShow` key. Current
-top-level and feature exact-key validation rejects unknown pack keys unless the
-generator/schema changes, and it would make a generated-app extension depend on
-pack regeneration. `domain.config.ts` and `domain-pack.json` are not extension
-toggle surfaces because `inject.mjs` overwrites generated domain config and the
-pack validator enforces exact-key inputs.
+Unsupported schema versions fail with `extension_schema_unsupported`; unknown
+feature keys fail with `extension_feature_unsupported`. To add a generated-app
+feature, replace the closed empty `ExtensionFeatures` shape with one explicit
+readonly optional key, default that key to `false`, and extend the direct
+validation branch for that same key. The feature module and its QA gate import
+the named setting directly. They must not enumerate settings or dispatch from
+them.
+
+Rejected: an inject preservation block. It would turn a generated artifact into
+a partially hand-owned file. Rejected: pack-driven extension toggles. Both
+`domain.config.ts` and `domain-pack.json` are injector-owned, while extension
+source must survive v0 and v1 reinjection byte-for-byte.
 
 ### Extension toggles vs kit-core feature flags
 
-The rule above governs **extension** toggles — code that lives in the generated
-app, like the M2 no-show case study, which is switched by
-`extension.config.ts`. It does not govern **kit-core** feature flags, whose code
-ships in `template/` and therefore exists in every generated project before any
-extension is written. A kit-core capability has nowhere else to be switched on
-per project, so its flag belongs in pack `features.*`. `features.waitlist` and
-`features.operatorCalendarCrud` are optional switches; `features.customerAccounts`
-is retained only as a literal-true compatibility field for the baseline surface.
+`extension.config.ts` is only for code added to one generated app. Code shipped
+by the kit uses the closed pack `features.*` contract instead. In particular,
+no-show is kit core and remains `domainConfig.features.noShow`; it must not move
+into extension config. Waitlist and operator calendar CRUD follow the same
+kit-owned rule, while customer accounts remain a literal-true baseline field.
 
-The distinction is where the code lives, not who wants a toggle:
+The distinction is where the code lives:
 
-- Code in the generated app → `extension.config.ts`, default off. Never touch the
-  pack schema.
-- Code in `template/` → a kit-core `features.*` flag, and adding one is a kit
-  change: `inject.mjs` validation, the emitted `DomainConfig` type, and
-  `template/packages/backend/domain.config.ts` move together. Optional
-  capabilities default off; baseline capabilities use a compatibility literal
-  such as `customerAccounts: true`.
+- Generated-app-only code: one explicit `extension.config.ts` key, readonly and
+  off by default; never change the pack schema.
+- Code in `template/`: one explicit pack schema change with injector validation,
+  emitted `DomainConfig`, capability metadata, and the template default moving
+  together.
 
-An extension may not promote itself into `features.*` by moving its own code into
-`template/`; template seam hardening still requires proof that the seam belongs in
-the kit.
+Moving extension code into `template/` merely to obtain a pack flag is not a
+promotion path; kit inclusion still requires independent proof.
 
-### Named Hook Rules
+### Feature-owned modules and direct commands/hooks
 
-Prefer existing hooks. If a new hook is unavoidable, name it
-`on<ConcreteDomainEvent>`, export it from the feature module or
-`convex/engine/<feature>.ts`, import it at the concrete mutation/action boundary
-only, and pass `ctx` plus a narrow payload. Do not introduce a generic event bus,
-generic registry, or plugin framework.
+Keep each implementation in `convex/engine/<feature>.ts`. Export a concrete
+named command for an operator action (`markReservationNoShow`,
+`createOperatorSession`) or a named `on<ConcreteDomainEvent>` hook for a core
+boundary (`onSlotFreed`). The authenticating mutation/action imports that symbol
+directly and passes `ctx` plus the narrowest payload. The server derives request
+time, slot endings, ownership/origin, recipients, public context, and provider
+intent; clients never supply authoritative versions of those values.
 
-### Audit and mail extension points
+Existing examples are deliberately different and stay feature-owned:
 
-Audit entries must be deduped at the feature boundary before side effects. Mail
-extensions must register a specific mail kind, keep recipient data within the
-existing notification model unless a proof shows otherwise, and preserve the
-PublicContext/InternalContext split. Do not expand customer PII to make an
-extension easier.
+- `waitlist.ts` exports `onSlotFreed` and dedupes `waitlist.notified` before its
+  chat and mail intents.
+- `noShow.ts` exports `markReservationNoShow` and owns one terminal audit/state
+  transition with no email, waitlist, payment, or chat side effect.
+- `adminBooking.ts` exports direct create/update/cancel commands, stamps operator
+  ownership server-side, and calls `onSlotFreed` only from concrete freed-slot
+  boundaries.
+
+### Audit, dedupe, and provider intent
+
+Check the feature-specific audit marker before writes or side effects, append one
+audit event in the authoritative mutation, and schedule each provider effect as
+a narrow named intent only after state succeeds. Email uses a specific mail kind
+and reservation identifier so the server-side scheduler derives the recipient;
+never pass a client-owned address or raw provider payload. Apply the same rule to
+future providers and preserve the PublicContext/InternalContext split.
+
+### Forbidden registry mechanics
+
+Do not add a runtime plugin loader, feature registry, event bus, hook array,
+string-based dispatch, dynamic import, filesystem/module scanner, or generated
+extension boilerplate. Capability metadata and extension config are validation
+inputs, never runtime discovery sources.
 
 ### SKIP-Aware QA Gate Rules
 
@@ -310,10 +330,10 @@ off-toggle SKIP and on-toggle PASS shape.
 
 ## Extension Pattern Gallery
 
-Two extensions have followed the Code Extension Contract end to end. This gallery
-documents them as case studies — showing that the contract's five required fields
-work in practice — not as a reusable pattern, registry, or framework. Each case
-below records how those five fields were satisfied.
+The shipped feature-owned modules below are concrete boundary examples, not a
+reusable pattern, registry, or framework. Their settings remain kit-core pack
+flags; generated-app extensions follow the same direct-call discipline but use
+the project-owned extension config.
 
 ### Case study: M1 waitlist (kit reference implementation)
 
@@ -354,36 +374,16 @@ chat event, schedules one `reservation.waitlist_opened` mail, and dedupes on the
 `waitlist.notified` audit marker — it never confirms or holds a slot. This is a
 documented case study, not a registry, framework, or reusable extension generator.
 
-### Case study: M2 no-show (external blind proof)
+### Case study: no-show (kit-core direct command)
 
-No-show was built by a fresh agent working from the Code Extension Contract text
-alone, in a separate showcase run. Its generated files are
-**not shipped in this repository**; they live in the showcase run at
-`$JEOMWON_SHOWCASE_ROOT/_runs/m2-salon-no-show-20260709-000938` (locally observed
-as `~/dev/side/jeomwon-showcase/_runs/m2-salon-no-show-20260709-000938`). The
-paths below are relative to that run root and are quoted as code, never linked.
+No-show now ships in `template/packages/backend/convex/engine/noShow.ts`. The
+admin mutation imports `markReservationNoShow` directly; there is no dispatch
+layer. The command accepts the server-loaded reservation, rejects disabled,
+future, repeated, and ineligible transitions, writes one terminal audit/state
+change, and refreshes the existing thread's public context. It deliberately
+creates no email, waitlist, payment, scheduler, or chat side effect.
 
-- **Invariant inheritance** — the feature inherits the Session Rules:
-  `markReservationNoShow` in `packages/backend/convex/engine/noShow.ts` marks only
-  a `confirmed` reservation, checks start-time passage by store-timezone calendar
-  parts (not runtime `getHours`), dedupes on prior audit, and adds no fees,
-  sanctions, or customer PII.
-- **Feature-owned module** — the implementation is contained in
-  `packages/backend/convex/engine/noShow.ts`; the admin surface only calls into it.
-- **Named hook** — the concrete `packages/backend/convex/admin.ts` boundary calls
-  the named `markReservationNoShow` and `noShowActionState` functions directly,
-  with no event bus or generic dispatch.
-- **Off-default toggle** — `extensionConfig.features.noShow` in
-  `packages/backend/extension.config.ts` is enabled only when
-  `JEOMWON_EXTENSION_NO_SHOW === "1"`, so it defaults off.
-- **SKIP-aware QA gate** — `scripts/qa.ts` adds gate 10 (the next id after
-  waitlist's 9): a deterministic `SKIP` when the toggle is off, and real
-  mark/duplicate/future assertions with a `10-no-show.json` artifact when on;
-  a toggle-on setup gap throws (`FAIL`), never `SKIP`.
-
-Two kinds of evidence back this case and must not be conflated. Source-only review:
-`.omo/evidence/m2-salon-no-show-code-review.md` records an APPROVE from source
-inspection with no git and no live QA. Runtime proof: the QA manifest
-`qa-artifacts/jeomwon-2026-07-08T15-39-28-778Z/manifest.json` shows gate 9 `SKIP`
-and gate 10 `PASS`. Because the run is external, this stays a documented case
-study, not a registry or framework, and no showcase code is copied into the kit.
+Its off-default switch is `domainConfig.features.noShow`, because the module is
+kit core. `extension.config.ts` must remain empty in the canonical template and
+must never acquire a no-show key. Dedicated UI and SKIP-aware live-gate promotion
+are separate capability work; source presence alone does not claim that evidence.
