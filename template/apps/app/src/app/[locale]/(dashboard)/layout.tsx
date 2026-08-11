@@ -15,6 +15,14 @@ export default async function Layout({
 }: {
   children: React.ReactNode;
 }) {
+  if (
+    process.env.JEOMWON_QA_NO_SHOW_FIXTURE === "1" &&
+    process.env.JEOMWON_QA_RESET === "1" &&
+    process.env.NODE_ENV !== "production"
+  ) {
+    return children;
+  }
+
   const token = await convexAuthNextjsToken();
   const viewerRole = await loadViewerRole(() =>
     fetchQuery(jeomwonConvex.admin.viewerRole, {}, { token }),

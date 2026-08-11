@@ -1,34 +1,30 @@
 "use client";
 
 import type {
-  ReservationStatus,
   WidgetReservation,
   WidgetSnapshot,
 } from "@jeomwon/backend/src/agent-contract";
 import { CalendarDays, LayoutGrid } from "lucide-react";
 import { useScopedI18n } from "@/locales/client";
-import { StatusPill } from "./admin-dashboard";
+import {
+  isSlotOccupyingStatus,
+  resolveSeatState,
+  SeatStateLine,
+} from "./admin-seat-state";
+import { StatusPill } from "./admin-status-pill";
+import {
+  formatWidgetDay,
+  formatWidgetTime,
+  widgetDayKey,
+} from "./admin-widget-format";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CALENDAR_DAY_COUNT = 7;
 
-// Statuses that occupy a slot from the operator's point of view. Cancelled,
-// expired, denied, and notify-only waitlist rows do not block a resource.
-const slotOccupyingStatuses: ReadonlySet<ReservationStatus> = new Set([
-  "held",
-  "confirmed",
-  "rescheduled",
-  "escalated",
-]);
-
 // All times below derive from snapshot.generatedAtMs, not a local clock: the
 // board re-renders when the snapshot changes, so a render-time Date.now()
 // would only add nondeterminism without adding freshness.
-export function AdminWidgetBoard({
-  snapshot,
-}: {
-  snapshot: WidgetSnapshot;
-}) {
+export function AdminWidgetBoard({ snapshot }: { snapshot: WidgetSnapshot }) {
   if (snapshot.domain.adminWidget === "seatGrid") {
     return <SeatGridWidget snapshot={snapshot} />;
   }
@@ -73,7 +69,7 @@ function CalendarWidget({ snapshot }: { snapshot: WidgetSnapshot }) {
             key={day.key}
           >
             <p className="font-medium text-foreground text-sm">
-              {formatDayLabel(day.startMs, locale, storeTimezone)}
+              {formatWidgetDay(day.startMs, locale, storeTimezone)}
             </p>
             {day.reservations.length === 0 ? (
               <p className="text-muted-foreground text-sm">
@@ -87,8 +83,17 @@ function CalendarWidget({ snapshot }: { snapshot: WidgetSnapshot }) {
                     key={reservation.id}
                   >
                     <span className="font-medium text-foreground tabular-nums">
-                      {formatTime(reservation.startMs, locale, storeTimezone)}–
-                      {formatTime(reservation.endMs, locale, storeTimezone)}
+                      {formatWidgetTime(
+                        reservation.startMs,
+                        locale,
+                        storeTimezone,
+                      )}
+                      –
+                      {formatWidgetTime(
+                        reservation.endMs,
+                        locale,
+                        storeTimezone,
+                      )}
                     </span>
                     <span className="min-w-0 truncate text-foreground/80">
                       {reservation.serviceLabel} · {reservation.resourceLabel}
@@ -114,27 +119,26 @@ function buildCalendarDays(
     { length: CALENDAR_DAY_COUNT },
     (_, index) => {
       const startMs = nowMs + index * DAY_MS;
-      return { key: dayKey(startMs, timeZone), startMs, reservations: [] };
+      return {
+        key: widgetDayKey(startMs, timeZone),
+        startMs,
+        reservations: [],
+      };
     },
   );
   const dayByKey = new Map(days.map((day) => [day.key, day]));
   const occupying = reservations
-    .filter((reservation) => slotOccupyingStatuses.has(reservation.status))
+    .filter((reservation) => isSlotOccupyingStatus(reservation.status))
     .sort((current, next) => current.startMs - next.startMs);
 
   for (const reservation of occupying) {
-    dayByKey.get(dayKey(reservation.startMs, timeZone))?.reservations.push(
-      reservation,
-    );
+    dayByKey
+      .get(widgetDayKey(reservation.startMs, timeZone))
+      ?.reservations.push(reservation);
   }
 
   return days;
 }
-
-type SeatState =
-  | { kind: "occupied"; reservation: WidgetReservation }
-  | { kind: "upcoming"; reservation: WidgetReservation }
-  | { kind: "available" };
 
 function SeatGridWidget({ snapshot }: { snapshot: WidgetSnapshot }) {
   const t = useScopedI18n("dashboard");
@@ -193,95 +197,4 @@ function SeatGridWidget({ snapshot }: { snapshot: WidgetSnapshot }) {
       </ul>
     </section>
   );
-}
-
-function resolveSeatState(
-  resourceKey: string,
-  reservations: WidgetReservation[],
-  nowMs: number,
-): SeatState {
-  const occupying = reservations.filter(
-    (reservation) =>
-      reservation.resourceKey === resourceKey &&
-      slotOccupyingStatuses.has(reservation.status),
-  );
-
-  const current = occupying.find(
-    (reservation) =>
-      reservation.startMs <= nowMs && nowMs < reservation.endMs,
-  );
-  if (current) {
-    return { kind: "occupied", reservation: current };
-  }
-
-  const upcoming = occupying
-    .filter((reservation) => reservation.startMs > nowMs)
-    .sort((a, b) => a.startMs - b.startMs)[0];
-  if (upcoming) {
-    return { kind: "upcoming", reservation: upcoming };
-  }
-
-  return { kind: "available" };
-}
-
-function SeatStateLine({
-  locale,
-  state,
-  timeZone,
-}: {
-  locale: string;
-  state: SeatState;
-  timeZone: string;
-}) {
-  const t = useScopedI18n("dashboard");
-
-  if (state.kind === "occupied") {
-    return `${t("seatOccupied")} · ${state.reservation.timeWindow}`;
-  }
-
-  if (state.kind === "upcoming") {
-    return `${t("seatNextAt")} · ${formatDayTime(
-      state.reservation.startMs,
-      locale,
-      timeZone,
-    )}`;
-  }
-
-  return t("seatAvailable");
-}
-
-function dayKey(timestampMs: number, timeZone: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(timestampMs);
-}
-
-function formatDayLabel(timestampMs: number, locale: string, timeZone: string) {
-  return new Intl.DateTimeFormat(locale, {
-    timeZone,
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  }).format(timestampMs);
-}
-
-function formatTime(timestampMs: number, locale: string, timeZone: string) {
-  return new Intl.DateTimeFormat(locale, {
-    timeZone,
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(timestampMs);
-}
-
-function formatDayTime(timestampMs: number, locale: string, timeZone: string) {
-  return new Intl.DateTimeFormat(locale, {
-    timeZone,
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(timestampMs);
 }

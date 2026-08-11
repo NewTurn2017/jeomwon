@@ -37,6 +37,16 @@ const proxy = convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   if (request.nextUrl.pathname === "/qa/operator-calendar") {
     return NextResponse.next();
   }
+  if (
+    ["/admin", "/ko/admin", "/en/admin"].includes(request.nextUrl.pathname) &&
+    process.env.JEOMWON_QA_NO_SHOW_FIXTURE === "1" &&
+    process.env.JEOMWON_QA_RESET === "1" &&
+    process.env.NODE_ENV !== "production"
+  ) {
+    return request.nextUrl.pathname === "/admin"
+      ? I18nProxy(request)
+      : NextResponse.next();
+  }
 
   const isAuthenticated = await convexAuth.isAuthenticated();
   const isSignIn = isSignInPage(request);

@@ -16,7 +16,30 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function Page() {
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ scenario?: string }>;
+}) {
+  if (
+    process.env.JEOMWON_QA_NO_SHOW_FIXTURE === "1" &&
+    process.env.JEOMWON_QA_RESET === "1" &&
+    process.env.NODE_ENV !== "production"
+  ) {
+    const [{ locale }, query] = await Promise.all([params, searchParams]);
+    const { AdminNoShowQaFixture } = await import(
+      "@/app/[locale]/(dashboard)/_components/admin-no-show-qa-fixture"
+    );
+    return (
+      <AdminNoShowQaFixture
+        lang={locale === "ko" ? "ko" : "en"}
+        scenario={query.scenario ?? "success"}
+      />
+    );
+  }
+
   const token = await convexAuthNextjsToken();
   const role = await loadViewerRole(() =>
     fetchQuery(jeomwonConvex.admin.viewerRole, {}, { token }),

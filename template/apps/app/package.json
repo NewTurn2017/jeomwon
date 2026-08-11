@@ -43,7 +43,9 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/react-test-renderer": "19.1.0",
     "postcss": "^8.5.16",
+    "react-test-renderer": "19.2.7",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.9.3"
   }
