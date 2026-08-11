@@ -12,12 +12,17 @@ const qaSource = [
   "qa-gate-waitlist.ts",
   "qa-gate-operator.ts",
   "qa-gate-accounts.ts",
+  "qa-gate-no-show.ts",
   "qa-account-flow.ts",
   "qa-transport.ts",
 ]
   .map((file) => readFileSync(join(root, "scripts", file), "utf8"))
   .join("\n");
-const localSource = ["qa-local.ts", "qa-local-environment.ts"]
+const localSource = [
+  "qa-local.ts",
+  "qa-local-environment.ts",
+  "qa-owned-app.ts",
+]
   .map((file) => readFileSync(join(root, "scripts", file), "utf8"))
   .join("\n");
 const runtimeContractSource = readFileSync(
@@ -67,7 +72,7 @@ describe("Todo 15 authenticated-app QA contract", () => {
     const { QA_GATE_CONTRACT } = await import("./qa-contract");
 
     expect(QA_GATE_CONTRACT.map(({ id }) => id)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
     ]);
     expect(QA_GATE_CONTRACT.map(({ artifact }) => artifact)).toEqual([
       "01-happy-path.json",
@@ -81,9 +86,10 @@ describe("Todo 15 authenticated-app QA contract", () => {
       "09-waitlist.json",
       "10-operator-calendar-crud.json",
       "11-customer-accounts.json",
+      "12-no-show.json",
     ]);
     const gateArtifactWrites = [
-      ...qaSource.matchAll(/writeJson\("((?:0[1-9]|1[01])-[^"]+\.json)"/g),
+      ...qaSource.matchAll(/writeJson\("((?:0[1-9]|1[0-2])-[^"]+\.json)"/g),
     ]
       .map((match) => match[1])
       .filter((artifact): artifact is string => artifact !== undefined);
@@ -180,8 +186,8 @@ describe("Todo 15 authenticated-app QA contract", () => {
   });
 
   test("Given success, failure, or cancellation, When either runner exits, Then teardown is registered", () => {
-    expect(localSource).toContain('process.on("exit"');
-    expect(localSource).toContain("const failures = teardown()");
+    expect(localSource).toContain("const failures = await teardown()");
+    expect(localSource).toContain("await stopOwnedQaProcess");
     expect(localSource).toContain('process.on("SIGINT"');
     expect(localSource).toContain('process.on("SIGTERM"');
     expect(qaSource).toContain("await browser.close()");

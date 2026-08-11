@@ -74,6 +74,10 @@ export type QaCanonicalCall =
   | {
       readonly operation: "adminMarkReservationNoShow";
       readonly args: AdminReservationRef;
+    }
+  | {
+      readonly operation: "qaMarkNoShowFixture";
+      readonly args: AdminReservationRef;
     };
 
 export const QA_CANONICAL_OPERATIONS = [
@@ -87,6 +91,7 @@ export const QA_CANONICAL_OPERATIONS = [
   "adminUpdateSession",
   "adminDeleteSession",
   "adminMarkReservationNoShow",
+  "qaMarkNoShowFixture",
 ] as const;
 
 type QaCanonicalOperation = QaCanonicalCall["operation"];
@@ -191,6 +196,9 @@ export type QaBrowserBridgeContract = {
     args: AdminReservationRef,
   ) => Promise<AdminCancelResult>;
   readonly adminMarkReservationNoShow: (
+    args: AdminReservationRef,
+  ) => Promise<AdminNoShowResult>;
+  readonly qaMarkNoShowFixture: (
     args: AdminReservationRef,
   ) => Promise<AdminNoShowResult>;
 };

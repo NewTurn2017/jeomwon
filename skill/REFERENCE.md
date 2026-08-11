@@ -384,6 +384,14 @@ change, and refreshes the existing thread's public context. It deliberately
 creates no email, waitlist, payment, scheduler, or chat side effect.
 
 Its off-default switch is `domainConfig.features.noShow`, because the module is
-kit core. `extension.config.ts` must remain empty in the canonical template and
-must never acquire a no-show key. Dedicated UI and SKIP-aware live-gate promotion
-are separate capability work; source presence alone does not claim that evidence.
+kit core. `extension.config.ts` remains empty in the canonical template and must
+never acquire a no-show key. QA evidence contract v2 appends stable gate 12 and
+keeps v1 artifact bundles validator-compatible. Gate 12 writes
+`12-no-show.json`: off is the exact no-mutation reason `features.noShow=false`;
+on drives a past confirmed fixture through the authenticated app bridge and the
+deployed lifecycle, rejects future/repeat/ineligible writes, and proves email,
+waitlist, and chat-event counts unchanged. Because Polar component internals are
+not part of the app DataModel, the nearest shipped authoritative durable account-
+billing boundary is observed instead: redacted counts of
+`accountDeletionJobs.phase` plus `subscriptionCompleted`, before and after.
+Real Google-operator success remains separate maintainer-owned operational smoke.

@@ -135,7 +135,7 @@ tooling            공유 TypeScript 설정
 
 ## 10. 검증
 
-**11게이트 QA** (`scripts/qa.ts`, `bun run qa` = `scripts/qa-local.ts` 오케스트레이터로 원커맨드):
+**12게이트 QA** (`scripts/qa.ts`, `bun run qa` = `scripts/qa-local.ts` 오케스트레이터로 원커맨드, evidence contract v2; v1 artifact bundles remain validator-compatible):
 
 | # | 이름 | 확인 |
 |---|------|------|
@@ -150,6 +150,7 @@ tooling            공유 TypeScript 설정
 | 9 | 대기자 접수·알림 | `features.waitlist=false`면 SKIP, on이면 포화→0슬롯→`waitlisted` row→슬롯 해제→`waitlist.slotOpened` + `reservation.waitlist_opened` |
 | 10 | 운영자 캘린더 CRUD 경계 | `features.operatorCalendarCrud=false`면 SKIP, on이면 미인증 create/update/delete가 `admin_auth_required`로 fail-closed (전체 인증 왕복은 브라우저 게이트 소관) |
 | 11 | 고객 계정 경계 | `features.customerAccounts=false`면 SKIP, on이면 미인증 `customerSnapshot`·타인 thread `publicState`가 `auth_required`로 fail-closed |
+| 12 | 노쇼 전이 경계 | `features.noShow=false`면 무변경 SKIP, on이면 과거 confirmed→`no_show`, 단일 audit/public context, future/repeat/ineligible 거부, email/waitlist/chat event와 durable account-deletion subscription state 불변 |
 
 QA는 business-hours-aware — cancel-window 오프셋을 엔진 순수 헬퍼(`nextAllowedSlotStart`/`insideCancelFeasible`)로 실제 열린 슬롯에 앵커, 불가능한 실행시각엔 게이트 2·8을 결정론 SKIP.
 
@@ -165,7 +166,7 @@ QA는 business-hours-aware — cancel-window 오프셋을 엔진 순수 헬퍼(`
 - **슬롯 3종** — `minutes:30` / `hour` / `day`(day는 체크인/체크아웃 시각·라벨 필요).
 - **위젯 필드 2종** — `calendar` / `seatGrid` (`AdminWidgetBoard`가 대시보드에서 분기 렌더 — 6절 참고).
 - **정책** — `cancelWindowHours` · `holdMinutes` · `confirmationRequired`(항상 `true`).
-- **기능 토글** — `features.email` · `features.polar` · `features.waitlist`.
+- **기능 토글** — `features.email` · `features.polar` · `features.waitlist` · `features.operatorCalendarCrud` · `features.noShow` (`noShow`는 off-default이며 전용 QA gate 12 소유).
 - **대기자 매트릭스** — `waitlist=false`: gate 9 SKIP, 슬롯 0개 기존 경로 유지. `waitlist=true`: gate 9 PASS 대상, notify-only 접수·알림 활성.
 - **copy** — 인사·거절·확정·취소·홀드만료·정책요약 등 고객 노출 한국어 문구 일체.
 - **영업시간·블랙아웃** — 요일별 open/close 또는 closed, 블랙아웃 구간.
@@ -174,5 +175,5 @@ QA는 business-hours-aware — cancel-window 오프셋을 엔진 순수 헬퍼(`
 
 ## 알려진 한계 (VISION 2.3 참고)
 
-- 전문 기능(보증금·노쇼·멤버십·다지점 등)을 위한 일반 registry 경로는 아직 없다. 후속 코드 확장은 `skill/REFERENCE.md`의 Code Extension Contract를 따라 불변식 상속, 기능 소유 모듈, 명명된 훅, off-default `extension.config.ts`, SKIP-aware QA 게이트로 진행한다.
+- 보증금·멤버십·다지점 등을 위한 일반 registry 경로는 없다. 노쇼는 예외적인 registry가 아니라 직접 명명된 kit-core command와 off-default flag, 전용 gate 12로 제공된다. 후속 generated-app 확장은 `skill/REFERENCE.md`의 Code Extension Contract를 따른다.
 - M1 대기자 파일럿은 현재 참조 패턴이다. 정식 plugin framework나 범용 생성기는 확장 패턴이 3개 이상 반복 검증된 뒤로 유보한다.

@@ -50,7 +50,7 @@ const MATCHING_TEMPLATE_MANIFEST = {
 		domainPackWriter: 0,
 		capabilitySchema: 1,
 		setupSchema: 2,
-		qaContract: 1,
+		qaContract: 2,
 	},
 };
 

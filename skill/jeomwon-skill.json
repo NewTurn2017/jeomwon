@@ -7,12 +7,12 @@
 		"domainPackWriter": 0,
 		"capabilitySchema": 1,
 		"setupSchema": 2,
-		"qaContract": 1
+		"qaContract": 2
 	},
 	"templateSource": {
 		"kind": "bundled-archive",
 		"archivePath": "assets/jeomwon-template-v0.1.0.tar.gz",
-		"archiveSha256": "620d751364f0115ef0bf664186a87ad0a57f5e207edc04ab858a8ff599ccf3aa",
-		"contentSha256": "af6d2dfea02c67b02c23fe06dd224bb84afc2711c5492ac00f60d06e8e9e4f28"
+		"archiveSha256": "de47ad649c8422aad28d558b60db41e39c3be6b11ba7278bf89ff3d318305b62",
+		"contentSha256": "07cc28ed3e4915c5304f2229063a27094d3bb04c97ceb236c9c2b57267d141a0"
 	}
 }

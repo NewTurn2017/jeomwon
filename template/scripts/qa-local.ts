@@ -5,7 +5,7 @@
 // Safe by design: refuses to run against anything but a `dev:` deployment,
 // forces email capture via JEOMWON_QA_RESET (never sends real mail), and
 // always restores the temporary QA env + stops the app on exit.
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -32,13 +32,12 @@ import {
   TEMP_CONVEX_ENV_NAMES,
   temporaryConvexEnv,
 } from "./qa-local-environment";
+import { launchOwnedQaApp } from "./qa-owned-app";
 import type { OwnedQaProcess } from "./qa-port-lifecycle";
 import {
-  ownQaProcess,
   QaPortLifecycleError,
   runAfterQaPortPreflight,
-  terminateOwnedQaProcess,
-  waitForOwnedQaAppReady,
+  stopOwnedQaProcess,
 } from "./qa-port-lifecycle";
 import type { QaConvexTarget } from "./qa-runtime-contract";
 import {
@@ -76,15 +75,20 @@ function convexEnv(target: QaConvexTarget, args: readonly string[]) {
 let previousConvexEnv = new Map<string, string | null>();
 let configuredConvexEnv: readonly string[] = [];
 let appProcess: OwnedQaProcess | undefined;
-let tornDown = false;
-let teardownFailures: readonly string[] = [];
+let teardownPromise: Promise<readonly string[]> | undefined;
 let qaTarget: QaConvexTarget | undefined;
-function teardown(): readonly string[] {
-  if (tornDown) return teardownFailures;
-  tornDown = true;
+function teardown(): Promise<readonly string[]> {
+  teardownPromise ??= performTeardown();
+  return teardownPromise;
+}
+async function performTeardown(): Promise<readonly string[]> {
   const cleanupFailures: string[] = [];
-  if (appProcess && !terminateOwnedQaProcess(appProcess)) {
-    cleanupFailures.push("app:terminate");
+  if (appProcess) {
+    try {
+      await stopOwnedQaProcess(appProcess, port, 15_000);
+    } catch {
+      cleanupFailures.push("app:terminate-or-port-release");
+    }
   }
   if (qaTarget !== undefined) {
     const target = qaTarget;
@@ -102,26 +106,18 @@ function teardown(): readonly string[] {
   ) {
     cleanupFailures.push("recovery-journal:remove");
   }
-  teardownFailures = cleanupFailures;
-  return teardownFailures;
+  return cleanupFailures;
 }
-process.on("exit", () => {
-  if (!tornDown) {
-    const failures = teardown();
-    reportCleanupFailures(failures);
-    if (failures.length > 0) process.exitCode = 1;
-  }
-});
-process.on("SIGINT", () => {
-  const failures = teardown();
+let signalStopStarted = false;
+async function stopForSignal(exitCode: 130 | 143): Promise<void> {
+  if (signalStopStarted) return;
+  signalStopStarted = true;
+  const failures = await teardown();
   reportCleanupFailures(failures);
-  process.exit(failures.length > 0 ? 1 : 130);
-});
-process.on("SIGTERM", () => {
-  const failures = teardown();
-  reportCleanupFailures(failures);
-  process.exit(failures.length > 0 ? 1 : 143);
-});
+  process.exit(failures.length > 0 ? 1 : exitCode);
+}
+process.on("SIGINT", () => void stopForSignal(130));
+process.on("SIGTERM", () => void stopForSignal(143));
 
 async function main(): Promise<number> {
   return await runAfterQaPortPreflight(port, runQaWorkflow);
@@ -175,26 +171,18 @@ async function runQaWorkflow(): Promise<number> {
 
   step(2, `인증 앱 기동 ${gray(`(mock 런타임 · ${baseUrl})`)}`);
   const readyNonce = randomUUID();
-  const appChild = spawn("bun", ["next", "dev", "-p", String(port)], {
-    cwd: appDir,
-    detached: true,
-    env: {
-      ...sanitizeConvexChildEnv(process.env),
-      AGENT_RUNTIME: "mock",
-      AUTH_ANONYMOUS_LOGIN: "1",
-      JEOMWON_QA_BROWSER: "1",
-      JEOMWON_QA_READY_NONCE: readyNonce,
-      NEXT_PUBLIC_CONVEX_URL: target.convexUrl,
+  appProcess = await launchOwnedQaApp({
+    root,
+    appDir,
+    port,
+    baseUrl,
+    readyNonce,
+    convexUrl: target.convexUrl,
+    env: sanitizeConvexChildEnv(process.env),
+    onOwnedProcess: (owned) => {
+      appProcess = owned;
     },
-    stdio: "ignore",
   });
-  appProcess = ownQaProcess(appChild);
-  appChild.on("exit", (code) => {
-    if (!tornDown && code && code !== 0) {
-      fail(`앱 서버가 종료됨 (code ${code}).`);
-    }
-  });
-  await waitForOwnedQaAppReady(baseUrl, readyNonce, appProcess, 90_000);
   ok(`웹 서버 준비 완료 ${gray(baseUrl)}`);
 
   step(3, "스모크 QA 게이트 실행");
@@ -212,7 +200,7 @@ async function runQaWorkflow(): Promise<number> {
   });
 
   step(4, "정리 — 앱 종료 · 임시 Convex env 복원");
-  const cleanupFailures = teardown();
+  const cleanupFailures = await teardown();
   if (cleanupFailures.length === 0) {
     ok("정리 완료");
   } else {
@@ -248,8 +236,12 @@ async function runQaWorkflow(): Promise<number> {
 }
 
 main()
-  .then((code) => process.exit(code))
-  .catch((error) => {
+  .then((code) => {
+    process.exitCode = code;
+  })
+  .catch(async (error) => {
+    const cleanupFailures = await teardown();
+    reportCleanupFailures(cleanupFailures);
     console.error(
       error instanceof QaRuntimeContractError
         ? error.message
@@ -257,5 +249,5 @@ main()
           ? error.message
           : "QA runner failed before completion.",
     );
-    process.exit(1);
+    process.exitCode = 1;
   });

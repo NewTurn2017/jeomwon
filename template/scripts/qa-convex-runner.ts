@@ -25,11 +25,13 @@ export const qaConvexTarget = resolveQaConvexTarget(
 export async function resetQaDeployment(): Promise<void> {
   try {
     const reset = parseResetResult(
-      await runConvexCli("qaReset:resetDomain", {
+      await runQaConvexFunction("qaReset:resetDomain", {
         domainKey: domainConfig.domainKey,
       }),
     );
-    const seed = parseSeedResult(await runConvexCli("jeomwonSeed:seed", {}));
+    const seed = parseSeedResult(
+      await runQaConvexFunction("jeomwonSeed:seed", {}),
+    );
     qaState.qaResetSummary = { reset, seed };
     console.log(
       `QA reset ${reset.domainKey}: reservations=${reset.reservations}, reservationEmailDeliveries=${reset.reservationEmailDeliveries}, chatThreads=${reset.chatThreads}, chatEvents=${reset.chatEvents}, resources=${seed.resources}`,
@@ -39,7 +41,7 @@ export async function resetQaDeployment(): Promise<void> {
   }
 }
 
-async function runConvexCli(
+export async function runQaConvexFunction(
   functionName: string,
   args: JsonRecord,
 ): Promise<unknown> {

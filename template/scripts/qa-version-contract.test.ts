@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { validateQaRuntimeArtifacts } from "./qa-artifact-contract";
 import {
   artifactIssues,
   tempArtifactDir,
@@ -27,10 +28,16 @@ describe("versioned QA evidence", () => {
     expect(firstArtifact.qaContractVersion).toBe(QA_CONTRACT_VERSION);
   });
 
+  test("explicitly declared prior v1 artifacts remain valid", () => {
+    const artifactDir = tempArtifactDir();
+    writeArtifactFixture(artifactDir, { 2: "SKIP", 9: "SKIP" }, 1);
+    expect(validateQaRuntimeArtifacts(artifactDir)).toEqual({ ok: true });
+  });
+
   test.each([
     0,
-    2,
-    "1",
+    3,
+    "2",
     null,
   ])("manifest QA contract version %p is rejected", (qaContractVersion) => {
     const artifactDir = tempArtifactDir();

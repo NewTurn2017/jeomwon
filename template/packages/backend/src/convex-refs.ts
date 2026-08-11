@@ -111,6 +111,13 @@ export const jeomwonConvex = {
       "operator" | "customer"
     >("admin:viewerRole"),
   },
+  qaNoShow: {
+    markFixture: makeFunctionReference<
+      "mutation",
+      AdminReservationRef,
+      AdminNoShowResult
+    >("qaNoShow:markFixture"),
+  },
   chat: {
     domainPublicConfig: makeFunctionReference<
       "query",

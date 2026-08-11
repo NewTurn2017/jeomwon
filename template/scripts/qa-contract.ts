@@ -1,4 +1,5 @@
-export const QA_CONTRACT_VERSION = 1 as const;
+export const QA_CONTRACT_VERSION = 2 as const;
+export const SUPPORTED_QA_ARTIFACT_VERSIONS = [1, 2] as const;
 
 export const QA_GATE_CONTRACT = [
   { id: 1, name: "해피 패스", artifact: "01-happy-path.json" },
@@ -44,9 +45,17 @@ export const QA_GATE_CONTRACT = [
     name: "고객 계정 경계",
     artifact: "11-customer-accounts.json",
   },
+  { id: 12, name: "노쇼 전이 경계", artifact: "12-no-show.json" },
 ] as const;
 
+export const QA_GATE_CONTRACT_V1 = QA_GATE_CONTRACT.slice(0, 11);
+
+export type QaContractVersion = (typeof SUPPORTED_QA_ARTIFACT_VERSIONS)[number];
 export type QaGateId = (typeof QA_GATE_CONTRACT)[number]["id"];
+
+export function qaGateContractForVersion(version: QaContractVersion) {
+  return version === 1 ? QA_GATE_CONTRACT_V1 : QA_GATE_CONTRACT;
+}
 
 export function gateArtifact(id: QaGateId) {
   const gate = QA_GATE_CONTRACT.find((candidate) => candidate.id === id);

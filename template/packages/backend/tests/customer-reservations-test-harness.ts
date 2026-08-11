@@ -1,5 +1,6 @@
 type TableName =
   | "users"
+  | "accountDeletionJobs"
   | "reservations"
   | "reservationEmailDeliveries"
   | "resources"
@@ -102,6 +103,7 @@ class FakeQuery {
 export class FakeDatabase {
   readonly tables: Record<TableName, StoredRow[]> = {
     users: [],
+    accountDeletionJobs: [],
     reservations: [],
     reservationEmailDeliveries: [],
     resources: [],

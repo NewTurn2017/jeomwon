@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { validateQaRuntimeArtifacts } from "./qa-artifact-contract";
 import {
@@ -12,7 +12,11 @@ import { QA_CONTRACT_VERSION, QA_GATE_CONTRACT } from "./qa-contract";
 describe("QA runtime artifact contract", () => {
   test("Given exact linked gate/browser/cleanup artifacts, When validation runs, Then runtime evidence passes", () => {
     const artifactDir = tempArtifactDir();
-    writeArtifactFixture(artifactDir, { 2: "SKIP", 9: "SKIP" });
+    writeArtifactFixture(artifactDir, {
+      2: "SKIP",
+      9: "SKIP",
+      12: "SKIP",
+    });
     expect(validateQaRuntimeArtifacts(artifactDir)).toEqual({ ok: true });
   });
 
@@ -106,7 +110,7 @@ describe("QA runtime artifact contract", () => {
   });
 
   test.each([
-    2, 9,
+    2, 9, 12,
   ])("Given allowed SKIP gate %i has no concrete reason, When validation runs, Then success is rejected", (id) => {
     const artifactDir = tempArtifactDir();
     writeArtifactFixture(artifactDir, { [id]: "SKIP" });
@@ -125,6 +129,55 @@ describe("QA runtime artifact contract", () => {
     expect(artifactIssues(artifactDir)).toContain(
       `artifact:skip-evidence:${id}`,
     );
+  });
+
+  test("Given missing no-show evidence, When validation runs, Then PASS is rejected", () => {
+    const artifactDir = tempArtifactDir();
+    writeArtifactFixture(artifactDir);
+    unlinkSync(join(artifactDir, "12-no-show.json"));
+    expect(artifactIssues(artifactDir)).toContain("artifact:invalid:12");
+  });
+
+  test("Given mismatched no-show status evidence, When validation runs, Then PASS is rejected", () => {
+    const artifactDir = tempArtifactDir();
+    writeArtifactFixture(artifactDir);
+    const artifactPath = join(artifactDir, "12-no-show.json");
+    const artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
+    artifact.evidence.status = "SKIP";
+    writeFileSync(artifactPath, JSON.stringify(artifact));
+    expect(artifactIssues(artifactDir)).toContain("artifact:no-show:12");
+  });
+
+  test("Given fabricated billing zero evidence, When validation runs, Then PASS is rejected", () => {
+    const artifactDir = tempArtifactDir();
+    writeArtifactFixture(artifactDir);
+    const artifactPath = join(artifactDir, "12-no-show.json");
+    const artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
+    artifact.evidence.accountBillingState = {
+      before: 0,
+      after: 0,
+      unchanged: true,
+    };
+    writeFileSync(artifactPath, JSON.stringify(artifact));
+    expect(artifactIssues(artifactDir)).toContain(
+      "artifact:no-show-billing-state:12",
+    );
+  });
+
+  test.each([
+    ["transition", null],
+    ["rejections", { repeat: "wrong" }],
+    ["sideEffects", {}],
+  ])("Given malformed no-show %s evidence, When validation runs, Then PASS is rejected", (key, value) => {
+    const artifactDir = tempArtifactDir();
+    writeArtifactFixture(artifactDir);
+    const gate = QA_GATE_CONTRACT[11];
+    if (gate === undefined) throw new Error("no-show gate missing");
+    const artifactPath = join(artifactDir, gate.artifact);
+    const artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
+    artifact.evidence[key] = value;
+    writeFileSync(artifactPath, JSON.stringify(artifact));
+    expect(artifactIssues(artifactDir)).toContain("artifact:no-show-pass:12");
   });
 
   test.each([

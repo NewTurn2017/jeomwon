@@ -3,7 +3,11 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "..");
-const localSource = ["qa-local.ts", "qa-local-environment.ts"]
+const localSource = [
+  "qa-local.ts",
+  "qa-local-environment.ts",
+  "qa-owned-app.ts",
+]
   .map((file) => readFileSync(join(root, "scripts", file), "utf8"))
   .join("\n");
 const runtimeContractSource = readFileSync(
@@ -34,7 +38,7 @@ describe("QA local runner static contract", () => {
       localSource.indexOf("configureTemporaryConvexEnvironment("),
     );
     expect(localSource.indexOf("validateQaAppConvexUrl(")).toBeLessThan(
-      localSource.indexOf('spawn("bun", ["next", "dev"'),
+      localSource.indexOf('join(input.root, "scripts/qa-app-process.ts")'),
     );
     expect(localSource).toContain("NEXT_PUBLIC_CONVEX_URL: target.convexUrl");
     expect(localSource).toContain("CONVEX_URL: target.convexUrl");
@@ -46,7 +50,12 @@ describe("QA local runner static contract", () => {
     );
     expect(localSource).not.toContain("lsof");
     expect(localSource).not.toContain("app:port-cleanup");
-    expect(localSource).toContain("terminateOwnedQaProcess");
+    expect(localSource).toContain("await stopOwnedQaProcess");
+    expect(localSource).toContain("onOwnedProcess");
+    expect(localSource).toContain("teardownPromise ??= performTeardown()");
+    expect(localSource).toContain("signalStopStarted");
+    expect(localSource).toContain("cleanup failed:");
+    expect(localSource).toContain("app:terminate-or-port-release");
     expect(localSource).toContain("detached: true");
     expect(localSource).toContain("JEOMWON_QA_READY_NONCE");
     expect(localSource).toContain("waitForOwnedQaAppReady");

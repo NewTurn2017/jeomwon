@@ -193,6 +193,9 @@ export async function pageCanonicalCall(
           case "adminMarkReservationNoShow":
             value = await bridge.adminMarkReservationNoShow(request.args);
             break;
+          case "qaMarkNoShowFixture":
+            value = await bridge.qaMarkNoShowFixture(request.args);
+            break;
           default:
             request satisfies never;
             return {

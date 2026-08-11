@@ -102,15 +102,15 @@ describe("capability release metadata", () => {
 		});
 	});
 
-	test("keeps no-show kit-owned, off by default, and below promoted QA/live maturity", () => {
+	test("keeps no-show kit-owned, off by default, and promoted only to QA maturity", () => {
 		const noShow = capabilities(manifest()).find(
 			({ id }) => id === "attendance.noShow",
 		);
 		expect(noShow).toMatchObject({
 			ownership: "kit-core",
 			enablement: { mode: "feature", default: false },
-			maturity: "implemented",
-			evidence: { level: "test", qaGate: null, liveGate: null },
+			maturity: "qa-proven",
+			evidence: { level: "qa", qaGate: 12, liveGate: null },
 		});
 	});
 });

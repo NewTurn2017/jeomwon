@@ -7,6 +7,7 @@ import { launchQaBrowser, writeBrowserActions } from "./qa-browser";
 import { QA_CONTRACT_VERSION, QA_GATE_CONTRACT } from "./qa-contract";
 import { resetQaDeployment } from "./qa-convex-runner";
 import { qaCustomerAccountsGate } from "./qa-gate-accounts";
+import { qaNoShowGate } from "./qa-gate-no-show";
 import { qaOperatorCalendarCrudGate } from "./qa-gate-operator";
 import { qaWaitlistGate } from "./qa-gate-waitlist";
 import {
@@ -75,6 +76,7 @@ async function main(): Promise<void> {
       qaWaitlistGate,
       qaOperatorCalendarCrudGate,
       qaCustomerAccountsGate,
+      qaNoShowGate,
     ];
     for (const [index, gate] of gates.entries()) {
       runnerStage = `gate-${index + 1}`;
@@ -101,6 +103,11 @@ async function main(): Promise<void> {
       functionalFailure.cause,
     );
   } finally {
+    try {
+      await resetQaDeployment();
+    } catch {
+      cleanupFailures.push("fixtures:reset");
+    }
     if (browser !== null) {
       try {
         await browser.close();

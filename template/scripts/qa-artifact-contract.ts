@@ -1,13 +1,23 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { validateBrowserArtifactBundle } from "./qa-browser-artifact-contract";
-import { QA_CONTRACT_VERSION, QA_GATE_CONTRACT } from "./qa-contract";
+import {
+  QA_CONTRACT_VERSION,
+  QA_GATE_CONTRACT,
+  QA_GATE_CONTRACT_V1,
+} from "./qa-contract";
+import { validateNoShowEvidence } from "./qa-no-show-artifact-contract";
 
 type QaArtifactValidation =
   | { readonly ok: true }
   | { readonly ok: false; readonly issues: readonly string[] };
 
-const ALLOWED_SKIP_GATE_IDS = new Set([2, 9]);
+const ALLOWED_SKIP_GATE_IDS = new Set([2, 9, 12]);
+type GateContract = readonly {
+  readonly id: number;
+  readonly name: string;
+  readonly artifact: string;
+}[];
 export function validateQaRuntimeArtifacts(
   artifactDir: string,
 ): QaArtifactValidation {
@@ -26,7 +36,14 @@ function validateManifest(
   manifest: Readonly<Record<string, unknown>>,
   issues: string[],
 ): void {
-  if (manifest.qaContractVersion !== QA_CONTRACT_VERSION) {
+  const version = manifest.qaContractVersion;
+  const contract =
+    version === 1
+      ? QA_GATE_CONTRACT_V1
+      : version === QA_CONTRACT_VERSION
+        ? QA_GATE_CONTRACT
+        : QA_GATE_CONTRACT;
+  if (version !== 1 && version !== QA_CONTRACT_VERSION) {
     issues.push("manifest:qa-contract-version");
   }
   if (
@@ -37,9 +54,15 @@ function validateManifest(
     issues.push("manifest:runner");
   }
   if (!isValidQaReset(manifest.qaReset)) issues.push("manifest:qa-reset");
-  validateExactGates(manifest.gateContract, "gate-contract", issues);
-  validateExactGates(manifest.results, "results", issues);
-  validateGateArtifacts(artifactDir, manifest.results, issues);
+  validateExactGates(manifest.gateContract, "gate-contract", contract, issues);
+  validateExactGates(manifest.results, "results", contract, issues);
+  validateGateArtifacts(
+    artifactDir,
+    manifest.results,
+    contract,
+    version,
+    issues,
+  );
 
   validateBrowserArtifactBundle(artifactDir, manifest.browserArtifacts, issues);
 }
@@ -47,13 +70,14 @@ function validateManifest(
 function validateExactGates(
   value: unknown,
   label: "gate-contract" | "results",
+  contract: GateContract,
   issues: string[],
 ): void {
-  if (!Array.isArray(value) || value.length !== QA_GATE_CONTRACT.length) {
+  if (!Array.isArray(value) || value.length !== contract.length) {
     issues.push(`${label}:count`);
     return;
   }
-  for (const [index, expected] of QA_GATE_CONTRACT.entries()) {
+  for (const [index, expected] of contract.entries()) {
     const actual: unknown = value[index];
     if (
       !isRecord(actual) ||
@@ -83,10 +107,12 @@ function validateResultStatus(
 function validateGateArtifacts(
   artifactDir: string,
   results: unknown,
+  contract: GateContract,
+  version: unknown,
   issues: string[],
 ): void {
   const resultArray = Array.isArray(results) ? results : [];
-  for (const [index, gate] of QA_GATE_CONTRACT.entries()) {
+  for (const [index, gate] of contract.entries()) {
     const artifact = readJson(join(artifactDir, gate.artifact));
     if (!isRecord(artifact)) {
       issues.push(`artifact:invalid:${gate.id}`);
@@ -95,7 +121,7 @@ function validateGateArtifacts(
     const result = resultArray[index];
     if (
       !isRecord(result) ||
-      artifact.qaContractVersion !== QA_CONTRACT_VERSION ||
+      artifact.qaContractVersion !== version ||
       artifact.id !== gate.id ||
       artifact.name !== gate.name ||
       artifact.status !== result.status ||
@@ -110,6 +136,9 @@ function validateGateArtifacts(
     }
     if (gate.id === 10) {
       validateOperatorCrudBoundary(artifact.evidence, issues);
+    }
+    if (gate.id === 12) {
+      validateNoShowEvidence(result.status, artifact.evidence, issues);
     }
     if (
       result.status === "SKIP" &&

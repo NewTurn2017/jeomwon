@@ -234,15 +234,17 @@
         }
       ],
       "evidence": {
-        "level": "test",
+        "level": "qa",
         "paths": [
-          "template/packages/backend/tests/reservation-no-show.test.ts"
+          "template/packages/backend/tests/reservation-no-show.test.ts",
+          "template/scripts/qa-contract.ts",
+          "template/scripts/qa-gate-no-show.ts"
         ],
-        "qaGate": null,
+        "qaGate": 12,
         "liveGate": null
       },
       "sideEffects": ["reservation-status", "audit", "public-context"],
-      "maturity": "implemented"
+      "maturity": "qa-proven"
     },
     {
       "id": "payment.reservationDeposit",
