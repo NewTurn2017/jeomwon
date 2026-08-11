@@ -25,9 +25,14 @@ function freshTarget(): string {
 	const root = mkdtempSync(join(tmpdir(), "jeomwon-extension-contract-"));
 	temporaryRoots.push(root);
 	const target = join(root, "generated-app");
+	const initialPack = join(root, "initial-pack.json");
+	writeFileSync(
+		initialPack,
+		JSON.stringify({ schemaVersion: 1, ...readExamplePack() }),
+	);
 	const result = spawnSync(
 		"bun",
-		[scaffoldPath, target, "Extension Contract"],
+		[scaffoldPath, target, "Extension Contract", initialPack],
 		{
 			cwd: repoRoot,
 			encoding: "utf8",

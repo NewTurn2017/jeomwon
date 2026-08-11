@@ -1,12 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import {
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	symlinkSync,
-	writeFileSync,
-} from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
 	cleanupFixtures,
 	fixture,
@@ -52,22 +46,23 @@ describe("transactional injector publication", () => {
 		const receiptPath = join(item.target, "jeomwon-project.json");
 		const firstBytes = readFileSync(receiptPath);
 		const receipt = JSON.parse(firstBytes.toString()) as {
-			compatibility: Record<string, unknown>;
-			managedOutputs: Record<string, { sha256: string }>;
+			lifecycle: string;
+			contracts: Record<string, unknown>;
+			managedOutputs: Record<
+				string,
+				{ sha256: string; mode: number; type: string }
+			>;
 		};
-		expect(receipt.compatibility).toEqual({
-			templateApi: 1,
+		expect(receipt.lifecycle).toBe("established");
+		expect(receipt.contracts).toEqual({
 			domainPackWriter: 0,
-			domainPackSchema: 1,
 			capabilitySchema: 1,
-			capabilityManifestSha256: sha(
-				join(item.target, "jeomwon-capabilities.json"),
-			),
 			setupSchema: 2,
-			qaContract: 1,
+			qaContract: 2,
 		});
 		for (const [path, value] of Object.entries(receipt.managedOutputs)) {
 			expect(value.sha256).toBe(sha(join(item.target, path)));
+			expect(value.type).toBe("file");
 		}
 		expect(firstBytes.toString()).not.toMatch(/timestamp|createdAt|updatedAt/);
 		const second = run(item);
@@ -84,7 +79,7 @@ describe("transactional injector publication", () => {
 		);
 		const mismatch = run(item);
 		expect(mismatch.exitCode).not.toBe(0);
-		expect(output(mismatch)).toContain("inject_compatibility_invalid");
+		expect(output(mismatch)).toContain("inject_receipt_mismatch");
 		expect(state(item)).toEqual(before);
 	});
 
@@ -102,19 +97,20 @@ describe("transactional injector publication", () => {
 
 	test("rejects symlink and nonregular managed paths before publication", () => {
 		const linked = fixture({ email: false });
-		mkdirSync(dirname(linked.email), { recursive: true });
-		symlinkSync(join(linked.root, "elsewhere"), linked.email);
+		const linkedOriginal = `${linked.config}.original`;
+		Bun.spawnSync({ cmd: ["mv", linked.config, linkedOriginal] });
+		symlinkSync(linkedOriginal, linked.config);
 		const symlinkResult = run(linked);
 		expect(symlinkResult.exitCode).not.toBe(0);
-		expect(output(symlinkResult)).toContain("inject_managed_path_invalid");
+		expect(output(symlinkResult)).toContain("inject_managed_state_mismatch");
 
 		const fifo = fixture({ email: false });
-		mkdirSync(dirname(fifo.email), { recursive: true });
-		const made = Bun.spawnSync({ cmd: ["mkfifo", fifo.email] });
+		Bun.spawnSync({ cmd: ["rm", fifo.config] });
+		const made = Bun.spawnSync({ cmd: ["mkfifo", fifo.config] });
 		expect(made.exitCode).toBe(0);
 		const fifoResult = run(fifo);
 		expect(fifoResult.exitCode).not.toBe(0);
-		expect(output(fifoResult)).toContain("inject_managed_path_invalid");
+		expect(output(fifoResult)).toContain("inject_managed_state_mismatch");
 	});
 
 	test("retains deterministic recovery and stage data when rollback is incomplete, preserving the primary error over release failure", () => {

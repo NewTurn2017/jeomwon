@@ -1,153 +1,171 @@
-import { createHash } from "node:crypto";
 import { lstat, readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { DOMAIN_PACK_SCHEMA_VERSION } from "./domain-pack-constants.mjs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { normalizeDomainPack } from "./domain-pack-schema.mjs";
 import { errorDetail, InjectError } from "./inject-errors.mjs";
-import { MANAGED_DOMAIN_PACK, MANAGED_RECEIPT } from "./inject-managed.mjs";
+import { MANAGED_RECEIPT } from "./inject-managed.mjs";
+import {
+	createEstablishedReceipt,
+	projectIdentity,
+	updateEstablishedReceipt,
+	validReceipt,
+} from "./inject-receipt-schema.mjs";
+import { hashReleaseContracts, sha256 } from "./release-contract.mjs";
 
-function sha256(bytes) {
-	return createHash("sha256").update(bytes).digest("hex");
-}
+export { createEstablishedReceipt, updateEstablishedReceipt };
 
-export async function readPriorReceipt(targetDir) {
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+
+export async function readEstablishedReceipt(targetDir) {
 	const path = join(targetDir, MANAGED_RECEIPT);
+	let metadata;
 	try {
-		const metadata = await lstat(path);
-		if (!metadata.isFile() || metadata.isSymbolicLink()) {
+		metadata = await lstat(path);
+	} catch (error) {
+		if (error?.code === "ENOENT") {
 			throw new InjectError(
-				"inject_managed_path_invalid",
-				`${path} must be a regular file`,
+				"inject_receipt_missing",
+				"established project receipt is required",
 			);
 		}
-		const value = JSON.parse(await readFile(path, "utf8"));
-		if (value === null || typeof value !== "object" || Array.isArray(value)) {
-			throw new Error("receipt must be an object");
-		}
-		return value;
-	} catch (error) {
-		if (error?.code === "ENOENT") return undefined;
-		if (error instanceof InjectError) throw error;
 		throw new InjectError("inject_receipt_invalid", errorDetail(error));
 	}
-}
-
-export async function resolveCompatibility(targetDir, priorReceipt) {
-	const manifest = await readRequiredJson(
-		join(targetDir, "jeomwon-template.json"),
-		"template manifest",
-	);
 	if (
-		!Number.isInteger(manifest.templateApi) ||
-		!validContracts(manifest.contracts)
+		!metadata.isFile() ||
+		metadata.isSymbolicLink() ||
+		(metadata.mode & 0o777) !== 0o644
 	) {
 		throw new InjectError(
-			"inject_compatibility_invalid",
-			"template manifest omits the compatibility tuple",
+			"inject_receipt_invalid",
+			"receipt must be a regular mode-0644 file",
 		);
 	}
-	if (priorReceipt) {
-		if (
-			!validContracts(priorReceipt.contracts) ||
-			!Number.isInteger(priorReceipt.templateApi)
-		) {
-			throw new InjectError(
-				"inject_receipt_invalid",
-				"prior receipt omits the compatibility tuple",
-			);
-		}
-		if (
-			priorReceipt.templateApi !== manifest.templateApi ||
-			JSON.stringify(priorReceipt.contracts) !==
-				JSON.stringify(manifest.contracts)
-		) {
-			throw new InjectError(
-				"inject_compatibility_invalid",
-				"prior receipt and target template compatibility mismatch",
-			);
-		}
-	}
-	const setup = await readRequiredJson(
-		join(targetDir, "setup-config.json"),
-		"setup contract",
-	);
-	if (setup.schemaVersion !== manifest.contracts.setupSchema) {
-		throw new InjectError(
-			"inject_compatibility_invalid",
-			"setup schema mismatch",
-		);
-	}
-	return {
-		templateApi: manifest.templateApi,
-		contracts: manifest.contracts,
-		capabilityManifestSha256: await hashRequiredContractFile(
-			targetDir,
-			"jeomwon-capabilities.json",
-			manifest.contracts.capabilitySchema,
-		),
-	};
-}
-
-function validContracts(value) {
-	return (
-		value !== null &&
-		typeof value === "object" &&
-		!Array.isArray(value) &&
-		["domainPackWriter", "capabilitySchema", "setupSchema", "qaContract"].every(
-			(key) => Number.isInteger(value[key]) && value[key] >= 0,
-		)
-	);
-}
-
-async function readRequiredJson(path, label) {
+	let receipt;
 	try {
-		const metadata = await lstat(path);
-		if (!metadata.isFile() || metadata.isSymbolicLink()) {
-			throw new Error(`${label} is not a regular file`);
-		}
-		const value = JSON.parse(await readFile(path, "utf8"));
-		if (value === null || typeof value !== "object" || Array.isArray(value)) {
-			throw new Error(`${label} must be an object`);
-		}
-		return value;
+		receipt = JSON.parse(await readFile(path, "utf8"));
 	} catch (error) {
-		throw new InjectError("inject_compatibility_invalid", errorDetail(error));
+		throw new InjectError("inject_receipt_invalid", errorDetail(error));
 	}
+	if (!validReceipt(receipt)) {
+		const code = [1, 2].includes(receipt?.schemaVersion)
+			? "inject_receipt_unsupported"
+			: "inject_receipt_invalid";
+		throw new InjectError(code, "receipt schema is invalid");
+	}
+	await validateCurrentIdentity(targetDir, receipt);
+	await validateManagedState(targetDir, receipt);
+	await validateDomainIdentity(targetDir, receipt);
+	return receipt;
 }
 
-async function hashRequiredContractFile(targetDir, path, schemaVersion) {
-	const fullPath = join(targetDir, path);
-	const value = await readRequiredJson(fullPath, path);
-	if (value.schemaVersion !== schemaVersion) {
+export async function validateEstablishedReceipt(targetDir, receipt) {
+	if (!validReceipt(receipt))
 		throw new InjectError(
-			"inject_compatibility_invalid",
-			`${path} schema mismatch`,
+			"inject_receipt_invalid",
+			"receipt schema is invalid",
+		);
+	await validateCurrentIdentity(targetDir, receipt);
+	await validateManagedState(targetDir, receipt);
+	await validateDomainIdentity(targetDir, receipt);
+	return receipt;
+}
+
+async function validateCurrentIdentity(targetDir, receipt) {
+	const template = await readJson(targetDir, "jeomwon-template.json");
+	const packageManifest = await readJson(targetDir, "package.json");
+	const expectedIdentity = projectIdentity(
+		receipt.projectName,
+		receipt.projectSlug,
+	);
+	if (
+		receipt.projectIdentity !== expectedIdentity ||
+		packageManifest.name !== receipt.projectSlug ||
+		template.templateVersion !== receipt.templateVersion ||
+		template.templateApi !== receipt.templateApi ||
+		JSON.stringify(template.contracts) !== JSON.stringify(receipt.contracts) ||
+		JSON.stringify(template.templateSource) !==
+			JSON.stringify(receipt.templateSource)
+	)
+		throw new InjectError(
+			"inject_receipt_mismatch",
+			"project or template identity mismatch",
+		);
+	const currentHashes = await hashReleaseContracts(targetDir);
+	if (JSON.stringify(currentHashes) !== JSON.stringify(receipt.contractFiles)) {
+		throw new InjectError(
+			"inject_receipt_mismatch",
+			"release contract identity mismatch",
 		);
 	}
-	return sha256(await readFile(fullPath));
+	try {
+		const skill = JSON.parse(
+			await readFile(join(SCRIPT_DIR, "../jeomwon-skill.json"), "utf8"),
+		);
+		if (
+			skill.skillVersion !== receipt.skillVersion ||
+			skill.compatibility.templateVersion !== receipt.templateVersion ||
+			skill.compatibility.templateApi !== receipt.templateApi ||
+			JSON.stringify({
+				domainPackWriter: skill.compatibility.domainPackWriter,
+				capabilitySchema: skill.compatibility.capabilitySchema,
+				setupSchema: skill.compatibility.setupSchema,
+				qaContract: skill.compatibility.qaContract,
+			}) !== JSON.stringify(receipt.contracts)
+		)
+			throw new Error("skill compatibility mismatch");
+	} catch (error) {
+		throw new InjectError("inject_receipt_mismatch", errorDetail(error));
+	}
 }
 
-export function createInjectionReceipt(prior, compatibility, outputs) {
-	const managedOutputs = Object.fromEntries(
-		outputs.map((output) => [output.path, { sha256: sha256(output.bytes) }]),
-	);
-	return {
-		...(prior ?? { schemaVersion: 1 }),
-		templateApi: compatibility.templateApi,
-		contracts: compatibility.contracts,
-		compatibility: {
-			templateApi: compatibility.templateApi,
-			domainPackWriter: compatibility.contracts.domainPackWriter,
-			domainPackSchema: DOMAIN_PACK_SCHEMA_VERSION,
-			capabilitySchema: compatibility.contracts.capabilitySchema,
-			capabilityManifestSha256: compatibility.capabilityManifestSha256,
-			setupSchema: compatibility.contracts.setupSchema,
-			qaContract: compatibility.contracts.qaContract,
-		},
-		domainPack: {
-			schemaVersion: DOMAIN_PACK_SCHEMA_VERSION,
-			writerVersion: compatibility.contracts.domainPackWriter,
-			sha256: managedOutputs[MANAGED_DOMAIN_PACK].sha256,
-		},
-		managedOutputs,
-	};
+async function validateDomainIdentity(targetDir, receipt) {
+	let currentPack;
+	try {
+		currentPack = normalizeDomainPack(
+			await readJson(targetDir, "domain-pack.json"),
+		);
+	} catch (error) {
+		throw new InjectError("inject_receipt_mismatch", errorDetail(error));
+	}
+	if (
+		JSON.stringify(currentPack) !== JSON.stringify(receipt.domainPack.canonical)
+	)
+		throw new InjectError(
+			"inject_receipt_mismatch",
+			"domain pack identity mismatch",
+		);
+}
+
+async function validateManagedState(targetDir, receipt) {
+	for (const [path, expected] of Object.entries(receipt.managedOutputs)) {
+		try {
+			const metadata = await lstat(join(targetDir, path));
+			if (
+				!metadata.isFile() ||
+				metadata.isSymbolicLink() ||
+				(metadata.mode & 0o777) !== expected.mode ||
+				sha256(await readFile(join(targetDir, path))) !== expected.sha256
+			)
+				throw new Error();
+		} catch {
+			throw new InjectError(
+				"inject_managed_state_mismatch",
+				`managed output does not match receipt: ${path}`,
+			);
+		}
+	}
+}
+
+async function readJson(root, relativePath) {
+	try {
+		const path = join(root, relativePath);
+		const metadata = await lstat(path);
+		if (!metadata.isFile() || metadata.isSymbolicLink()) throw new Error();
+		return JSON.parse(await readFile(path, "utf8"));
+	} catch (error) {
+		throw new InjectError(
+			"inject_receipt_mismatch",
+			`${relativePath}: ${errorDetail(error)}`,
+		);
+	}
 }

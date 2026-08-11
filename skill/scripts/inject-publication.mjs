@@ -20,18 +20,17 @@ import {
 	assertManagedPath,
 	ensureOwnedWorkPathAvailable,
 	formatGeneratedFiles,
-	managedPathExists,
 	resetOwnedWorkPath,
 	snapshotManagedPath,
 	writeStaged,
 } from "./inject-paths.mjs";
 import {
-	createInjectionReceipt,
-	readPriorReceipt,
-	resolveCompatibility,
+	readEstablishedReceipt,
+	updateEstablishedReceipt,
 } from "./inject-receipt.mjs";
 
 export async function publishManagedOutputs(targetDir, pack) {
+	const priorReceipt = await readEstablishedReceipt(targetDir);
 	const stageRoot = join(targetDir, STAGE_NAME);
 	const backupRoot = join(targetDir, BACKUP_NAME);
 	const recoveryRoot = join(targetDir, RECOVERY_NAME);
@@ -43,12 +42,10 @@ export async function publishManagedOutputs(targetDir, pack) {
 	let operationError;
 	let result;
 	try {
-		const includeEmail = await managedPathExists(
-			targetDir,
+		const includeEmail = Object.hasOwn(
+			priorReceipt.managedOutputs,
 			MANAGED_EMAIL_SAMPLE,
 		);
-		const priorReceipt = await readPriorReceipt(targetDir);
-		const compatibility = await resolveCompatibility(targetDir, priorReceipt);
 		const renderablePack = withoutSchemaVersion(pack);
 		const outputs = [
 			{
@@ -72,6 +69,8 @@ export async function publishManagedOutputs(targetDir, pack) {
 		];
 		for (const output of outputs) {
 			await assertManagedPath(targetDir, output.path, true);
+			const previous = await snapshotManagedPath(join(targetDir, output.path));
+			output.mode = previous?.mode ?? 0o644;
 			await writeStaged(stageRoot, output.path, output.bytes);
 			if (faultEnabled(`stage:${outputs.indexOf(output) + 1}`)) {
 				throw new Error(`injected staging failure at ${output.path}`);
@@ -87,11 +86,7 @@ export async function publishManagedOutputs(targetDir, pack) {
 		for (const output of outputs) {
 			output.bytes = await readFile(join(stageRoot, output.path));
 		}
-		const receipt = createInjectionReceipt(
-			priorReceipt,
-			compatibility,
-			outputs,
-		);
+		const receipt = updateEstablishedReceipt(priorReceipt, pack, outputs);
 		const receiptBytes = Buffer.from(`${JSON.stringify(receipt, null, 2)}\n`);
 		await assertManagedPath(targetDir, MANAGED_RECEIPT, true);
 		await writeStaged(stageRoot, MANAGED_RECEIPT, receiptBytes);

@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { establishFixture } from "./established-test-fixture";
 
 export const repoRoot = dirname(
 	dirname(dirname(fileURLToPath(import.meta.url))),
@@ -44,27 +45,11 @@ export function createFixture(rawPack: string | Uint8Array) {
 	writeFileSync(emailPath, "email sentinel\n");
 	writeFileSync(biomePath, "#!/bin/sh\nexit 0\n");
 	chmodSync(biomePath, 0o755);
-	writeFileSync(
-		join(target, "jeomwon-template.json"),
-		JSON.stringify({
-			templateApi: 1,
-			contracts: {
-				domainPackWriter: 0,
-				capabilitySchema: 1,
-				setupSchema: 2,
-				qaContract: 1,
-			},
-		}),
-	);
-	writeFileSync(
-		join(target, "jeomwon-capabilities.json"),
-		JSON.stringify({ schemaVersion: 1 }),
-	);
-	writeFileSync(
-		join(target, "setup-config.json"),
-		JSON.stringify({ schemaVersion: 2 }),
-	);
-	const packPath = join(root, "domain-pack.json");
+	establishFixture(target, [
+		"packages/backend/domain.config.ts",
+		"packages/email/src/reservation-sample.ts",
+	]);
+	const packPath = join(root, "input-domain-pack.json");
 	writeFileSync(packPath, rawPack);
 	return { target, packPath, configPath, emailPath };
 }

@@ -49,15 +49,24 @@ function reservationSetup() {
   return { service, resource, otherResource };
 }
 
+function serviceSlotStepMs(service: DomainService) {
+  return service.slotUnit === "day"
+    ? dayMs
+    : service.slotUnit === "hour"
+      ? 60 * minuteMs
+      : 30 * minuteMs;
+}
+
 function consecutiveAllowedStart() {
   const { service } = reservationSetup();
+  const nextSlotMs = serviceSlotStepMs(service);
   let startMs = futureAllowedStart(4);
   for (let attempt = 0; attempt < 21 * 48; attempt += 1) {
     if (
       isSlotAllowed(startMs, serviceEndMs(service, startMs), service) &&
       isSlotAllowed(
-        startMs + 30 * minuteMs,
-        serviceEndMs(service, startMs + 30 * minuteMs),
+        startMs + nextSlotMs,
+        serviceEndMs(service, startMs + nextSlotMs),
         service,
       )
     ) {
@@ -531,7 +540,9 @@ describe("bounded customer reservation hot reads", () => {
       if (!Array.isArray(slots) || slots.length === 0) {
         throw new Error("available_slot_missing");
       }
-      expect(objectField(slots[0], "startMs")).toBe(startMs + 30 * minuteMs);
+      expect(objectField(slots[0], "startMs")).toBe(
+        startMs + serviceSlotStepMs(service),
+      );
       expect(JSON.stringify(reservationReadSignature(historical.db))).toBe(
         JSON.stringify(reservationReadSignature(compact.db)),
       );
@@ -697,6 +708,9 @@ describe("bounded customer reservation hot reads", () => {
     domainConfig.features.waitlist = true;
     try {
       const { service, resource, otherResource } = reservationSetup();
+      const otherService = domainConfig.services.find(
+        (candidate) => candidate.key !== service.key,
+      );
       const startMs = futureAllowedStart(4);
       const endMs = serviceEndMs(service, startMs);
       const compact = customerFixture();
@@ -726,15 +740,17 @@ describe("bounded customer reservation hot reads", () => {
           endMs,
           status: "waitlisted",
         });
-        seedReservation(fixture.db, "reservations:wrong-service-waiter", {
-          threadId: "thread:wrong-service",
-          reservationNumber: "WAIT-WRONG-SERVICE",
-          service: domainConfig.services[1],
-          resourceKey: resource.key,
-          startMs,
-          endMs,
-          status: "waitlisted",
-        });
+        if (otherService !== undefined) {
+          seedReservation(fixture.db, "reservations:wrong-service-waiter", {
+            threadId: "thread:wrong-service",
+            reservationNumber: "WAIT-WRONG-SERVICE",
+            service: otherService,
+            resourceKey: resource.key,
+            startMs,
+            endMs,
+            status: "waitlisted",
+          });
+        }
         seedReservation(fixture.db, "reservations:matching-waiter", {
           threadId: "thread:matching",
           reservationNumber: "WAIT-MATCHING",
@@ -804,7 +820,9 @@ describe("bounded customer reservation hot reads", () => {
       ).toBe(
         JSON.stringify([
           { reservationNumber: "WAIT-WRONG-RESOURCE", auditTypes: [] },
-          { reservationNumber: "WAIT-WRONG-SERVICE", auditTypes: [] },
+          ...(otherService === undefined
+            ? []
+            : [{ reservationNumber: "WAIT-WRONG-SERVICE", auditTypes: [] }]),
           {
             reservationNumber: "WAIT-MATCHING",
             auditTypes: ["waitlist.notified"],

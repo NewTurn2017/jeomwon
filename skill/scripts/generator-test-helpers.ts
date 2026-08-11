@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { establishFixture } from "./established-test-fixture";
 export const repoRoot = dirname(
 	dirname(dirname(fileURLToPath(import.meta.url))),
 );
@@ -92,26 +93,11 @@ export function createInjectFixture(pack = readExamplePack()): {
 	writeFileSync(biomePath, "#!/bin/sh\nexit 0\n");
 	chmodSync(biomePath, 0o755);
 	writeFileSync(
-		join(root, "jeomwon-template.json"),
-		JSON.stringify({
-			templateApi: 1,
-			contracts: {
-				domainPackWriter: 0,
-				capabilitySchema: 1,
-				setupSchema: 2,
-				qaContract: 1,
-			},
-		}),
+		join(root, "packages/backend/domain.config.ts"),
+		"old config\n",
 	);
-	writeFileSync(
-		join(root, "jeomwon-capabilities.json"),
-		JSON.stringify({ schemaVersion: 1 }),
-	);
-	writeFileSync(
-		join(root, "setup-config.json"),
-		JSON.stringify({ schemaVersion: 2 }),
-	);
-	const packPath = join(root, "domain-pack.json");
+	establishFixture(root, ["packages/backend/domain.config.ts"]);
+	const packPath = join(root, "input-domain-pack.json");
 	writeFileSync(packPath, JSON.stringify(pack));
 	return {
 		root,

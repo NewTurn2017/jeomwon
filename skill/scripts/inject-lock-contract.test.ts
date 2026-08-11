@@ -29,7 +29,7 @@ describe("target lock and interruption contract", () => {
 		expect(output(second)).toContain("inject_target_locked");
 		expect(output(second)).not.toContain("pack_invalid");
 		first.resume();
-		expect(await first.child.exited).toBe(0);
+		expect(await first.child.exited).not.toBe(0);
 	});
 
 	test("different targets remain independent while one target is locked", async () => {
@@ -91,10 +91,11 @@ describe("target lock and interruption contract", () => {
 		expect(await failing.child.exited).not.toBe(0);
 		rmSync(join(item.target, ".jeomwon-inject-recovery"), { recursive: true });
 		rmSync(join(item.target, ".jeomwon-inject-stage"), { recursive: true });
-		const successful = run(item);
-		expect(successful.exitCode).toBe(0);
-		const published = readFileSync(item.config);
+		const refused = run(item);
+		expect(refused.exitCode).not.toBe(0);
+		expect(output(refused)).toContain("inject_managed_state_mismatch");
+		const retained = readFileSync(item.config);
 		await Promise.resolve();
-		expect(readFileSync(item.config)).toEqual(published);
+		expect(readFileSync(item.config)).toEqual(retained);
 	});
 });

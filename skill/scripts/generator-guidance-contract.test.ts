@@ -9,7 +9,10 @@ const verifySource = readFileSync(
 	join(repoRoot, "skill/scripts/verify.mjs"),
 	"utf8",
 );
-const qaSource = readFileSync(join(repoRoot, "template/scripts/qa.ts"), "utf8");
+const qaSource = readFileSync(
+	join(repoRoot, "template/scripts/qa-shared.ts"),
+	"utf8",
+);
 
 describe("authenticated app operator guidance", () => {
 	test("Given the live QA guidance When an operator follows it Then every target is apps/app on port 3000", () => {

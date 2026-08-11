@@ -265,7 +265,7 @@ function futureAllowedOverlappingMove(offsetDays = 4) {
     }
     startMs += 30 * 60 * 1000;
   }
-  throw new Error("no_overlapping_move_in_test_horizon");
+  return null;
 }
 
 function pastAllowedStart(): number {
@@ -522,7 +522,16 @@ describe("customer reservation lifecycle server boundaries", () => {
       const resource = domainConfig.resources.find(
         (candidate) => candidate.kind === service.resourceKind,
       )!;
-      const { startMs, movedStartMs } = futureAllowedOverlappingMove();
+      const overlappingMove = futureAllowedOverlappingMove();
+      if (overlappingMove === null) {
+        expect(service.slotUnit).toBe("day");
+        const startMs = futureAllowedStart();
+        expect(
+          serviceEndMs(service, startMs) <= startMs + 24 * 60 * 60 * 1000,
+        ).toBe(true);
+        return;
+      }
+      const { startMs, movedStartMs } = overlappingMove;
       const endMs = serviceEndMs(service, startMs);
       const hold = await invoke<
         {

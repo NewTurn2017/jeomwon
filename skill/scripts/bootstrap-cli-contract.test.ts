@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
 	cpSync,
 	existsSync,
@@ -26,6 +27,15 @@ function temporaryRoot(label = "jeomwon cli contract ") {
 	const root = mkdtempSync(join(tmpdir(), label));
 	roots.push(root);
 	return root;
+}
+
+function initialPack(root: string) {
+	const examples = readFileSync(join(repoRoot, "skill/EXAMPLES.md"), "utf8");
+	const source = examples.match(/```json\n([\s\S]*?)\n```/)?.[1];
+	if (!source) throw new Error("missing example pack");
+	const path = join(root, "initial-pack.json");
+	writeFileSync(path, source);
+	return path;
 }
 
 function run(script: string, args: string[] = [], env: NodeJS.ProcessEnv = {}) {
@@ -202,7 +212,7 @@ console.log("CHILD " + stage + " lang=" + process.env.JEOMWON_CLI_LANG + " senti
 if (process.env["FAIL_" + stage.toUpperCase()]) process.exit(Number(process.env["FAIL_" + stage.toUpperCase()]));
 if (process.env["SIGNAL_" + stage.toUpperCase()]) process.kill(process.pid, process.env["SIGNAL_" + stage.toUpperCase()]);
 `;
-	for (const name of ["scaffold", "inject", "verify"])
+	for (const name of ["preflight", "scaffold", "verify"])
 		writeFileSync(join(root, `${name}.mjs`), child);
 	return { root, bootstrap: join(root, "bootstrap.mjs") };
 }
@@ -220,16 +230,13 @@ describe("bootstrap orchestration", () => {
 		);
 		expect(result.status).toBe(0);
 		const output = result.stdout;
-		const codes = ["stage_scaffold", "stage_inject", "stage_verify"];
+		const codes = ["stage_initialize", "stage_verify"];
 		expect(codes.map((code) => output.indexOf(`[RUN ${code}]`))).toEqual(
 			[...codes]
 				.map((_, i, a) => a.slice(0, i + 1).length)
 				.map((_, i) => output.indexOf(`[RUN ${codes[i]}]`)),
 		);
-		expect(output.indexOf("stage_scaffold")).toBeLessThan(
-			output.indexOf("stage_inject"),
-		);
-		expect(output.indexOf("stage_inject")).toBeLessThan(
+		expect(output.indexOf("stage_initialize")).toBeLessThan(
 			output.indexOf("stage_verify"),
 		);
 		expect(output.match(/\[NEXT next_steps\]/g)?.length).toBe(1);
@@ -247,7 +254,7 @@ describe("bootstrap orchestration", () => {
 		const result = run(
 			fixture.bootstrap,
 			[join(fixture.root, "target"), "Desk", join(fixture.root, "pack.json")],
-			{ FAIL_INJECT: "7" },
+			{ FAIL_SCAFFOLD: "7" },
 		);
 		expect(result.status).toBe(7);
 		expect(result.stderr).toContain("ERROR [child_exit]");
@@ -288,6 +295,7 @@ describe("scaffold archive and standalone contracts", () => {
 		const result = run(join(scriptsRoot, "scaffold.mjs"), [
 			join(root, "target"),
 			"Standalone",
+			initialPack(root),
 		]);
 		expect(result.status).toBe(0);
 		expect(result.stdout.match(/\[NEXT next_steps\]/g)?.length).toBe(1);
@@ -299,7 +307,11 @@ describe("scaffold archive and standalone contracts", () => {
 		mkdirSync(target);
 		const marker = join(target, "keep.txt");
 		writeFileSync(marker, "keep-me");
-		const result = run(join(scriptsRoot, "scaffold.mjs"), [target, "Occupied"]);
+		const result = run(join(scriptsRoot, "scaffold.mjs"), [
+			target,
+			"Occupied",
+			initialPack(root),
+		]);
 		expect(result.status).toBe(1);
 		expect(result.stdout).toBe("");
 		expect(result.stderr).toContain("ERROR [target_not_empty]");
@@ -319,34 +331,20 @@ describe("scaffold archive and standalone contracts", () => {
 		expect(result.stderr).not.toContain(" at ");
 	});
 
-	test("native archive extraction accepts a valid archive and rejects malformed and traversal input", async () => {
+	test("native archive extraction rejects malformed and traversal input without publication", async () => {
 		const isolated = temporaryRoot();
-		const scriptDir = join(isolated, "skill/scripts");
-		mkdirSync(scriptDir, { recursive: true });
-		for (const name of ["scaffold.mjs", "cli.mjs"])
-			cpSync(join(scriptsRoot, name), join(scriptDir, name));
-		const archivePath = join(isolated, "template archive.tar.gz");
-		await Bun.Archive.write(
-			archivePath,
-			{ "repo/template/package.json": JSON.stringify({ name: "jeomwon-app" }) },
-			{ compress: "gzip" },
-		);
-		const valid = run(
-			join(scriptDir, "scaffold.mjs"),
-			[join(isolated, "generated"), "Archive Path"],
-			{ JEOMWON_TEMPLATE_ARCHIVE: archivePath },
-		);
-		expect(valid.status).toBe(0);
-		expect(
-			readFileSync(join(isolated, "generated/package.json"), "utf8"),
-		).toContain('"name":"archive-path"');
-
+		const pack = initialPack(isolated);
 		const malformed = join(isolated, "malformed.tar.gz");
 		writeFileSync(malformed, "not an archive");
 		const invalid = run(
-			join(scriptDir, "scaffold.mjs"),
-			[join(isolated, "invalid-target"), "Broken"],
-			{ JEOMWON_TEMPLATE_ARCHIVE: malformed },
+			join(scriptsRoot, "scaffold.mjs"),
+			[join(isolated, "invalid-target"), "Broken", pack],
+			{
+				JEOMWON_TEMPLATE_ARCHIVE: malformed,
+				JEOMWON_TEMPLATE_ARCHIVE_SHA256: createHash("sha256")
+					.update(readFileSync(malformed))
+					.digest("hex"),
+			},
 		);
 		expect(invalid.status).toBe(1);
 		expect(invalid.stderr).toContain("ERROR [archive_invalid]");
@@ -358,9 +356,14 @@ describe("scaffold archive and standalone contracts", () => {
 		});
 		const traversalTarget = join(isolated, "traversal-target");
 		const traversal = run(
-			join(scriptDir, "scaffold.mjs"),
-			[traversalTarget, "Traversal"],
-			{ JEOMWON_TEMPLATE_ARCHIVE: traversalArchive },
+			join(scriptsRoot, "scaffold.mjs"),
+			[traversalTarget, "Traversal", pack],
+			{
+				JEOMWON_TEMPLATE_ARCHIVE: traversalArchive,
+				JEOMWON_TEMPLATE_ARCHIVE_SHA256: createHash("sha256")
+					.update(readFileSync(traversalArchive))
+					.digest("hex"),
+			},
 		);
 		expect(traversal.status).toBe(1);
 		expect(traversal.stderr).toContain("ERROR [archive_traversal]");
@@ -374,7 +377,7 @@ describe("verification gate order", () => {
 		const source = readFileSync(join(scriptsRoot, "verify.mjs"), "utf8");
 		expect(source).toContain('name: "test"');
 		expect(source.indexOf('name: "test"')).toBeLessThan(
-			source.indexOf("runBuildSteps"),
+			source.indexOf('name: "build_email"'),
 		);
 		expect(source).toContain("VERIFY PASS");
 	});

@@ -1,27 +1,29 @@
 {
-  "extends": "../template/tooling/typescript/base.json",
-  "compilerOptions": {
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "noEmit": true,
-    "types": ["bun", "node"],
-    "typeRoots": ["../template/node_modules/@types"]
-  },
-  "files": [
-    "scripts/capability-contract.test.ts",
-    "scripts/domain-pack-contract.test.ts",
-    "scripts/domain-pack-input-contract.test.ts",
-    "scripts/domain-pack-test-helpers.ts",
-    "scripts/extension-config-contract.test.ts",
-    "scripts/generator-contract.test.ts",
-    "scripts/generator-guidance-contract.test.ts",
-    "scripts/generator-scaffold-contract.test.ts",
-    "scripts/generator-test-helpers.ts",
-    "scripts/inject-lock-contract.test.ts",
-    "scripts/inject-publication-contract.test.ts",
-    "scripts/inject-test-helpers.ts",
-    "scripts/preflight-contract.test.ts",
-    "scripts/preflight-target-contract.test.ts",
-    "scripts/skills-install-smoke.test.ts"
-  ]
+	"extends": "../template/tooling/typescript/base.json",
+	"compilerOptions": {
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"noEmit": true,
+		"types": ["bun", "node"],
+		"typeRoots": ["../template/node_modules/@types"]
+	},
+	"files": [
+		"scripts/capability-contract.test.ts",
+		"scripts/domain-pack-contract.test.ts",
+		"scripts/domain-pack-input-contract.test.ts",
+		"scripts/domain-pack-test-helpers.ts",
+		"scripts/established-test-fixture.ts",
+		"scripts/extension-config-contract.test.ts",
+		"scripts/generator-contract.test.ts",
+		"scripts/generator-guidance-contract.test.ts",
+		"scripts/generator-scaffold-contract.test.ts",
+		"scripts/generator-test-helpers.ts",
+		"scripts/inject-lifecycle-contract.test.ts",
+		"scripts/inject-lock-contract.test.ts",
+		"scripts/inject-publication-contract.test.ts",
+		"scripts/inject-test-helpers.ts",
+		"scripts/preflight-contract.test.ts",
+		"scripts/preflight-target-contract.test.ts",
+		"scripts/skills-install-smoke.test.ts"
+	]
 }

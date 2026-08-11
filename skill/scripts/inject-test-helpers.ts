@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { establishFixture } from "./established-test-fixture";
 
 const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const injectPath =
@@ -42,39 +43,12 @@ export function fixture(options: { email?: boolean; receipt?: boolean } = {}) {
 	mkdirSync(dirname(biome), { recursive: true });
 	writeFileSync(biome, "#!/bin/sh\nexit 0\n");
 	chmodSync(biome, 0o755);
-	writeFileSync(
-		join(target, "jeomwon-template.json"),
-		JSON.stringify({
-			templateApi: 1,
-			contracts: {
-				domainPackWriter: 0,
-				capabilitySchema: 1,
-				setupSchema: 2,
-				qaContract: 1,
-			},
-		}),
-	);
-	writeFileSync(
-		join(target, "jeomwon-capabilities.json"),
-		'{"schemaVersion":1,"kind":"fixture"}\n',
-	);
-	writeFileSync(join(target, "setup-config.json"), '{"schemaVersion":2}\n');
-	if (options.receipt) {
-		writeFileSync(
-			join(target, "jeomwon-project.json"),
-			JSON.stringify({
-				schemaVersion: 1,
-				templateApi: 1,
-				contracts: {
-					domainPackWriter: 0,
-					capabilitySchema: 1,
-					setupSchema: 2,
-					qaContract: 1,
-				},
-			}),
-			{ mode: 0o644 },
-		);
-	}
+	establishFixture(target, [
+		"packages/backend/domain.config.ts",
+		...(options.email === false
+			? []
+			: ["packages/email/src/reservation-sample.ts"]),
+	]);
 	writeFileSync(packPath, JSON.stringify(readPack()));
 	return { root, target, packPath, config, email };
 }

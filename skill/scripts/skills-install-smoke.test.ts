@@ -68,15 +68,7 @@ function temporaryRoot(prefix: string): string {
 function installedScaffold(root: string): string {
 	const scripts = join(root, "installed skill/scripts");
 	mkdirSync(scripts, { recursive: true });
-	cpSync(
-		join(skillPath, "scripts/scaffold.mjs"),
-		join(scripts, "scaffold.mjs"),
-	);
-	cpSync(join(skillPath, "scripts/cli.mjs"), join(scripts, "cli.mjs"));
-	cpSync(
-		join(skillPath, "scripts/validate-capabilities.mjs"),
-		join(scripts, "validate-capabilities.mjs"),
-	);
+	cpSync(join(skillPath, "scripts"), scripts, { recursive: true });
 	const assets = join(skillPath, "assets");
 	if (existsSync(assets)) {
 		cpSync(assets, join(root, "installed skill/assets"), { recursive: true });
@@ -128,11 +120,16 @@ function compatibleTemplateEntries(
 	const entries: Record<string, string> = {
 		"jeomwon-v0.1.0/template/jeomwon-template.json": `${JSON.stringify(manifest)}\n`,
 		"jeomwon-v0.1.0/template/package.json":
-			'{"name":"jeomwon-app","dependencies":{"backend":"@jeomwon/backend"}}\n',
+			'{"name":"jeomwon-app","packageManager":"bun@1.3.14","dependencies":{"backend":"@jeomwon/backend"}}\n',
 		"jeomwon-v0.1.0/template/apps/app/package.json":
 			'{"name":"@jeomwon/app","dependencies":{"backend":"@jeomwon/backend"}}\n',
 		"jeomwon-v0.1.0/template/packages/backend/domain.config.ts":
 			"export const domainConfig = {};\n",
+		"jeomwon-v0.1.0/template/packages/backend/extension.config.ts":
+			readFileSync(
+				join(repoRoot, "template/packages/backend/extension.config.ts"),
+				"utf8",
+			),
 		"jeomwon-v0.1.0/template/jeomwon-capabilities.json": capabilitySource,
 		"jeomwon-v0.1.0/template/setup-config.json": readFileSync(
 			join(repoRoot, "template/setup-config.json"),
@@ -148,6 +145,10 @@ function compatibleTemplateEntries(
 		),
 		"jeomwon-v0.1.0/template/scripts/setup/types.ts": readFileSync(
 			join(repoRoot, "template/scripts/setup/types.ts"),
+			"utf8",
+		),
+		"jeomwon-v0.1.0/template/.github/workflows/check.yml": readFileSync(
+			join(repoRoot, "template/.github/workflows/check.yml"),
 			"utf8",
 		),
 	};
@@ -203,8 +204,17 @@ function manifest(root: string): string[] {
 function stagingEntries(target: string): string[] {
 	const parent = dirname(target);
 	if (!existsSync(parent)) return [];
-	const prefix = `.${target.slice(parent.length + 1)}.jeomwon-stage-`;
-	return readdirSync(parent).filter((name) => name.startsWith(prefix));
+	const prefix = `.${target.slice(parent.length + 1)}.jeomwon-bootstrap.lock`;
+	return readdirSync(parent).filter((name) => name === prefix);
+}
+
+function writeInitialPack(root: string, name = "initial-pack.json"): string {
+	const pack = join(root, name);
+	const examples = readFileSync(join(repoRoot, "skill/EXAMPLES.md"), "utf8");
+	const source = examples.match(/```json\n([\s\S]*?)\n```/)?.[1];
+	if (!source) throw new Error("missing example pack");
+	writeFileSync(pack, source);
+	return pack;
 }
 
 function runScaffold(
@@ -215,7 +225,8 @@ function runScaffold(
 	const archiveSha256 = existsSync(archive)
 		? createHash("sha256").update(readFileSync(archive)).digest("hex")
 		: "0".repeat(64);
-	return spawnSync("bun", [script, target, "Archive Scope"], {
+	const pack = writeInitialPack(dirname(target));
+	return spawnSync("bun", [script, target, "Archive Scope", pack], {
 		cwd: dirname(target),
 		encoding: "utf8",
 		timeout: 15_000,
@@ -240,7 +251,8 @@ function interruptScaffold(
 	output: string;
 }> {
 	return new Promise((resolveResult, reject) => {
-		const child = spawn("bun", [script, target, "Interrupted Scope"], {
+		const pack = writeInitialPack(dirname(target), "interrupt-pack.json");
+		const child = spawn("bun", [script, target, "Interrupted Scope", pack], {
 			cwd: dirname(target),
 			env: {
 				...process.env,
@@ -273,6 +285,7 @@ function interruptScaffold(
 		});
 		child.once("close", (code, closeSignal) => {
 			clearTimeout(deadline);
+			rmSync(pack, { force: true });
 			resolveResult({ code, signal: closeSignal, output });
 		});
 	});
@@ -363,9 +376,21 @@ describe("public skill installation", () => {
 		).toBe(true);
 
 		const target = join(root, "installed-default-target");
+		const installedPack = join(root, "installed-pack.json");
+		const exampleSource = readFileSync(
+			join(repoRoot, "skill/EXAMPLES.md"),
+			"utf8",
+		).match(/```json\n([\s\S]*?)\n```/)?.[1];
+		if (!exampleSource) throw new Error("missing example pack");
+		writeFileSync(installedPack, exampleSource);
 		const scaffold = spawnSync(
 			"bun",
-			[join(canonical, "scripts/scaffold.mjs"), target, "Installed Default"],
+			[
+				join(canonical, "scripts/scaffold.mjs"),
+				target,
+				"Installed Default",
+				installedPack,
+			],
 			{
 				cwd: root,
 				encoding: "utf8",
@@ -514,16 +539,20 @@ describe("archive-backed installed scaffold", () => {
 		const script = installedScaffold(root);
 		const target = join(root, "target");
 
-		const result = spawnSync("bun", [script, target, "Unrelated Commit"], {
-			cwd: root,
-			encoding: "utf8",
-			env: {
-				...process.env,
-				JEOMWON_TEMPLATE_REF: secondCommit,
-				JEOMWON_TEMPLATE_GIT_REPOSITORY: repository,
-				JEOMWON_TEMPLATE_ARCHIVE_SHA256: firstArchiveSha,
+		const result = spawnSync(
+			"bun",
+			[script, target, "Unrelated Commit", writeInitialPack(root)],
+			{
+				cwd: root,
+				encoding: "utf8",
+				env: {
+					...process.env,
+					JEOMWON_TEMPLATE_REF: secondCommit,
+					JEOMWON_TEMPLATE_GIT_REPOSITORY: repository,
+					JEOMWON_TEMPLATE_ARCHIVE_SHA256: firstArchiveSha,
+				},
 			},
-		});
+		);
 
 		expect(result.status).toBe(1);
 		expect(`${result.stdout}${result.stderr}`).toContain(
@@ -538,17 +567,21 @@ describe("archive-backed installed scaffold", () => {
 		const script = installedScaffold(root);
 		const target = join(root, "target");
 
-		const result = spawnSync("bun", [script, target, "Bundled Default"], {
-			cwd: root,
-			encoding: "utf8",
-			timeout: 30_000,
-			env: {
-				...process.env,
-				JEOMWON_TEMPLATE_ARCHIVE: undefined,
-				JEOMWON_TEMPLATE_ARCHIVE_SHA256: undefined,
-				JEOMWON_TEMPLATE_REF: undefined,
+		const result = spawnSync(
+			"bun",
+			[script, target, "Bundled Default", writeInitialPack(root)],
+			{
+				cwd: root,
+				encoding: "utf8",
+				timeout: 30_000,
+				env: {
+					...process.env,
+					JEOMWON_TEMPLATE_ARCHIVE: undefined,
+					JEOMWON_TEMPLATE_ARCHIVE_SHA256: undefined,
+					JEOMWON_TEMPLATE_REF: undefined,
+				},
 			},
-		});
+		);
 
 		expect(result.status).toBe(0);
 		const receipt = JSON.parse(
@@ -587,7 +620,7 @@ describe("archive-backed installed scaffold", () => {
 			templateApi: number;
 			templateSource: {
 				archiveSha256: string;
-				contentHash: string;
+				contentSha256: string;
 				[key: string]: unknown;
 			};
 		};
@@ -598,7 +631,7 @@ describe("archive-backed installed scaffold", () => {
 		expect(receipt.templateSource.archiveSha256).toBe(
 			createHash("sha256").update(readFileSync(archive)).digest("hex"),
 		);
-		expect(receipt.templateSource.contentHash).toMatch(/^[a-f0-9]{64}$/);
+		expect(receipt.templateSource.contentSha256).toMatch(/^[a-f0-9]{64}$/);
 	});
 
 	test("a checksum mismatch fails before archive parsing or target publication", async () => {
@@ -608,16 +641,20 @@ describe("archive-backed installed scaffold", () => {
 		const target = join(root, "target");
 		await writeArchive(archive, compatibleTemplateEntries());
 
-		const result = spawnSync("bun", [script, target, "Checksum Failure"], {
-			cwd: root,
-			encoding: "utf8",
-			env: {
-				...process.env,
-				JEOMWON_TEMPLATE_ARCHIVE: archive,
-				JEOMWON_TEMPLATE_ARCHIVE_SHA256: "0".repeat(64),
-				NO_COLOR: "1",
+		const result = spawnSync(
+			"bun",
+			[script, target, "Checksum Failure", writeInitialPack(root)],
+			{
+				cwd: root,
+				encoding: "utf8",
+				env: {
+					...process.env,
+					JEOMWON_TEMPLATE_ARCHIVE: archive,
+					JEOMWON_TEMPLATE_ARCHIVE_SHA256: "0".repeat(64),
+					NO_COLOR: "1",
+				},
 			},
-		});
+		);
 
 		expect(result.status).toBe(1);
 		expect(`${result.stdout}${result.stderr}`).toContain(
@@ -687,29 +724,26 @@ describe("archive-backed installed scaffold", () => {
 		},
 	];
 
-	test.each([
-		...incompatibleTemplates,
-		...placeholderContracts,
-	])("$label fails compatibility before target publication", async ({
-		code,
-		entries,
-	}) => {
-		const root = temporaryRoot("jeomwon compatibility invalid ");
-		const script = installedScaffold(root);
-		const archive = join(root, "template.tar");
-		const target = join(root, "target");
-		await writeArchive(archive, entries);
+	test.each([...incompatibleTemplates, ...placeholderContracts])(
+		"$label fails compatibility before target publication",
+		async ({ code, entries }) => {
+			const root = temporaryRoot("jeomwon compatibility invalid ");
+			const script = installedScaffold(root);
+			const archive = join(root, "template.tar");
+			const target = join(root, "target");
+			await writeArchive(archive, entries);
 
-		const result = runScaffold(script, target, archive);
+			const result = runScaffold(script, target, archive);
 
-		expect(result.status).toBe(1);
-		expect(`${result.stdout}${result.stderr}`).toContain(`ERROR [${code}]`);
-		expect(`${result.stdout}${result.stderr}`).not.toContain(
-			"[PASS scaffold_created]",
-		);
-		expect(existsSync(target)).toBe(false);
-		expect(stagingEntries(target)).toEqual([]);
-	});
+			expect(result.status).toBe(1);
+			expect(`${result.stdout}${result.stderr}`).toContain(`ERROR [${code}]`);
+			expect(`${result.stdout}${result.stderr}`).not.toContain(
+				"[PASS scaffold_created]",
+			);
+			expect(existsSync(target)).toBe(false);
+			expect(stagingEntries(target)).toEqual([]);
+		},
+	);
 
 	const invalidArchives: InvalidArchive[] = [
 		{
@@ -732,31 +766,29 @@ describe("archive-backed installed scaffold", () => {
 		},
 	];
 
-	test.each(
-		invalidArchives,
-	)("$label fails without creating target bytes", async ({
-		code,
-		entries,
-	}: InvalidArchive) => {
-		const root = temporaryRoot("jeomwon archive invalid ");
-		const script = installedScaffold(root);
-		const archive = join(root, "invalid archive.tar");
-		const target = join(root, "target");
-		if (entries) await writeArchive(archive, entries);
-		else writeFileSync(archive, "this is not an archive");
-		const before = manifest(target);
+	test.each(invalidArchives)(
+		"$label fails without creating target bytes",
+		async ({ code, entries }: InvalidArchive) => {
+			const root = temporaryRoot("jeomwon archive invalid ");
+			const script = installedScaffold(root);
+			const archive = join(root, "invalid archive.tar");
+			const target = join(root, "target");
+			if (entries) await writeArchive(archive, entries);
+			else writeFileSync(archive, "this is not an archive");
+			const before = manifest(target);
 
-		const result = runScaffold(script, target, archive);
+			const result = runScaffold(script, target, archive);
 
-		expect(result.error).toBeUndefined();
-		expect(result.status).toBe(1);
-		expect(`${result.stdout}${result.stderr}`).toContain(`ERROR [${code}]`);
-		expect(`${result.stdout}${result.stderr}`).not.toContain(
-			"[PASS scaffold_created]",
-		);
-		expect(manifest(target)).toEqual(before);
-		expect(stagingEntries(target)).toEqual([]);
-	});
+			expect(result.error).toBeUndefined();
+			expect(result.status).toBe(1);
+			expect(`${result.stdout}${result.stderr}`).toContain(`ERROR [${code}]`);
+			expect(`${result.stdout}${result.stderr}`).not.toContain(
+				"[PASS scaffold_created]",
+			);
+			expect(manifest(target)).toEqual(before);
+			expect(stagingEntries(target)).toEqual([]);
+		},
+	);
 
 	test("repeated interrupts during archive copy exit 130 without publishing target or staging bytes", async () => {
 		const root = temporaryRoot("jeomwon archive interrupt ");
@@ -784,7 +816,7 @@ describe("archive-backed installed scaffold", () => {
 		);
 
 		expect(result.output).toContain("Template fallback:");
-		expect(result.code).toBe(130);
+		expect(result.code, result.output).toBe(130);
 		expect(result.signal).toBeNull();
 		expect(existsSync(target)).toBe(false);
 		expect(stagingEntries(target)).toEqual([]);
@@ -811,7 +843,7 @@ describe("archive-backed installed scaffold", () => {
 		const result = await interruptScaffold(script, target, archive, "SIGTERM");
 
 		expect(result.output).toContain("Template fallback:");
-		expect(result.code).toBe(143);
+		expect(result.code, result.output).toBe(143);
 		expect(result.signal).toBeNull();
 		expect(existsSync(target)).toBe(false);
 		expect(stagingEntries(target)).toEqual([]);
