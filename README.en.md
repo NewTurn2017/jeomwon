@@ -25,20 +25,21 @@ The generated UI is production-ready out of the box: a light, domain-aware landi
 
 ## Quick start
 
-**Prerequisites**: [bun](https://bun.sh) 1.3+ (required) · a free [Convex](https://convex.dev) account (you log in during `bun setup`) · optional: a Google OAuth client, [Resend](https://resend.com) / [OpenAI](https://platform.openai.com) keys (without them everything still works in email-capture mode with the `mock` agent runtime)
+**Prerequisites**: exactly [bun](https://bun.sh) **1.3.14** (required) · a free [Convex](https://convex.dev) account (you log in during `bun setup`) · optional: a Google OAuth client, [Resend](https://resend.com) / [OpenAI](https://platform.openai.com) keys (without them everything still works in email-capture mode with the `mock` agent runtime)
 
 ### With Claude Code (recommended)
 
 ```bash
 git clone https://github.com/NewTurn2017/jeomwon.git && cd jeomwon
-ln -sfn "$(pwd)/skill" ~/.claude/skills/jeomwon
+bunx --bun skills@1.5.22 add . --skill jeomwon --agent universal claude-code --global
+# Manual alternative: ln -sfn "$(pwd)/skill" ~/.claude/skills/jeomwon
 ```
 
 Then in a Claude Code session, describe your domain (e.g. "build a seat reservation system for my PC café"). The skill interviews you for one domain pack, then runs a single **bootstrap** command that scaffolds a project from `template/`, injects the domain pack, and runs the offline verification gate. Bootstrap is offline-only — it never runs live QA or `bun setup`.
 
 When bootstrap finishes it prints the generated path and the next steps to run yourself: `bun setup` (interactive credentials), then `bun run qa` (live 11-gate).
 
-You can start from either a full repo clone or a skill-only install. In a repo clone, `bun skill/scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>` uses the local `template/` directory. With only `skill/` installed, `bun scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>` downloads a fresh GitHub tarball for `JEOMWON_TEMPLATE_REF` (default `main`); set `JEOMWON_TEMPLATE_ARCHIVE=/path/to/jeomwon.tar.gz` for offline or private-network scaffolds. The lower-level `scaffold.mjs`, `inject.mjs`, and `verify.mjs` commands remain available for retries and partial reruns.
+Bootstrap runs preflight before touching the target. To check readiness separately, run `bun "${CLAUDE_SKILL_DIR}/scripts/preflight.mjs" <target-dir> <project-name> <domain-pack.json>`. The installed command resolves the skills CLI canonical directory, Claude Code link, manual symlinks, and the real `CLAUDE_SKILL_DIR` value consistently, then verifies the checked-in immutable archive and both SHA-256 contracts. On `cache_not_ready`, copy the single printed `warm-cache.mjs` recovery argv and run it only when network access is allowed. Offline verify never substitutes hidden network access.
 
 ### Without Claude Code
 

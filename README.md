@@ -25,18 +25,19 @@ AI 점원이 가게 프런트를 지킵니다: 고객은 챗으로 예약·변�
 
 ## 빠른 시작
 
-**준비물**: [bun](https://bun.sh) 1.3+ (필수) · [Convex](https://convex.dev) 무료 계정(`bun setup` 도중 로그인) · 선택: Google OAuth 클라이언트, [Resend](https://resend.com)·[OpenAI](https://platform.openai.com) 키(없으면 메일 캡처 모드 + `mock` 에이전트 런타임으로 전부 동작)
+**준비물**: [bun](https://bun.sh) **1.3.14** (정확한 버전 필수) · [Convex](https://convex.dev) 무료 계정(`bun setup` 도중 로그인) · 선택: Google OAuth 클라이언트, [Resend](https://resend.com)·[OpenAI](https://platform.openai.com) 키(없으면 메일 캡처 모드 + `mock` 에이전트 런타임으로 전부 동작)
 
 ### Claude Code로 (권장)
 
 ```bash
 git clone https://github.com/NewTurn2017/jeomwon.git && cd jeomwon
-ln -sfn "$(pwd)/skill" ~/.claude/skills/jeomwon
+bunx --bun skills@1.5.22 add . --skill jeomwon --agent universal claude-code --global
+# 수동 설치 대안: ln -sfn "$(pwd)/skill" ~/.claude/skills/jeomwon
 ```
 
 이후 Claude Code 세션에서 도메인을 설명하세요 (예: "PC방 좌석 예약 시스템 만들어줘"). 스킬이 도메인 팩 하나로 인터뷰한 뒤, 단일 **bootstrap** 커맨드로 `template/`에서 프로젝트를 스캐폴드하고, 도메인 팩을 주입하고, 오프라인 검증 게이트를 실행합니다. bootstrap은 오프라인 전용이라 라이브 QA도 `bun setup`도 실행하지 않습니다. 끝나면 생성물 경로와, 사용자가 직접 실행할 다음 단계(`bun x convex login` → `bun setup`의 Google OAuth 2개 값·운영자 이메일 입력 → `bun run qa` 라이브 11게이트)를 출력합니다.
 
-시작 경로는 두 가지입니다. 레포 전체를 클론한 경우 `bun skill/scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>`가 로컬 `template/` 디렉터리를 그대로 사용합니다. `skill/`만 설치한 경우 `bun scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>`가 로컬 `template/`이 없으면 `JEOMWON_TEMPLATE_REF`(기본 `main`)의 GitHub tarball을 새로 내려받습니다. 오프라인 또는 사설 네트워크 검증에는 `JEOMWON_TEMPLATE_ARCHIVE=/path/to/jeomwon.tar.gz`를 지정하세요. 하위 커맨드 `scaffold.mjs`, `inject.mjs`, `verify.mjs`는 재실행·부분 실행용으로 그대로 남아 있습니다.
+bootstrap은 target을 건드리기 전에 preflight를 실행합니다. 별도로 확인하려면 `bun "${CLAUDE_SKILL_DIR}/scripts/preflight.mjs" <target-dir> <project-name> <domain-pack.json>`를 실행하세요. 설치본은 skills CLI의 canonical 경로, Claude Code 링크, 수동 심볼릭 링크와 실제 `CLAUDE_SKILL_DIR` 값을 동일하게 해석하며, 체크인된 immutable archive와 두 SHA-256 계약을 검증합니다. `cache_not_ready`이면 출력되는 단 하나의 `warm-cache.mjs` 복구 argv를 네트워크가 허용된 시점에 그대로 실행한 뒤 preflight를 재실행합니다. 오프라인 verify가 네트워크를 대신 사용하지는 않습니다.
 
 ### Claude Code 없이
 

@@ -12,27 +12,35 @@
 ## 준비
 
 - macOS 또는 Linux
-- Bun 1.3 이상
-- 최초 실행 시 패키지를 받을 인터넷 연결
+- Bun 1.3.14 (정확히 일치해야 함)
+- 최초 cache warmup 때만 패키지를 받을 인터넷 연결
 - 최소 20분. 의존성 캐시가 비어 있으면 더 걸릴 수 있음
 
 ```bash
 git clone https://github.com/NewTurn2017/jeomwon.git
 cd jeomwon
-git checkout cd8d222
-(cd template && bun install --frozen-lockfile)
+bunx --bun skills@1.5.22 add . --skill jeomwon --agent universal claude-code --global
 ```
+
+빈 cache라면 preflight가 `cache_not_ready`와 복사 가능한 복구 argv 하나만 출력합니다. 그 `warm-cache.mjs` 명령을 네트워크가 허용된 때 실행하고 다시 확인합니다. offline verify는 네트워크를 사용하지 않습니다.
 
 ## 실행
 
 저장소 루트에서 실행합니다. target은 존재하지 않거나 비어 있어야 합니다.
 
 ```bash
-bun skill/scripts/bootstrap.mjs \
+bun "${CLAUDE_SKILL_DIR}/scripts/preflight.mjs" \
+  ../my-salon-saas \
+  "My Salon SaaS" \
+  /ABSOLUTE/PATH/salon-domain-pack.json
+
+bun "${CLAUDE_SKILL_DIR}/scripts/bootstrap.mjs" \
   ../my-salon-saas \
   "My Salon SaaS" \
   /ABSOLUTE/PATH/salon-domain-pack.json
 ```
+
+첫 명령은 `PREFLIGHT PASS`를 출력하며 target을 생성하지 않습니다. 두 번째 명령도 같은 preflight를 먼저 실행한 뒤에만 scaffold를 시작합니다.
 
 다른 업종은 `skill/EXAMPLES.md`의 검증된 예제를 복사한 뒤 인터뷰 결과로
 값을 수정합니다. 지원 필드 자체를 추가하지 않습니다.
