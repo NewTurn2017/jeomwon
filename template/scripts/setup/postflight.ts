@@ -155,6 +155,14 @@ export function printCompletion(
       ),
     )}`,
   );
+  console.log(
+    `  ${glyph.arrow} ${style.cyan("bun run deployment:check -- --help")} ${style.gray(
+      tr(
+        "읽기 전용 프로덕션 인계 검사 형식 확인",
+        "Review the read-only production handoff checker",
+      ),
+    )}`,
+  );
   console.log(`  ${RULE}`);
   console.log(
     `  ${style.gray(

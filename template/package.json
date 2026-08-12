@@ -18,6 +18,7 @@
     "dev:web": "turbo dev --filter=@jeomwon/web",
     "dev:jobs": "turbo jobs --filter=@jeomwon/jobs",
     "dev:app": "turbo dev --filter=@jeomwon/app",
+    "deployment:check": "bun scripts/deployment-readiness.ts",
     "start:web": "turbo start --filter=@jeomwon/web",
     "start:app": "turbo start --filter=@jeomwon/app",
     "test": "bun test",

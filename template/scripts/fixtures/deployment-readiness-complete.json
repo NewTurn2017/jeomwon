@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "rollbackTarget": "app-release-2026-08-11",
+  "google": {
+    "authorizedOrigins": ["https://app.example.invalid"],
+    "redirectUris": [
+      "https://store-production.convex.site/api/auth/callback/google"
+    ]
+  },
+  "env": {
+    "web": {
+      "NEXT_PUBLIC_APP_URL": "https://app.example.invalid"
+    },
+    "app": {
+      "NEXT_PUBLIC_CONVEX_URL": "https://store-production.convex.cloud",
+      "AUTH_ANONYMOUS_LOGIN": "0",
+      "AGENT_RUNTIME": "mock"
+    },
+    "convex": {
+      "CONVEX_DEPLOYMENT": "prod:store-production",
+      "CONVEX_URL": "https://store-production.convex.cloud",
+      "CONVEX_SITE_URL": "https://store-production.convex.site",
+      "SITE_URL": "https://www.example.invalid",
+      "JEOMWON_APP_ORIGINS": "https://app.example.invalid",
+      "JWT_PRIVATE_KEY": "fixture-private-key-not-a-real-secret",
+      "JWKS": "fixture-jwks-not-a-real-key",
+      "AUTH_GOOGLE_ID": "fixture-google-client-id",
+      "AUTH_GOOGLE_SECRET": "fixture-google-client-secret",
+      "JEOMWON_ADMIN_EMAILS": "operator@example.invalid",
+      "AUTH_ANONYMOUS_LOGIN": "0",
+      "RESERVATION_EMAIL_MODE": "sent",
+      "RESEND_API_KEY": "fixture-resend-api-key",
+      "RESEND_SENDER_EMAIL_AUTH": "sender@example.invalid"
+    }
+  }
+}

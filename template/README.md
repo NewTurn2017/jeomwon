@@ -155,6 +155,8 @@ deploy key나 별도 operator email/storage-state를 로컬 러너에 제공하�
 
 setup schema 2와 생성 receipt schema 3은 각각 setup 입력 구조와 로컬 생성물 일관성 계약입니다. setup은 provider 계정, DNS, Google OAuth client를 만들지 않으며 오프라인 bootstrap/`VERIFY PASS`도 이 live QA나 deployment를 대신하지 않습니다.
 
+프로덕션 인계 전에는 [`docs/deployment-handoff.md`](docs/deployment-handoff.md)의 소유권 표에 따라 private input을 준비하고 `bun run deployment:check -- --input <path> --output-dir <trusted-directory> --output deployment-readiness.json`를 실행합니다. 이 검사는 `apps/app`과 `apps/web` Vercel root, Convex production identity, 조건부 env, Google origin/callback, rollback 및 smoke checklist를 로컬에서만 검증하며 provider 조회·쓰기나 deployment를 수행하지 않습니다.
+
 첫 사용자 10명의 전체 영속 왕복과 운영체제별 판정 절차는
 `docs/first-success-validation.md`를 따릅니다. 기록 후
 `bun run first-success:report <기록.json>`으로 4/3/3 할당, 중앙값 15분,

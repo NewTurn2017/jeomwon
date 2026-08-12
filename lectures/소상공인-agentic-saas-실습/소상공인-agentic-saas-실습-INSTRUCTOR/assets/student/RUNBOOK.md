@@ -9,8 +9,8 @@
 워크숍은 이 checkout의 skill에 포함된 불변 로컬 계약을 사용합니다.
 
 - archive: `skill/assets/jeomwon-template-v0.1.0.tar.gz`
-- archive SHA-256: `1f5401544c2b9776a06e257d2dfad662911d8e5f8103fa5ba84b4337d7575568`
-- content SHA-256: `03800694f94c034a8aaf5d6f3dd260eb34a5aebd99c2577681da491fcf6c4f84`
+- archive SHA-256: `b9774b2d4a9f2233479d5dea4ff0b51f5b4486c841a83e29a83298771835062e`
+- content SHA-256: `dfceb1884d671dbdb66e2c0053278a54658e62670345d2cfd30a782ac3fde170`
 
 릴리스 배포 전제는 BLOCKED입니다. 외부 release가 생기기 전까지 이 로컬 checkout을
 고객용 릴리스로 소개하지 않습니다.
