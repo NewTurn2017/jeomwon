@@ -250,7 +250,7 @@ Passport는 topology, state machine, UI evidence, payment visual에 재사용하
 | S10 | mostly blank changed-case sheet + one prompt |
 | S11 | salon haircut, supported relative time/direct slot selection |
 | S12 | pre-provisioned reference app label 또는 fingerprint |
-| S13 | OFFLINE VERIFIED hard stop + unchecked next-stage checklist |
+| S13 | `[SKIP verify_qa]` then `VERIFY PASS` + unchecked next-stage checklist |
 | S14 | account subscription / booking money disconnected |
 | S15 | blank reconstruction + delayed changed-domain task |
 

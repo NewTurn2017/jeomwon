@@ -1,13 +1,21 @@
-scaffold  template -> <empty-target>
-inject    packages/backend/domain.config.ts
-verify    install
-verify    typecheck
-verify    lint
-verify    build
+[PASS preflight_pack]
+[PASS preflight_target]
+[PASS preflight_archive]
+[PASS preflight_bun]
+[PASS preflight_cache]
+PREFLIGHT PASS <installed-skill-path>
 
-PASS  OFFLINE VERIFIED
-SKIP  authenticated live QA
+[PASS verify_install]
+[PASS verify_typecheck]
+[PASS verify_lint]
+[PASS verify_test]
+[PASS verify_build_email]
+[PASS verify_build_app]
+[PASS verify_build_web]
+[SKIP verify_qa] QA is opt-in; set JEOMWON_QA_BASE_URL=http://localhost:3000 after Convex and the authenticated app are running, or pass --qa.
+VERIFY PASS
 
-표현의 의미:
-- PASS는 새 target의 오프라인 계약 통과입니다.
-- SKIP은 setup, 인증, live QA, 배포를 실행하지 않았다는 뜻입니다.
+Boundary markers:
+- [SKIP verify_qa]: setup/authenticated live QA/deploy did not run.
+- VERIFY PASS: the offline install/typecheck/lint/test/build contract passed.
+- jeomwon-project.json: the generated receipt must exist in the target.

@@ -816,6 +816,8 @@ html {
   color: #d7eadc;
   font-size: 0.72em;
   line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .terminal .ok {

@@ -27,6 +27,9 @@
 		"scripts/inject-test-helpers.ts",
 		"scripts/preflight-contract.test.ts",
 		"scripts/preflight-target-contract.test.ts",
-		"scripts/skills-install-smoke.test.ts"
+		"scripts/skills-install-smoke.test.ts",
+		"scripts/workshop-checksums.d.mts",
+		"scripts/workshop-checksums.test.ts",
+		"scripts/workshop-contract.test.ts"
 	]
 }
