@@ -2,7 +2,9 @@
 
 이 문서는 `demo.codewithgenie.com`에서 인증된 고객 앱(`template/apps/app`)을 제공하는 강연용 공개 데모의 운영 절차다. 데모 Convex 배포, Vercel 프로젝트, 데이터, 환경 변수, deploy key는 일반 운영과 공유하지 않는다. 이 절차의 Vercel·Convex·DNS 작업은 운영자 승인 뒤에만 실행한다.
 
-정확한 11게이트의 게이트 10은 미인증 `/admin` redirect와 인증 고객 `/admin` 404를 항상 검증한다. `features.operatorCalendarCrud=false`이면 CRUD 경계 하위 사례만 구체적 이유와 함께 SKIP하고, `true`이면 예약된 비일치 `.invalid` allowlist 아래에서 미인증·인증 비운영자의 create/update/delete 차단을 PASS로 증명한다. 실제 Google 운영자 로그인과 성공 CRUD는 이 결정론적 경계 게이트와 분리된 승인 소유 라이브 smoke이며, 승인 전에는 BLOCKED로 기록한다.
+<!-- doc-qa contract=2 gates=12 -->
+
+QA contract v2의 정확한 12게이트 중 게이트 10은 미인증 `/admin` redirect와 인증 고객 `/admin` 404를 항상 검증한다. `features.operatorCalendarCrud=false`이면 CRUD 경계 하위 사례만 구체적 이유와 함께 SKIP하고, `true`이면 예약된 비일치 `.invalid` allowlist 아래에서 미인증·인증 비운영자의 create/update/delete 차단을 PASS로 증명한다. 실제 Google 운영자 로그인과 성공 CRUD는 이 결정론적 경계 게이트와 분리된 승인 소유 라이브 smoke이며, 승인 전에는 BLOCKED로 기록한다.
 
 ## 1. 전용 Convex 배포 준비
 

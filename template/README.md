@@ -20,7 +20,7 @@ tooling         공유 TypeScript 설정
 ## 실행
 
 ```bash
-bun install
+bun install --frozen-lockfile
 bun x convex login
 bun setup
 bun dev
@@ -28,7 +28,8 @@ bun dev
 
 `bun setup`의 첫 성공 경로는 저장소에 고정된 Bun·Convex CLI 버전과 Convex
 로그인을 먼저 확인합니다. 이후 deployment, 앱 URL 연결, JWT 키, 로컬 익명 고객
-로그인을 자동 설정합니다. 사용자가 입력하는 값은 Google OAuth client ID,
+로컬 익명 로그인 설정을 app/Convex env에 동기화합니다. Google 최종 사용자 로그인은
+실행하지 않습니다. 사용자가 입력하는 값은 기존 Google OAuth client ID,
 client secret, 실제 Google 운영자 계정과 일치하는 이메일 하나뿐입니다.
 
 setup이 표시한 정확한 Redirect URI를 Google Console에 등록하고 저장하면 Enter로
@@ -36,6 +37,23 @@ setup이 표시한 정확한 Redirect URI를 Google Console에 등록하고 저�
 범위에서 제외되며 기본 예약·취소·운영자 에스컬레이션은 Convex로 영속됩니다.
 첫 성공 후 선택 제공자까지 연결하려면 `bun setup --optional-providers`를
 실행합니다.
+
+<!-- doc-contract:setup:start -->
+| Step ID | Kind | Required | Feature |
+|---|---|---:|---|
+| app-url | local-env | false | - |
+| site-url | convex-env-with-local-default | false | - |
+| convex | convex-provision | false | - |
+| convex-auth | convex-auth-keys | false | - |
+| google-oauth | google-oauth | false | - |
+| admin-emails | admin-emails | true | - |
+| anonymous-login | anonymous-login | false | - |
+| resend | resend | false | email |
+| openai | openai | false | - |
+| polar | polar | false | polar |
+<!-- doc-contract:setup:end -->
+
+setup은 위 외부 소유 항목의 계정·DNS·OAuth client를 생성하거나 최종 사용자의 Convex/Google 로그인을 수행하지 않는다. Convex CLI 로그인은 setup 전에 `bun x convex login`으로 완료해야 한다.
 
 setup 중 `prerequisite_missing`은 표시된 Bun 버전과 `bun install
 --frozen-lockfile`, `prerequisite_unauthenticated`는 `bun x convex login`으로
@@ -109,11 +127,12 @@ Google OAuth의 로컬 Authorized JavaScript origin은 인증 앱인
 `/api/auth/callback/google`을 사용합니다. `SITE_URL`은 공개 마케팅 주소와 이메일
 링크에 사용합니다.
 
-Polar 결제를 사용하는 도메인에서는 다음 값을 추가로 설정합니다.
+Polar **계정 구독**을 사용하는 도메인에서는 `POLAR_PRODUCT_IDS`와 함께 다음 값을 추가로 설정합니다. 이 연동은 로그인 계정의 SaaS 구독 전용이며 서비스 `price`와 예약 보증금·예약 청구·환불·예약별 결제 ledger를 구현하지 않습니다.
 
 ```bash
 POLAR_ORGANIZATION_TOKEN=<polar-organization-token>
 POLAR_WEBHOOK_SECRET=<polar-webhook-secret>
+POLAR_PRODUCT_IDS=<account-subscription-product-ids>
 ```
 
 ## 개발 검증
@@ -126,12 +145,15 @@ bun qa
 
 `bun qa`는 setup이 만든 동일한 Convex dev 배포를 backend와 app env에서 먼저
 교차 검증한 뒤, 예약된 비일치 `.invalid` 운영자 allowlist와 인증 고객 A/B를
-사용해 정확한 11게이트를 실행합니다. 게이트 10은 미인증 redirect와 인증 고객 404를
+사용해 QA contract v2의 정확한 12게이트를 실행합니다. 게이트 10은 미인증 redirect와 인증 고객 404를
 항상 검증합니다. `operatorCalendarCrud`가 꺼져 있으면 CRUD 경계 하위 사례만 이유와
 함께 SKIP하고, 켜져 있으면 미인증·인증 비운영자의 create/update/delete 차단을
-PASS로 증명합니다. 실제 Google 운영자 로그인과 성공 CRUD는 별도
-maintainer-owned 라이브 smoke이며 사용자 승인 전에는 BLOCKED입니다. ambient
+PASS로 증명합니다. 게이트 12는 `noShow` off에서 무변경 SKIP하고 on에서 과거
+확정 예약의 서버 권한 전이를 검증합니다. 실제 Google 운영자 로그인과 성공 CRUD는
+별도 maintainer-owned 라이브 smoke이며 사용자 승인 전에는 BLOCKED입니다. ambient
 deploy key나 별도 operator email/storage-state를 로컬 러너에 제공하지 마세요.
+
+setup schema 2와 생성 receipt schema 3은 각각 setup 입력 구조와 로컬 생성물 일관성 계약입니다. setup은 provider 계정, DNS, Google OAuth client를 만들지 않으며 오프라인 bootstrap/`VERIFY PASS`도 이 live QA나 deployment를 대신하지 않습니다.
 
 첫 사용자 10명의 전체 영속 왕복과 운영체제별 판정 절차는
 `docs/first-success-validation.md`를 따릅니다. 기록 후

@@ -21,11 +21,11 @@ The generated UI is production-ready out of the box: a light, domain-aware landi
 
 - **Cal.com is a booking *app*** — one calendar product you configure. Jeomwon **generates the reservation SaaS itself** from a domain interview (a hair salon, a PC café, and a pension each come out as a different app).
 - **v0 and boilerplates give you *screens*** — jeomwon ships the screens plus the **domain logic enforced inside Convex mutations**: slot conflicts, hold TTLs, cancel windows.
-- **It ships as a Claude Code skill** — a coding agent interviews you, scaffolds the project, and proves it with an 11-gate live QA suite.
+- **It ships as a Claude Code skill** — a coding agent interviews you, scaffolds the project, and runs offline verification. QA contract v2's 12 live gates run separately after setup.
 
 ## Quick start
 
-**Prerequisites**: exactly [bun](https://bun.sh) **1.3.14** (required) · a free [Convex](https://convex.dev) account (you log in during `bun setup`) · optional: a Google OAuth client, [Resend](https://resend.com) / [OpenAI](https://platform.openai.com) keys (without them everything still works in email-capture mode with the `mock` agent runtime)
+**Prerequisites**: exactly [bun](https://bun.sh) **1.3.14** · a free [Convex](https://convex.dev) account with `bun x convex login` completed before setup · a **required Google OAuth Web application client** for Google sign-in · optional [Resend](https://resend.com) / [OpenAI](https://platform.openai.com) keys (without them, email capture and the `mock` agent runtime remain available)
 
 ### With Claude Code (recommended)
 
@@ -37,7 +37,7 @@ bunx --bun skills@1.5.22 add . --skill jeomwon --agent universal claude-code --g
 
 Then in a Claude Code session, describe your domain (e.g. "build a seat reservation system for my PC café"). The skill interviews you for one domain pack, then runs a single **bootstrap** command that scaffolds a project from `template/`, injects the domain pack, and runs the offline verification gate. Bootstrap is offline-only — it never runs live QA or `bun setup`.
 
-When bootstrap finishes it prints the generated path and the next steps to run yourself: `bun setup` (interactive credentials), then `bun run qa` (live 11-gate).
+When bootstrap finishes it prints the generated path and the next steps to run yourself: `bun x convex login`, `bun setup` (Google OAuth values and an operator allowlist email), then `bun run qa` (QA contract v2, 12 live gates).
 
 Bootstrap runs preflight before touching the target. To check readiness separately, run `bun "${CLAUDE_SKILL_DIR}/scripts/preflight.mjs" <target-dir> <project-name> <domain-pack.json>`. The installed command resolves the skills CLI canonical directory, Claude Code link, manual symlinks, and the real `CLAUDE_SKILL_DIR` value consistently, then verifies the checked-in immutable archive and both SHA-256 contracts. On `cache_not_ready`, copy the single printed `warm-cache.mjs` recovery argv and run it only when network access is allowed. Offline verify never substitutes hidden network access.
 
@@ -47,10 +47,13 @@ The generated project (and `template/` itself) ships a self-contained setup wiza
 
 ```bash
 cd template
-bun install
-bun setup        # provisions Convex, generates JWT keys, guides Google OAuth / Resend / OpenAI
+bun install --frozen-lockfile
+bun x convex login
+bun setup        # Convex/JWT plus the Google OAuth and operator-allowlist first-success path
 bun dev          # web + app + backend, in parallel
 ```
+
+Setup schema 2 validates the already-authenticated Convex CLI, creates or reuses a dev deployment, pauses for the user to register its exact redirect URI on an existing Google OAuth client, and writes the supplied client ID/secret plus operator allowlist to Convex env. Setup does not perform an end-user Convex or Google login, and does not provision provider accounts, DNS, or an OAuth client. Resend, OpenAI, and Polar are optional-provider follow-ups; the real Google operator identity remains separate from anonymous local customer QA.
 
 ## What's in the box
 
@@ -64,7 +67,7 @@ bun dev          # web + app + backend, in parallel
 
 ## QA gates
 
-Each tree ships an 11-gate QA suite (happy path, cancel-window escalation, write guards, relevance guard, schema 422, privacy grep, hold expiry, email capture, waitlist join/notify, operator calendar CRUD, customer accounts). `bun run qa` handles everything itself — Convex prep, web server startup, all eleven gates, and teardown. You do not need a dev server running first.
+Each tree ships QA contract v2's 12 ordered gates (the prior 11 plus the no-show transition boundary). `bun run qa` handles Convex prep, authenticated app startup, all twelve gates, and teardown. An off-toggle SKIP is not success evidence; enabled setup failures are FAIL. Gate 10 proves unauthenticated/non-operator denial, while successful real Google-operator CRUD remains a separate BLOCKED maintainer smoke.
 
 ```bash
 cd template
@@ -74,7 +77,7 @@ bun run qa
 - The web server starts on port `3999` by default (override with `JEOMWON_QA_PORT`). Do **not** run QA for two projects at once — teardown kills whatever process holds that port.
 - The hold-expiry gate's wait is controlled by `JEOMWON_TEST_HOLD_MS` (default `1500`).
 - Safety guard: QA refuses to run against a non-`dev:` deployment, because it resets that domain's reservation and chat data.
-- The waitlist gate (9) deterministically SKIPs when `features.waitlist` is off.
+- Gate 9 SKIPs when `features.waitlist` is off; gate 10's CRUD subcase SKIPs when `features.operatorCalendarCrud` is off; gate 12 SKIPs without mutation when `features.noShow` is off.
 
 To run only the gates against a server you already have up, use `bun run qa:run` and set `JEOMWON_QA_BASE_URL` yourself. Next dev must be reached via `localhost` (not `127.0.0.1`).
 
@@ -84,7 +87,11 @@ To run only the gates against a server you already have up, use `bun run qa:run`
 
 - `apps/web/.env.example` — `NEXT_PUBLIC_CONVEX_URL`, `AGENT_RUNTIME` (`mock` | OpenAI), `OPENAI_API_KEY`
 - `apps/app/.env.example` — dashboard app env
-- `packages/backend/.env.example` — Convex deployment, `SITE_URL`, optional Polar keys (only when `domain.config.features.polar` is on)
+- `packages/backend/.env.example` — Convex deployment, `SITE_URL`, optional Polar account-subscription keys (only when `domain.config.features.polar` is on)
+
+Polar is only for an authenticated account's SaaS subscription. Service `price` is display copy; reservation deposits, booking charges, refunds, and a reservation payment ledger are absent. The capability manifest currently declares nine implemented/QA-proven capabilities, while examples derive coverage of 9/24 resource × slot × widget cells.
+
+Canonical generated projects use domain-pack schema v1 and receipt schema v3. Only a schemaVersion-less exact legacy v0 pack shape migrates purely to v1. Offline bootstrap `VERIFY PASS` proves install/typecheck/lint/tests/build, not live QA, deployment, provider success, or an unmeasured first-success time.
 
 ## Architecture conventions
 
@@ -96,7 +103,7 @@ Roadmap phases 0–7 are complete, plus a full UI redesign (starter branding rem
 
 ## Contributing
 
-A new vertical's domain pack is the best first contribution — the empty cells of the resource × slot × widget matrix are tracked in the Coverage Catalog inside [skill/EXAMPLES.md](skill/EXAMPLES.md). See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow.
+A new vertical's domain pack is the best first contribution — the empty cells of the resource × slot × widget matrix are tracked in the Coverage Catalog inside [skill/EXAMPLES.md](skill/EXAMPLES.md#coverage-catalog). See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow.
 
 ## License
 

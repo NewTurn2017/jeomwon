@@ -12,8 +12,10 @@
   --radius-m: 10px;
   --radius-l: 14px;
   --radius-bubble: 18px;
-  --shadow-card: 0 28px 70px rgba(26, 57, 71, 0.12), 0 8px 22px rgba(26, 57, 71, 0.08);
-  --shadow-float: 0 18px 46px rgba(26, 57, 71, 0.16), 0 4px 12px rgba(26, 57, 71, 0.1);
+  --shadow-card:
+    0 28px 70px rgba(26, 57, 71, 0.12), 0 8px 22px rgba(26, 57, 71, 0.08);
+  --shadow-float:
+    0 18px 46px rgba(26, 57, 71, 0.16), 0 4px 12px rgba(26, 57, 71, 0.1);
 }
 
 *,
@@ -23,7 +25,6 @@
 }
 
 html {
-  overflow-x: hidden;
   overflow-x: clip;
   scroll-behavior: smooth;
   scroll-padding-top: 88px;
@@ -31,10 +32,11 @@ html {
 
 body {
   margin: 0;
-  overflow-x: hidden;
   background: var(--bg);
   color: var(--ink);
-  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-family:
+    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+    system-ui, sans-serif;
   font-size: 16px;
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
@@ -229,7 +231,12 @@ h3 {
   font-weight: 720;
   line-height: 1;
   white-space: nowrap;
-  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .button:hover {
@@ -279,6 +286,7 @@ h3 {
 
 .hero {
   min-height: calc(100dvh - 72px);
+  overflow: clip;
   display: flex;
   align-items: center;
   padding: clamp(56px, 7vw, 92px) 0 clamp(72px, 8vw, 112px);
@@ -371,7 +379,11 @@ h3 {
   justify-content: flex-end;
   min-height: 458px;
   padding: 28px 62px 24px 22px;
-  background: linear-gradient(180deg, rgba(251, 248, 243, 0.45), rgba(251, 248, 243, 0.9));
+  background: linear-gradient(
+    180deg,
+    rgba(251, 248, 243, 0.45),
+    rgba(251, 248, 243, 0.9)
+  );
 }
 
 .message-row {
@@ -432,7 +444,8 @@ h3 {
   width: min(86%, 320px);
   padding: 16px;
   border: 1px solid rgba(19, 101, 134, 0.11);
-  border-radius: var(--radius-bubble) var(--radius-bubble) var(--radius-bubble) var(--radius-s);
+  border-radius: var(--radius-bubble) var(--radius-bubble) var(--radius-bubble)
+    var(--radius-s);
   background: var(--accent-soft);
 }
 
@@ -534,7 +547,9 @@ h3 {
   visibility: visible;
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 320ms ease, transform 320ms ease;
+  transition:
+    opacity 320ms ease,
+    transform 320ms ease;
 }
 
 .chat-demo-ready .typing-row.is-visible {
@@ -713,7 +728,11 @@ h3 {
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 700;
-  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, transform 180ms ease;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
 }
 
 .mini-button:hover,
@@ -906,7 +925,9 @@ code {
 }
 
 .reveal-ready .reveal-section.is-revealed {
-  transition: opacity 380ms ease, transform 380ms ease;
+  transition:
+    opacity 380ms ease,
+    transform 380ms ease;
 }
 
 @media (max-width: 980px) {

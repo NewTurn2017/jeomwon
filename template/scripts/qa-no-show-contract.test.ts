@@ -18,6 +18,7 @@ describe("dedicated no-show QA gate", () => {
       id: 12,
       name: "노쇼 전이 경계",
       artifact: "12-no-show.json",
+      skipContract: "features.noShow=false",
     });
   });
 

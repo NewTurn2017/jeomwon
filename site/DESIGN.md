@@ -1,4 +1,4 @@
-# jeomwon 랜딩 디자인 브리프 (jeomwon.codewithgenie.com)
+# jeomwon 랜딩 디자인 브리프 (jeomwon.<wbr>codewithgenie.com)
 
 > ui-craft Craft Read — 작성: 2026-07-13. 이 문서가 카피·토큰·구성의 단일 진실 원천이다. 구현은 이 브리프를 따른다.
 
@@ -55,7 +55,7 @@
 
 - H1 (2줄): `가게 프런트에` / `AI 점원을 세우세요`
 - 서브 (1문장): `도메인 인터뷰 한 번이면 고객 예약 챗, 관리자 대시보드, 수명주기 메일까지 — 열어보면 바로 돌아가는 오픈소스 SaaS 킷.`
-- CTA: primary(액센트) `GitHub에서 시작하기` → https://github.com/NewTurn2017/jeomwon · ghost `빠른 시작 보기` → #quick-start
+- CTA: primary(액센트) `GitHub에서 시작하기` → [GitHub 저장소](https://github.com/NewTurn2017/jeomwon) · ghost `빠른 시작 보기` → #quick-start
 - 마이크로 트러스트 라인: `MIT 라이선스 · Convex + Next.js 16 + bun`
 - 우측 비주얼: **카톡풍 채팅 미니 컴포넌트** (실제 위젯 문법: 좌우 정렬 말풍선, 한국어 상태 라벨, 점원 말풍선만 accent-soft 배경). 자동 재생 대화:
   1. 고객(우): `내일 오후 3시에 커트 예약 돼요?`
@@ -70,7 +70,9 @@
 
 1. `도메인을 말하면` — Claude Code에서 "PC방 좌석 예약 만들어줘" 한 마디. 스킬이 도메인 팩 하나로 인터뷰합니다.
 2. `bootstrap 한 번이면` — 스캐폴드, 도메인 주입, 오프라인 검증까지 커맨드 하나로 끝. 터미널 스니펫(모노): `bun skill/scripts/bootstrap.mjs my-shop domain-pack.json`
-3. `증명까지 끝` — bun setup으로 자격증명을 연결하고, 라이브 QA 11게이트가 동작을 증명합니다.
+<!-- doc-qa contract=2 gates=12 -->
+
+3. `증명까지 끝` — bun setup으로 자격증명을 연결하고, QA contract v2의 라이브 12게이트가 동작을 증명합니다.
 
 ### 3. 기능 (교차 스플릿 정확히 2행, id="features")
 
@@ -80,7 +82,7 @@
 
 ### 4. 증거 스트립 (풀폭, 큰 숫자 3개, tabular-nums)
 
-- `11게이트` — 라이브 QA가 해피패스부터 인증 경계까지 증명
+- `12게이트` — QA contract v2가 해피패스부터 인증·노쇼 경계까지 증명
 - `10개` — 실전 디버깅에서 살아남은 불변식, 전부 Convex mutation 안에서 강제
 - `8필드` — 고객에게 공개되는 PublicContext는 정확히 8필드뿐
 

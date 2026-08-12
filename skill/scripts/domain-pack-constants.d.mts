@@ -1,0 +1,10 @@
+export const DOMAIN_PACK_SCHEMA_VERSION: number;
+export const RESOURCE_KINDS: ReadonlySet<string>;
+export const SLOT_UNITS: ReadonlySet<string>;
+export const ADMIN_WIDGETS: ReadonlySet<string>;
+export const LOCALES: ReadonlySet<string>;
+export const WEEKDAYS: readonly string[];
+export const LEGACY_TOP_LEVEL_KEYS: readonly string[];
+export const TOP_LEVEL_KEYS: readonly string[];
+export const OPTIONAL_FEATURE_KEYS: readonly string[];
+export const COPY_KEYS: readonly string[];

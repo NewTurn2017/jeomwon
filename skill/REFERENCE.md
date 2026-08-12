@@ -46,6 +46,7 @@ type DomainService = {
 };
 
 type DomainPack = {
+  schemaVersion: 1;
   domainKey: string;
   storeName: string;
   storeTimezone: string;
@@ -67,6 +68,7 @@ type DomainPack = {
     waitlist?: boolean;
     customerAccounts?: true;
     operatorCalendarCrud?: boolean;
+    noShow?: boolean;
   };
   copy: {
     chatTitle: string;
@@ -88,15 +90,17 @@ type DomainPack = {
     nextStepHold: string;
     nextStepConfirmed: string;
     policySummary: string;
+    noShow?: string;
   };
 };
 ```
 
 ### Kit-core feature flags
 
+Canonical packs declare `schemaVersion: 1`. The reader also accepts only an exact schemaVersion-less legacy v0 shape and purely migrates it to v1; an explicit unsupported version fails closed.
+
 `features.*` is a closed set owned by the kit: every flag's code ships in
-`template/`. `waitlist` and `operatorCalendarCrud` are optional booleans that
-default to `false`.
+`template/`. `waitlist`, `operatorCalendarCrud`, and `noShow` are optional booleans that default to `false`.
 
 - `waitlist` — notify-only waitlist on freed slots (`convex/engine/waitlist.ts`).
 - `customerAccounts` — compatibility literal for baseline customer login and
@@ -106,6 +110,11 @@ default to `false`.
   The admin allowlist is required and empty values deny admin access.
 - `operatorCalendarCrud` — operator create/edit/cancel from the admin calendar.
   Requires `adminWidget: "calendar"`; `seatGrid` has no operator CRUD surface.
+  Server-side allowlist, origin, time, and reservation identity remain authoritative;
+  QA gate 10 proves denial boundaries, not successful Google-operator CRUD.
+- `noShow` — authenticated operator transition of past confirmed/rescheduled rows
+  to the eleventh status, `no_show`. It is off by default and requires non-empty
+  `copy.noShow` only when enabled.
 
 ## Bootstrap Contract
 
@@ -141,8 +150,10 @@ Validation gates:
 - `durationMinutes` is positive when present; day services normally omit it.
 - `confirmationRequired` must be `true`.
 - `notificationEmail` must be an email-like string.
-- `features.waitlist` and `features.operatorCalendarCrud` are optional and default
-  to `false`; when present each must be boolean.
+- Canonical input has `schemaVersion: 1`; schemaVersion-less legacy v0 input is
+  migrated without side effects, while explicit unsupported versions fail.
+- `features.waitlist`, `features.operatorCalendarCrud`, and `features.noShow` are
+  optional and default to `false`; when present each must be boolean.
 - `features.customerAccounts` may be omitted or literal `true`. Omission
   materializes `true`; explicit `false` returns the exact compatibility error
   above; other values fail validation. Emitted `DomainConfig` declares it as
@@ -158,9 +169,9 @@ Run these gates in order:
 
 1. Template regression: in `template/`, run `bun install --frozen-lockfile --offline`, `bun run typecheck`, `bun run lint`, and `bun run build`.
 2. Sample bootstrap (standard journey): into a fresh, empty target directory, run `bun skill/scripts/bootstrap.mjs <fresh-target> "Pension Stay" <pension-domain-pack.json>`. This runs scaffold → inject → offline verify in one command and ends with `VERIFY PASS`. Bootstrap's verify owns the offline install and never runs live QA — it strips an ambient `JEOMWON_QA_BASE_URL` and reports `SKIP qa`. Bootstrap refuses a non-empty target, so do not point it at the committed `samples/pension-stay`; use a throwaway directory.
-3. Convex/authenticated-app QA (one command): after `bun setup` provisions the dev Convex deployment (and `bunx playwright install chromium` prepares the local browser once), run `bun run qa` in the generated project (or in `template/`). `scripts/qa-local.ts` requires the app Convex URL to exactly match the verified backend `dev:` deployment, injects that canonical URL into every child, temporarily enables anonymous customer auth with a nonmatching reserved `.invalid` admin allowlist, boots `apps/app` in mock runtime, signs in isolated browser identities A/B, runs the exact 11-gate suite, and restores the app/browser/env lifecycle. Deterministic gate 10 proves that the authenticated customer identity is denied operator-only routes and mutations. Successful Google operator CRUD is a separate maintainer-owned live smoke and remains BLOCKED until explicitly authorized; it never requires operator email/storage-state inputs for the exact 11-gate command. The runner forces email capture, so no real mail is sent.
+3. Convex/authenticated-app QA (one command): after `bun setup` provisions the dev Convex deployment (and `bunx playwright install chromium` prepares the local browser once), run `bun run qa` in the generated project (or in `template/`). `scripts/qa-local.ts` requires the app Convex URL to exactly match the verified backend `dev:` deployment, injects that canonical URL into every child, temporarily enables anonymous customer auth with a nonmatching reserved `.invalid` admin allowlist, boots `apps/app` in mock runtime, signs in isolated browser identities A/B, runs QA contract v2's exact 12 gates in order, and restores the app/browser/env lifecycle. Gates 9, 10's CRUD subcase, and 12 SKIP only for their named off-toggle; enabled setup failures are FAIL. Deterministic gate 10 proves that the authenticated customer identity is denied operator-only routes and mutations. Successful Google operator CRUD is a separate maintainer-owned live smoke and remains BLOCKED until explicitly authorized; it never requires operator email/storage-state inputs for the exact 12-gate command. The runner forces email capture, so no real mail is sent.
 
-`verify.mjs` (bootstrap's third stage) is the offline gate and never fetches provider secrets. It uses Bun offline install, then runs typecheck, lint, and `bun test` before building the email package and the Next app/web surfaces with `next build --webpack`. It prints `VERIFY PASS` only after all selected gates succeed and skips QA unless a running authenticated app surface is explicitly supplied through `JEOMWON_QA_BASE_URL`. CI runs the template regression plus the fresh generator contract; the live authenticated-app 11-gate QA in gate 3 remains the maintainer-owned dev-deployment path.
+`verify.mjs` (bootstrap's third stage) is the offline gate and never fetches provider secrets. It runs exact `bun install --frozen-lockfile --offline`, then typecheck, lint, and `bun test` before building the email package and the Next app/web surfaces with `next build --webpack`. It prints `VERIFY PASS` only after every selected gate succeeds and skips QA unless a running authenticated app surface is explicitly supplied through `JEOMWON_QA_BASE_URL`. That PASS is not live QA, deployment, or provider proof. CI uses Bun 1.3.14 and exact `bun install --frozen-lockfile` (network may be available), then typecheck/lint/tests and all three builds. The live authenticated-app 12-gate QA remains the maintainer-owned dev-deployment path.
 
 ### Recovery / partial execution
 
@@ -169,6 +180,40 @@ Bootstrap composes three lower-level commands; run them directly to rerun a sing
 - Scaffold: `bun skill/scripts/scaffold.mjs <target-dir> "Pension Stay"`.
 - Inject: `bun skill/scripts/inject.mjs <target-dir> <pension-domain-pack.json>`.
 - Generated verification: `bun skill/scripts/verify.mjs <target-dir>`.
+
+## Machine-checked commands
+
+<!-- doc-contract:commands:start -->
+| Script ID | Help usage |
+|---|---|
+| preflight | `bun preflight.mjs <target-dir> <project-name> <domain-pack.json> [--lang ko\|en\|auto]` |
+| bootstrap | `bun bootstrap.mjs <target-dir> <project-name> <domain-pack.json> [--lang ko\|en\|auto]` |
+| scaffold | `bun scaffold.mjs <target-dir> <project-name> <domain-pack.json> [--lang ko\|en\|auto]` |
+| inject | `bun inject.mjs <target-dir> <domain-pack.json> [--lang ko\|en\|auto]` |
+| verify | `bun verify.mjs <target-dir> [--qa] [--lang ko\|en\|auto]` |
+| warm-cache | `bun warm-cache.mjs [--lang ko\|en\|auto]` |
+<!-- doc-contract:commands:end -->
+
+Canonical template install is `bun install --frozen-lockfile`; offline verify uses `bun install --frozen-lockfile --offline`. Both use the project pin `bun@1.3.14`.
+
+<!-- doc-contract:execution:start -->
+| Context | Command |
+|---|---|
+| CI / Install dependencies | bun install --frozen-lockfile |
+| CI / Run typecheck | bun run typecheck |
+| CI / Run linter | bun run lint |
+| CI / Run tests | bun test |
+| CI / Build email | bun run build:email |
+| CI / Build app | bun run build:app |
+| CI / Build web | bun run build:web |
+| offline verify / install | bun install --frozen-lockfile --offline |
+<!-- doc-contract:execution:end -->
+
+## Release Identity
+
+The project manifest carries template schema 1/API 1 and compatibility identities domainPackWriter 0, capabilitySchema 1, setupSchema 2, and qaContract 2. Canonical packs are schema v1. Successful publication writes receipt v3 last, binding project/template source, release contract hashes, canonical pack, and managed outputs. This checksum contract detects local drift but is not cryptographic authenticity against coordinated source-and-receipt replacement.
+
+The static capability manifest declares nine implemented or QA-proven capabilities. Accounts, account deletion, and reservation-email delivery ledger/capture are core. Polar is only an account-subscription integration; reservation deposit/charge/refund/ledger is absent and `payment.reservationDeposit` remains planned/BLOCKED. Capability maturity never upgrades from a prose claim.
 
 ## Session Rules
 

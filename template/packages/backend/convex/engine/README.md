@@ -167,7 +167,7 @@ Export symbols:
 
 Invariants and state transitions:
 
-- `schema.ts` and `agent-contract.ts` define the same ten status literals.
+- `schema.ts` and `agent-contract.ts` define the same eleven status literals, including terminal `no_show`.
 - `createHold` inserts `held` rows only after duration, business-hour, blackout,
   and collision checks.
 - `confirmReservation` only confirms `held` rows; expired held rows transition to
@@ -353,7 +353,7 @@ writes. The feature adds no fee, sanction, registry, table, or customer PII.
 Source: `./adminBooking.ts`. Mutation boundary: `../admin.ts`. Toggle:
 `domainConfig.features.operatorCalendarCrud`.
 
-Lets an operator create, edit, and cancel rows directly on the admin calendar. It
+Lets an allowlisted operator create, edit, and cancel rows directly on the admin calendar. The server's `ensureAdmin` boundary owns Google-account allowlist authority; QA gate 10 proves unauthenticated/non-operator denial, while successful real Google-operator CRUD remains a separate BLOCKED operational smoke. It
 adds no table and no engine rule: an operator session is a `reservations` row with
 `origin: "operator"`, `displayName` carrying the session title, and status
 `confirmed` from the moment it is inserted. Every write composes the availability,

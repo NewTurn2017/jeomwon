@@ -2,50 +2,78 @@ export const QA_CONTRACT_VERSION = 2 as const;
 export const SUPPORTED_QA_ARTIFACT_VERSIONS = [1, 2] as const;
 
 export const QA_GATE_CONTRACT = [
-  { id: 1, name: "해피 패스", artifact: "01-happy-path.json" },
+  {
+    id: 1,
+    name: "해피 패스",
+    artifact: "01-happy-path.json",
+    skipContract: "none",
+  },
   {
     id: 2,
     name: "cancelWindow 위반",
     artifact: "02-cancel-window.json",
+    skipContract: "physical-impossibility-only",
   },
   {
     id: 3,
     name: "확인 없는 쓰기 차단",
     artifact: "03-confirmation-guardrail.json",
+    skipContract: "none",
   },
   {
     id: 4,
     name: "무관 의도 차단",
     artifact: "04-relevance-guardrail.json",
+    skipContract: "none",
   },
   {
     id: 5,
     name: "스키마 위반 422",
     artifact: "05-malformed-input.json",
+    skipContract: "none",
   },
   {
     id: 6,
     name: "내부 키 grep 0건",
     artifact: "06-privacy-grep.json",
+    skipContract: "none",
   },
-  { id: 7, name: "홀드 만료 전이", artifact: "07-hold-expiry.json" },
+  {
+    id: 7,
+    name: "홀드 만료 전이",
+    artifact: "07-hold-expiry.json",
+    skipContract: "none",
+  },
   {
     id: 8,
     name: "메일 capture 모드",
     artifact: "08-email-capture.json",
+    skipContract: "escalation subcase: physical-impossibility-only",
   },
-  { id: 9, name: "대기자 접수·알림", artifact: "09-waitlist.json" },
+  {
+    id: 9,
+    name: "대기자 접수·알림",
+    artifact: "09-waitlist.json",
+    skipContract: "features.waitlist=false",
+  },
   {
     id: 10,
     name: "운영자 캘린더 CRUD",
     artifact: "10-operator-calendar-crud.json",
+    skipContract: "features.operatorCalendarCrud=false (CRUD subcase only)",
   },
   {
     id: 11,
     name: "고객 계정 경계",
     artifact: "11-customer-accounts.json",
+    skipContract: "none (accounts are core)",
   },
-  { id: 12, name: "노쇼 전이 경계", artifact: "12-no-show.json" },
+  {
+    id: 12,
+    name: "노쇼 전이 경계",
+    artifact: "12-no-show.json",
+    skipContract: "features.noShow=false",
+  },
 ] as const;
 
 export const QA_GATE_CONTRACT_V1 = QA_GATE_CONTRACT.slice(0, 11);

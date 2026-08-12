@@ -45,8 +45,10 @@ bun test
 
 `template/` 동작을 바꿨다면 라이브 QA까지 돌려주세요 (dev Convex 배포 필요):
 
+<!-- doc-qa contract=2 gates=12 -->
+
 ```bash
-cd template && bun run qa   # 11게이트, dev: 배포가 아니면 스스로 거부
+cd template && bun run qa   # QA contract v2의 12게이트, dev: 배포가 아니면 스스로 거부
 ```
 
 Convex 계정이 없으면 PR에 그 사실을 적어주세요 — 메인테이너가 라이브 QA를 대신 돌립니다.

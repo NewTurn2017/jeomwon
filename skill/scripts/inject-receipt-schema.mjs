@@ -12,6 +12,8 @@ import {
 	validContractHashes,
 } from "./release-contract.mjs";
 
+export const RECEIPT_SCHEMA_VERSION = 3;
+
 const RECEIPT_KEYS = [
 	"schemaVersion",
 	"lifecycle",
@@ -57,7 +59,7 @@ export function createEstablishedReceipt(
 	);
 	const canonical = structuredClone(pack);
 	return {
-		schemaVersion: 3,
+		schemaVersion: RECEIPT_SCHEMA_VERSION,
 		lifecycle: "established",
 		projectName: identity.projectName,
 		projectSlug: identity.projectSlug,
@@ -92,7 +94,7 @@ export function projectIdentity(name, slug) {
 export function validReceipt(value) {
 	if (
 		!hasExactKeys(value, RECEIPT_KEYS) ||
-		value.schemaVersion !== 3 ||
+		value.schemaVersion !== RECEIPT_SCHEMA_VERSION ||
 		value.lifecycle !== "established" ||
 		![
 			value.projectName,

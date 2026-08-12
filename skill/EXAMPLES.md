@@ -1,6 +1,6 @@
 # Jeomwon Domain Pack Examples
 
-Each example is a complete domain pack JSON object accepted by `scripts/inject.mjs`.
+Each example is a complete legacy-v0-shaped domain pack JSON object accepted by `scripts/inject.mjs` through its pure migration boundary. New packs should add top-level `"schemaVersion": 1`; only schemaVersion-less exact legacy shapes migrate, while explicit unsupported versions fail closed. The document validator parses and normalizes every JSON fence through the same v1 validator.
 
 ## Salon
 
@@ -805,9 +805,11 @@ creates, edits, and cancels sessions on the admin calendar) — and fills the
 
 ## Coverage Catalog
 
+<!-- doc-coverage covered=9 total=24 -->
+
 This catalog is the exhaustive `resourceKind × slotUnit × adminWidget` universe: four resource kinds (`person`, `seat`, `room`, `unit`) × three slot units (`minutes:30`, `hour`, `day`) × two admin widgets (`calendar`, `seatGrid`) = 24 service-level cells. Each cell is derived only from a pack service's `resourceKind` and `slotUnit` paired with that pack's `adminWidget`; duplicate services and unrelated resources never inflate a cell. A covered cell lists every embedded pack that supplies that combination; an uncovered cell is `gap`.
 
-After the three showcase promotions the catalog covers 6/24 cells. Adding the kit-authored `equipment-rental` pack — which supplies `unit × minutes:30 × calendar` and `unit × day × calendar` — brought coverage to 8/24. Adding the kit-authored `pilates-studio` pack — which supplies `person × hour × calendar` — brings coverage to 9/24, leaving 15 gaps.
+The current embedded packs cover 9/24 cells, leaving 15 gaps. This count is derived from each validated pack service's `resourceKind` and effective `slotUnit` paired with its pack's `adminWidget`; it is not a hand-maintained capability count.
 
 **Every `gap` cell below is an open contribution** — a new vertical's pack that fills one is the best first PR. The workflow (propose → author → `bootstrap.mjs` proof → update this catalog) is in [CONTRIBUTING.md](../CONTRIBUTING.md); the field contract is in [REFERENCE.md](REFERENCE.md).
 

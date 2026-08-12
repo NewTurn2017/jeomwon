@@ -10,7 +10,7 @@
 
 > **뼈대(skeleton)를 세워두고 → 코딩 에이전트가 스킬을 써서 그 SaaS의 전문 기능을 쉽게 만들고 수정한다.**
 
-- **핵심 기능 pre-built**: 예약 SaaS의 공통 골격(예약 수명주기·챗·관리자·인증·결제·메일)이 라이브러리 수준으로 이미 구현.
+- **핵심 기능 pre-built**: 예약 SaaS의 공통 골격(11상태 예약 수명주기·챗·관리자·고객 계정/삭제·메일 delivery ledger)이 라이브러리 수준으로 이미 구현. Polar는 선택적 계정 구독이며 예약 결제는 포함하지 않는다.
 - **minimal-change 사용**: 새 업종은 인터뷰 10분 + 도메인 팩 하나로 바로 실사용.
 - **모듈식 조립**: 전문 기능(대기자·보증금·노쇼·멤버십·다지점…)을 필요에 따라 켜고/붙이고/조합.
 - **스킬-가이드 확장**: 에이전트가 스킬의 불변식(Session Rules)을 물려받아 **코드까지 안전하게** 확장/수정.
@@ -22,7 +22,7 @@
 ### 2.1 구성
 - **뼈대 = `template/`** — Convex 백엔드 · Next 웹/관리자 · agents 런타임 · 예약 수명주기 · 이메일 · 인증. 모노레포(`packages/*`, `apps/*`).
 - **스킬 = `skill/`** (name: `jeomwon`) — 인터뷰 → 도메인 팩 JSON → `scaffold`/`inject`/`verify`. 파일 4 + 스크립트 3.
-- **커스터마이즈 레버 = `domain-pack.json`** — 리소스·서비스·slotUnit·businessHours·정책·위젯·features(email/polar)·copy. `inject.mjs`가 `domain.config.ts` + seed 재생성.
+- **커스터마이즈 레버 = `domain-pack.json`** — canonical schema v1의 리소스·서비스·slotUnit·businessHours·정책·위젯·closed feature flags·copy. `inject.mjs`가 managed config를 재생성하며, schemaVersion 없는 순수 legacy v0 shape만 v1으로 migrate한다.
 
 ### 2.2 이미 되는 것 (골격 기능)
 - 챗 기반 예약 수명주기: 가용성 → 홀드 → 확정 → 변경 → 취소 → 에스컬레이션.
@@ -30,12 +30,12 @@
 - 관리자 위젯 필드: `calendar` / `seatGrid` (`AdminWidgetBoard`가 대시보드에서 분기 렌더 — `apps/app/README.md` 참고).
 - 라이프사이클 메일: capture(키 없음) / sent(Resend).
 - 인증: Google OAuth + 익명 dev 로그인.
-- 선택 결제: Polar (features.polar).
-- 11게이트 QA + 오프라인 verify 게이트.
+- 선택 계정 구독: Polar (`features.polar`). 예약 보증금·예약 청구·환불·예약별 결제 ledger는 없음.
+- QA contract v2의 12게이트 + 별도 오프라인 verify 게이트. 오프라인 PASS는 live QA·배포·provider 성공이 아님.
 - 리소스 4종(person/seat/room/unit) × slot 3종(minutes:30/hour/day) × 위젯 2종.
 
 ### 2.3 알려진 한계·버그 (이번 세션 발견)
-- **[C · 해결 (M0.2)] 실 LLM 챗** — zod를 전역 v4로 올려(`@openai/agents@0.12` peer 충족) import 크래시 제거하고, `"openai"` 런타임에 OpenAI Agents SDK 실 추론을 배선. LLM이 tool(find/hold/confirm/cancel/reschedule/lookup)로 Convex 상태를 실제 구동. 관측: 실 키 3턴 예약(eligible→held→confirmed) 성공, fallback 없음. 결정론은 기본·QA·폴백으로 유지, 가드레일(privacy/relevance/confirmation)은 두 런타임 공통 결정론 선차단(방어심층).
+- **[C · 해결 (M0.2)] 실 LLM 챗** — zod를 전역 v4로 올려(`@openai/agents@0.12` peer 충족) import 크래시 제거하고, `"openai"` 런타임에 OpenAI Agents SDK 실 추론을 배선. LLM이 tool(find / hold / confirm / cancel / reschedule / lookup)로 Convex 상태를 실제 구동. 관측: 실 키 3턴 예약(eligible→held→confirmed) 성공, fallback 없음. 결정론은 기본·QA·폴백으로 유지, 가드레일(privacy/relevance/confirmation)은 두 런타임 공통 결정론 선차단(방어심층).
 - **[QA · 해결 (M0.3)] 하니스 business-hours-aware** — cancel-window 오프셋을 엔진의 순수 헬퍼(`isSlotAllowed`/`alignToSlot`/`isInsideCancelWindow`)로 계산해 **실제 열린 슬롯**을 창의 올바른 쪽에 앵커(floor/ceil 반올림)한다. 좁은 시간대/휴무일 팩처럼 창 안쪽 슬롯이 물리적으로 불가능한 실행 시각엔 escalation 검사를 **결정론적 SKIP**(runner에 SKIP 상태 추가). 검증: 순수 시뮬레이션 672 실행시각 × 웨비나/데모 팩 — 웨비나 0 misclassify·0 skip, 데모 feasible 590건 0 misclassify·불가 82건 skip. 라이브 `bun run qa` 8/8.
 - **[스킬 범위] 스킬이 "설정 생성기"에 머묾** — SKILL.md Output Contract: *"Do not generate domain-specific code outside that pack; inject.mjs is the only path."* → **전문 기능을 코드로 만드는 경로가 스킬에 없다.** (북극성과의 가장 큰 갭)
 - **[UI · 해결 (백로그, 2026-07-12)] adminWidget 렌더 실구현** — `apps/app` 대시보드에 `AdminWidgetBoard` 분기 렌더를 배선했다: `calendar`(7일 요일별 예약 목록) / `seatGrid`(리소스별 이용 중·다음 예약·이용 가능 그리드). 슬롯 점유 상태만 표시, 시각 기준은 스냅샷 `generatedAtMs`. 라이브 관측: 익명 dev 로그인으로 두 위젯 모두 실 Convex 스냅샷 렌더 확인(설정 전환 → 재배포 → 반응형 갱신). 현행 사실 문서: FEATURES.md 6절·`apps/app/README.md`.
@@ -68,7 +68,7 @@
 - **M4 — DX & 갤러리** (M4.1/M4.2/M4.3 3분할):
   - **M4.1 — UI 표면 사실 문서화 ✅**: `apps/web`·`apps/app` 경계 README 신설(고객/관리자 UI 표면·소비 계약)과 문서-코드 불일치 정정. M3가 이월한 "widget kit 문서화"는 존재하지 않는 렌더 경계를 만드는 대신, adminWidget이 데이터 경로만이라는 사실을 기록(대시보드 렌더 미반영, 2.3 참고).
   - **M4.2 — 부트스트랩 원커맨드 ✅**: 결정론 구간(scaffold → inject → 오프라인 verify)을 `skill/scripts/bootstrap.mjs` 한 커맨드로 묶었다(얇은 시퀀서, 새 상태 파일·레지스트리·훅 없음). `bun setup`(대화형 시크릿)과 `bun run qa`(라이브)는 묶음 밖의 안내 단계로 분리 — bootstrap은 오프라인 전용이라 ambient `JEOMWON_QA_BASE_URL`을 verify 단계에서 제거하고 setup·라이브 QA를 실행하지 않는다. 개별 scaffold/inject/verify는 재실행·부분 실행용으로 존치.
-  - **M4.3 — 기능 모듈 갤러리·예제 ✅**: `skill/REFERENCE.md`에 확장 패턴 갤러리(waitlist·noShow 2 사례로 Code Extension Contract 5요소를 실물 경로·외부 locator로 서술 — 일반화·registry 없음)를 신설하고, `skill/EXAMPLES.md`에 showcase 승격 3팩(`studycafe-seat`·`futsal-court`·`webinar-live`)과 신규 `equipment-rental` 1팩을 이식했다(각 팩 fresh 타깃 오프라인 bootstrap→verify 그린). 리소스4×slot3×위젯2 = 24칸 커버리지 카탈로그로 승격 후 6/24, equipment-rental 포함 최종 8/24(갭 16)를 소스 유도 수치로 기록. 테스트는 각 단계 게이트로 흡수.
+  - **M4.3 — 기능 모듈 갤러리·예제 ✅**: `skill/REFERENCE.md`에 waitlist·no-show 직접 경계 사례를 기록하고 `skill/EXAMPLES.md`에 promoted/kit-authored pack을 모았다. 현재 coverage는 예제 JSON의 service와 widget에서 기계적으로 유도한 리소스4×slot3×위젯2 = 24칸 중 **9/24**(gap 15)다.
 
 ---
 
@@ -87,7 +87,9 @@
 - pre-built core, minimal-change 사용.
 - 모듈식·조합 가능 — 켜고/붙이고/조합.
 - 스킬-가이드 안전 확장 — 불변식(Session Rules) 상속.
-- 검증된 채 출고 — verify + 11게이트 QA는 모든 경로에 유지.
+- 검증된 채 출고 — 오프라인 verify와 QA contract v2의 12게이트를 구분한다. 토글 off의 SKIP은 성공 증거가 아니다.
+- capability maturity는 machine manifest의 9개 구현/QA-proven과 명시적 BLOCKED/absent 예약 보증금 경계를 넘지 않는다.
+- setup은 provider 계정·DNS·OAuth client를 provisioning하지 않으며, 첫 성공 시간은 실제 dataset 없이 주장하지 않는다.
 - 비밀은 팩 밖 · setup에만.
 
 ---

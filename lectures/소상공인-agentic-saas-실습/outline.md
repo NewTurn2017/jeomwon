@@ -16,7 +16,9 @@ Gate 1 승인본 · 2026-08-08 · revision 1
 | 10 | 4분 | 수업 후 그대로 쓰는 프롬프트 사다리 | `code-block` | 인터뷰, 스키마화, 검토 프롬프트 제공 |
 | 11 | 10분 | 라이브: scaffold → inject → verify | `step-list` + 실제 터미널 | 선택 업종 생성과 오프라인 검증 성공 증명 |
 | 12 | 5분 | 생성된 제품을 한 바퀴 돕니다 | 실제 Jeomwon UI + callout | 고객 예약, chat, 운영자 화면, 캘린더·좌석 위젯 연결 |
-| 13 | 3분 | 생성 다음 순서: setup → QA → Vercel | `step-list` | 계정·OAuth·dev deployment·11 gates·배포 체크리스트 |
+<!-- doc-qa contract=2 gates=12 -->
+
+| 13 | 3분 | 생성 다음 순서: setup → QA → Vercel | `step-list` | 계정·OAuth·dev deployment·QA contract v2의 12 gates·배포 체크리스트 |
 | 14 | 3분 | 결제는 어디까지 되어 있나 | `comparison` | Polar 계정 구독과 미구현 예약 결제 분리 |
 | 15 | 2분 | 월요일에 다시 만드는 7단계 | `closing` | 자료·첫 프롬프트·첫 명령 회수와 Q&A |
 

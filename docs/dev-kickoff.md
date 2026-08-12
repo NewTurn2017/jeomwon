@@ -41,7 +41,9 @@ VISION.md 에 있다. 먼저 VISION.md 와 skill/SKILL.md, skill/REFERENCE.md �
 
 첫 액션: 위 "열린 결정"을 나와 문답으로 확정 → 확정 내용을 VISION.md 에 반영 →
 M0(기반 안정화: 커밋 정리 + issue C 결단) 착수 계획을 세워줘.
-검증 기대: template 변경 시 bun run qa(11게이트) 또는 verify 게이트로 확인.
+<!-- doc-qa contract=2 gates=12 -->
+
+검증 기대: template 변경 시 bun run qa(QA contract v2의 12게이트) 또는 verify 게이트로 확인.
 ```
 
 ---
@@ -49,7 +51,7 @@ M0(기반 안정화: 커밋 정리 + issue C 결단) 착수 계획을 세워줘.
 ## M4.2 — 부트스트랩 원커맨드 (현행 검증 기준)
 
 - 생성물 착수의 결정론 구간은 `bun skill/scripts/bootstrap.mjs <target-dir> <project-name> <domain-pack.json>` 한 줄로 묶여 있다(scaffold → inject → 오프라인 verify). 표준 검증은 **빈 임시 타깃에 Pension Stay 팩으로 bootstrap 하여 `VERIFY PASS`를 확인**하는 것이다(예: `mktemp -d` 아래 타깃 + `skill/EXAMPLES.md`의 Pension Stay 팩). bootstrap은 오프라인 전용이라 라이브 QA·`bun setup`을 실행하지 않고, 커밋된 비어있지 않은 `samples/pension-stay`는 타깃으로 거부한다.
-- template 라이브 회귀(`cd template && bun run qa` 11게이트 + `bun run typecheck` + `bun run lint`)는 **오케스트레이터 소유 게이트**다 — 이 문서를 붙여넣는 구현 세션이 임의로 돌리지 말고 오케스트레이터의 그린 리시트로 확인한다.
+- template 라이브 회귀(`cd template && bun run qa` QA contract v2의 12게이트 + `bun run typecheck` + `bun run lint`)는 **오케스트레이터 소유 게이트**다 — 이 문서를 붙여넣는 구현 세션이 임의로 돌리지 말고 오케스트레이터의 그린 리시트로 확인한다.
 - 단일 `scaffold.mjs`·`inject.mjs`·`verify.mjs` 커맨드는 재실행·부분 실행·디버깅용으로 남아 있다. 정확한 인자와 계약은 [skill/REFERENCE.md](../skill/REFERENCE.md)의 Bootstrap Contract / Verification Gates 참고.
 
 ---
