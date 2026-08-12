@@ -1,13 +1,29 @@
 import { lstatSync, realpathSync, writeFileSync } from "node:fs";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { join, relative, sep } from "node:path";
+import { safeDirectory, safeRelativeParts } from "./release-evidence-paths";
 
 export function writeDeploymentReport(
   trustedRoot: string,
   relativeOutput: string,
   report: unknown,
+  trustedAnchor = trustedRoot,
 ) {
-  const root = inspectRoot(trustedRoot);
-  const parts = inspectRelativePath(relativeOutput);
+  writeTrustedText(
+    trustedRoot,
+    relativeOutput,
+    `${JSON.stringify(report, null, 2)}\n`,
+    trustedAnchor,
+  );
+}
+
+export function writeTrustedText(
+  trustedRoot: string,
+  relativeOutput: string,
+  content: string,
+  trustedAnchor = trustedRoot,
+) {
+  const root = safeDirectory(trustedAnchor, trustedRoot, "report_root_unsafe");
+  const parts = safeRelativeParts(relativeOutput, "report_path_invalid");
   const leaf = parts.at(-1);
   if (!leaf) throw new Error("report_path_invalid");
   let parent = root;
@@ -20,33 +36,11 @@ export function writeDeploymentReport(
     throw new Error("report_parent_unsafe");
   const output = join(canonicalParent, leaf);
   inspectLeaf(output);
-  writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`, {
+  writeFileSync(output, content, {
     encoding: "utf8",
     flag: "wx",
     mode: 0o600,
   });
-}
-
-function inspectRoot(candidate: string) {
-  const lexical = resolve(candidate);
-  let stat: ReturnType<typeof lstatSync>;
-  try {
-    stat = lstatSync(lexical);
-  } catch {
-    throw new Error("report_root_missing");
-  }
-  if (stat.isSymbolicLink() || !stat.isDirectory())
-    throw new Error("report_root_unsafe");
-  return realpathSync(lexical);
-}
-
-function inspectRelativePath(candidate: string) {
-  if (!candidate || isAbsolute(candidate) || candidate.includes("\\"))
-    throw new Error("report_path_invalid");
-  const parts = candidate.split("/");
-  if (parts.some((part) => !part || part === "." || part === ".."))
-    throw new Error("report_path_invalid");
-  return parts;
 }
 
 function inspectParent(path: string) {

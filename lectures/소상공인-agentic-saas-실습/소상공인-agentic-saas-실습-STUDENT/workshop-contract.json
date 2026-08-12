@@ -17,8 +17,8 @@
 		"skillSource": {
 			"kind": "bundled-archive",
 			"archivePath": "skill/assets/jeomwon-template-v0.1.0.tar.gz",
-			"archiveSha256": "b9774b2d4a9f2233479d5dea4ff0b51f5b4486c841a83e29a83298771835062e",
-			"contentSha256": "dfceb1884d671dbdb66e2c0053278a54658e62670345d2cfd30a782ac3fde170"
+			"archiveSha256": "337d8a9eb59b473061afd053cac2fd460465d596b70cb20989e7ba016af01bb2",
+			"contentSha256": "c485a9b50f37eb0cf079319704da42228501938627a1d45c13438e80af6c5c36"
 		}
 	},
 	"commands": {

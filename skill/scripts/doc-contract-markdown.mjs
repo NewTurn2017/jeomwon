@@ -15,6 +15,8 @@ const EXCLUDED = new Set([
 	".git",
 	".gjc",
 	".omo",
+	".next",
+	".turbo",
 	"_generated",
 	"node_modules",
 	"samples",

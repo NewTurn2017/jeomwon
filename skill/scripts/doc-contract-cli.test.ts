@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import {
 	cpSync,
+	mkdirSync,
 	mkdtempSync,
 	readFileSync,
 	rmSync,
@@ -15,6 +16,8 @@ const excluded = new Set([
 	".git",
 	".gjc",
 	".omo",
+	".next",
+	".turbo",
 	"_generated",
 	"node_modules",
 	"samples",
@@ -66,6 +69,21 @@ function mutate(path: string, from: string, to: string, expected: string) {
 }
 
 describe("full documentation validator mutations", () => {
+	test("generated build directories are excluded by basename without hiding source docs", () => {
+		const generated = join(root, "template/apps/web/.next/server/app");
+		mkdirSync(generated, { recursive: true });
+		writeFileSync(
+			join(generated, "_not-found.html"),
+			'<a href="#missing">bad</a>',
+		);
+		const cache = join(root, "template/.turbo/nested");
+		mkdirSync(cache, { recursive: true });
+		writeFileSync(join(cache, "bad.md"), "[bad](#missing)");
+		const result = run();
+		expect(result.status).toBe(0);
+		expect(result.stdout).toBe("DOC CONTRACT PASS\n");
+	});
+
 	test("baseline passes without executing nested marked commands", () => {
 		const result = run();
 		expect(result.status).toBe(0);

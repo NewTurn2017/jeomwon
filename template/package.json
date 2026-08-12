@@ -25,6 +25,7 @@
     "qa": "bun scripts/qa-local.ts",
     "qa:run": "tsx scripts/qa.ts",
     "first-success:report": "bun scripts/first-success-report.ts",
+    "release:evidence": "bun scripts/release-evidence.ts",
     "setup": "bun scripts/setup/index.ts",
     "format": "biome format --write .",
     "lint": "turbo lint && biome lint scripts",

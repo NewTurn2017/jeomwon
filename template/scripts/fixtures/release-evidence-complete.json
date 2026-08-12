@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "description": "Shape-only fixture. Tests replace hashes and commit with temporary real files; this fixture is not release proof.",
+  "firstSuccess": { "status": "defined-not-measured" },
+  "operations": [
+    { "name": "tag", "status": "blocked", "reason": "publication_pending_orchestrator" },
+    { "name": "release", "status": "blocked", "reason": "publication_pending_orchestrator" }
+  ]
+}
