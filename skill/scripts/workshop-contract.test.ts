@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,10 +22,6 @@ const packagedArtifacts = [
 
 function readJson(path: string) {
 	return JSON.parse(readFileSync(path, "utf8"));
-}
-
-function sha256(path: string) {
-	return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
 function walkStrings(value: unknown): string[] {
@@ -57,13 +52,17 @@ describe("workshop first-five-minute contract", () => {
 					resource.kind === pack.services[0].resourceKind,
 			),
 		).toBe(true);
-		expect(source.kind).toBe("bundled-archive");
-		expect(source.archivePath).toBe(
-			`skill/${manifest.templateSource.archivePath}`,
+		expect(source.kind).toBe("published-release-asset");
+		expect(source.tag).toBe(contract.distribution.release.tag);
+		expect(source.archiveSha256).toBe(
+			contract.distribution.release.asset.sha256,
 		);
-		expect(source.archiveSha256).toBe(manifest.templateSource.archiveSha256);
-		expect(source.contentSha256).toBe(manifest.templateSource.contentSha256);
-		expect(sha256(join(root, source.archivePath))).toBe(source.archiveSha256);
+		expect(source.contentSha256).toBe(
+			"813c37e8f4626af3945c8f1af6bddc8ead0a60a9c2340936fd2b123bb584a3a7",
+		);
+		expect(manifest.templateSource.archivePath).toBe(
+			"assets/jeomwon-template-v0.1.1.tar.gz",
+		);
 	});
 
 	test("pins the published release without mutable distribution URLs", () => {

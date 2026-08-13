@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   assertCheckoutInput,
+  assertPortalReturnUrl,
   filterConfiguredProducts,
   generateCheckoutLink,
 } from "../convex/subscriptions";
@@ -76,6 +77,33 @@ describe("Polar account-subscription boundary", () => {
         ),
       ),
     ).toBe("polar_checkout_metadata_reserved");
+  });
+
+  test("binds customer portal returns to a configured application origin", () => {
+    expect(
+      assertPortalReturnUrl(
+        "https://app.example.com/en/settings/billing",
+        configuration.applicationOrigins,
+      ),
+    ).toBe("https://app.example.com/en/settings/billing");
+    expect(
+      assertPortalReturnUrl(undefined, configuration.applicationOrigins),
+    ).toBe(undefined);
+    for (const returnUrl of [
+      "https://evil.example/settings/billing",
+      "javascript:alert(1)",
+      "https://app.example.com.evil.example/settings",
+      "https://app.example.com/%0aevil",
+      " https://app.example.com/en/settings/billing",
+      "https://app.example.com/en/settings/billing\n",
+      "https://app.example.com/en/\u0000settings",
+    ]) {
+      expect(
+        rejection(() =>
+          assertPortalReturnUrl(returnUrl, configuration.applicationOrigins),
+        ),
+      ).toBe("polar_portal_return_url_forbidden");
+    }
   });
 
   test("rejects every non-HTTP checkout origin and success URL", () => {

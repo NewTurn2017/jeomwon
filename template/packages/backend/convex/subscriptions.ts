@@ -211,6 +211,30 @@ export function assertCheckoutInput<T extends CheckoutInput>(
   };
 }
 
+export function assertPortalReturnUrl(
+  returnUrl: string | undefined,
+  applicationOrigins: readonly string[],
+) {
+  if (returnUrl === undefined) return undefined;
+  let url: URL;
+  try {
+    url = new URL(returnUrl);
+  } catch {
+    throw new Error("polar_portal_return_url_forbidden");
+  }
+  if (
+    (url.protocol !== "https:" && url.protocol !== "http:") ||
+    url.username ||
+    url.password ||
+    returnUrl !== url.href ||
+    ENCODED_ASCII_CONTROL.test(returnUrl) ||
+    !applicationOrigins.includes(url.origin)
+  ) {
+    throw new Error("polar_portal_return_url_forbidden");
+  }
+  return url.href;
+}
+
 export function filterConfiguredProducts<T extends { readonly id: string }>(
   products: readonly T[],
   configuredProductIds: readonly string[],
@@ -395,9 +419,15 @@ export const generateCustomerPortalUrl = action({
   }> => {
     const client = getPolarClient("customer portal URL generation");
     const { userId } = await getUserInfo(ctx);
+    const configuration = checkoutConfiguration(
+      getRequiredPolarEnv("customer portal URL generation"),
+    );
     return await client.createCustomerPortalSession(ctx, {
       userId,
-      returnUrl: args.returnUrl,
+      returnUrl: assertPortalReturnUrl(
+        args.returnUrl,
+        configuration.applicationOrigins,
+      ),
     });
   },
 });

@@ -1,10 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import {
-	mkdtempSync,
-	readFileSync,
-	rmSync,
-	writeFileSync,
-} from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,8 +39,8 @@ afterEach(() => {
 });
 
 function readWorkflowStages(workflow: string): string[] {
-	return [...workflow.matchAll(/^\s+run:\s*(.+)$/gm)].map(
-		([, command]) => command.trim(),
+	return [...workflow.matchAll(/^\s+run:\s*(.+)$/gm)].map(([, command]) =>
+		command.trim(),
 	);
 }
 
@@ -103,7 +98,11 @@ describe("generated CI verification contract", () => {
 		);
 		writeFileSync(fixturePath, missingTestStage);
 
-		expect(() => Bun.YAML.parse(readFileSync(fixturePath, "utf8"))).not.toThrow();
-		expect(() => assertWorkflowContract(readFileSync(fixturePath, "utf8"))).toThrow();
+		expect(() =>
+			Bun.YAML.parse(readFileSync(fixturePath, "utf8")),
+		).not.toThrow();
+		expect(() =>
+			assertWorkflowContract(readFileSync(fixturePath, "utf8")),
+		).toThrow();
 	});
 });

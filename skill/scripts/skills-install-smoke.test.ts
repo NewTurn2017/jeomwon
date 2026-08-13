@@ -44,7 +44,7 @@ type CompatibilityCase = {
 
 const MATCHING_TEMPLATE_MANIFEST = {
 	schemaVersion: 1,
-	templateVersion: "0.1.0",
+	templateVersion: "0.1.1",
 	templateApi: 1,
 	contracts: {
 		domainPackWriter: 0,
@@ -370,7 +370,7 @@ describe("public skill installation", () => {
 		expect(
 			installedManifest.some((entry) =>
 				entry.startsWith(
-					"f .agents/skills/jeomwon/assets/jeomwon-template-v0.1.0.tar.gz ",
+					"f .agents/skills/jeomwon/assets/jeomwon-template-v0.1.1.tar.gz ",
 				),
 			),
 		).toBe(true);
@@ -446,8 +446,8 @@ describe("public skill installation", () => {
 			join(fixtureSkill, "jeomwon-skill.json"),
 		);
 		cpSync(
-			join(skillPath, "assets/jeomwon-template-v0.1.0.tar.gz"),
-			join(fixtureSkill, "assets/jeomwon-template-v0.1.0.tar.gz"),
+			join(skillPath, "assets/jeomwon-template-v0.1.1.tar.gz"),
+			join(fixtureSkill, "assets/jeomwon-template-v0.1.1.tar.gz"),
 		);
 		cpSync(join(repoRoot, "template"), join(root, "template"), {
 			recursive: true,
@@ -724,26 +724,29 @@ describe("archive-backed installed scaffold", () => {
 		},
 	];
 
-	test.each([...incompatibleTemplates, ...placeholderContracts])(
-		"$label fails compatibility before target publication",
-		async ({ code, entries }) => {
-			const root = temporaryRoot("jeomwon compatibility invalid ");
-			const script = installedScaffold(root);
-			const archive = join(root, "template.tar");
-			const target = join(root, "target");
-			await writeArchive(archive, entries);
+	test.each([
+		...incompatibleTemplates,
+		...placeholderContracts,
+	])("$label fails compatibility before target publication", async ({
+		code,
+		entries,
+	}) => {
+		const root = temporaryRoot("jeomwon compatibility invalid ");
+		const script = installedScaffold(root);
+		const archive = join(root, "template.tar");
+		const target = join(root, "target");
+		await writeArchive(archive, entries);
 
-			const result = runScaffold(script, target, archive);
+		const result = runScaffold(script, target, archive);
 
-			expect(result.status).toBe(1);
-			expect(`${result.stdout}${result.stderr}`).toContain(`ERROR [${code}]`);
-			expect(`${result.stdout}${result.stderr}`).not.toContain(
-				"[PASS scaffold_created]",
-			);
-			expect(existsSync(target)).toBe(false);
-			expect(stagingEntries(target)).toEqual([]);
-		},
-	);
+		expect(result.status).toBe(1);
+		expect(`${result.stdout}${result.stderr}`).toContain(`ERROR [${code}]`);
+		expect(`${result.stdout}${result.stderr}`).not.toContain(
+			"[PASS scaffold_created]",
+		);
+		expect(existsSync(target)).toBe(false);
+		expect(stagingEntries(target)).toEqual([]);
+	});
 
 	const invalidArchives: InvalidArchive[] = [
 		{
@@ -766,29 +769,31 @@ describe("archive-backed installed scaffold", () => {
 		},
 	];
 
-	test.each(invalidArchives)(
-		"$label fails without creating target bytes",
-		async ({ code, entries }: InvalidArchive) => {
-			const root = temporaryRoot("jeomwon archive invalid ");
-			const script = installedScaffold(root);
-			const archive = join(root, "invalid archive.tar");
-			const target = join(root, "target");
-			if (entries) await writeArchive(archive, entries);
-			else writeFileSync(archive, "this is not an archive");
-			const before = manifest(target);
+	test.each(
+		invalidArchives,
+	)("$label fails without creating target bytes", async ({
+		code,
+		entries,
+	}: InvalidArchive) => {
+		const root = temporaryRoot("jeomwon archive invalid ");
+		const script = installedScaffold(root);
+		const archive = join(root, "invalid archive.tar");
+		const target = join(root, "target");
+		if (entries) await writeArchive(archive, entries);
+		else writeFileSync(archive, "this is not an archive");
+		const before = manifest(target);
 
-			const result = runScaffold(script, target, archive);
+		const result = runScaffold(script, target, archive);
 
-			expect(result.error).toBeUndefined();
-			expect(result.status).toBe(1);
-			expect(`${result.stdout}${result.stderr}`).toContain(`ERROR [${code}]`);
-			expect(`${result.stdout}${result.stderr}`).not.toContain(
-				"[PASS scaffold_created]",
-			);
-			expect(manifest(target)).toEqual(before);
-			expect(stagingEntries(target)).toEqual([]);
-		},
-	);
+		expect(result.error).toBeUndefined();
+		expect(result.status).toBe(1);
+		expect(`${result.stdout}${result.stderr}`).toContain(`ERROR [${code}]`);
+		expect(`${result.stdout}${result.stderr}`).not.toContain(
+			"[PASS scaffold_created]",
+		);
+		expect(manifest(target)).toEqual(before);
+		expect(stagingEntries(target)).toEqual([]);
+	});
 
 	test("repeated interrupts during archive copy exit 130 without publishing target or staging bytes", async () => {
 		const root = temporaryRoot("jeomwon archive interrupt ");

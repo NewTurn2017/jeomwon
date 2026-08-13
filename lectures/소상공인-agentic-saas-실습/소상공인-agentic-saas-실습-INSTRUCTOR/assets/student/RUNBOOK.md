@@ -10,7 +10,7 @@
 - commit: `68ead8a8e93e08001bf04dfb705d8fcd3c844ca5`
 - release: `https://github.com/NewTurn2017/jeomwon/releases/tag/v0.1.0`
 - download: `https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.0/jeomwon-template-v0.1.0.tar.gz`
-- archive: `skill/assets/jeomwon-template-v0.1.0.tar.gz`
+- release asset: `jeomwon-template-v0.1.0.tar.gz`
 - archive SHA-256: `fe74258da1c56e4811e5c9665aab5e940dd200fe2e6c5d6b13c39a64c95aa282`
 - content SHA-256: `813c37e8f4626af3945c8f1af6bddc8ead0a60a9c2340936fd2b123bb584a3a7`
 

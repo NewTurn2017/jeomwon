@@ -53,7 +53,7 @@ canonical Bun/Turbo/Next.js/Convex workspace in `template/`.
 - Store-timezone calendar parts drive booking time. Do not substitute browser/local `getHours()` logic.
 - `threadId` is routing context, never identity or authorization. Public and internal context shapes stay separated.
 - Bun is the package manager. Biome is the sole formatter/linter; tests use `bun:test`.
-- `skill/assets/jeomwon-template-v0.1.0.tar.gz` is the immutable installed-skill source derived from canonical `template/`. Every included template change must rebuild it with `bun skill/scripts/build-template-archive.mjs`, update both hashes in `skill/jeomwon-skill.json`, and pass `bun skill/scripts/build-template-archive.mjs --check`. The builder excludes local/generated `.DS_Store`, `.env.local`, `.next`, `.react-email`, `.turbo`, `.vercel`, `node_modules`, `next-env.d.ts`, and `qa-artifacts` entries by basename.
+- The archive named by `skill/jeomwon-skill.json` is the immutable installed-skill source derived from canonical `template/`. Every included template change must advance the patch version and archive filename, rebuild it with `bun skill/scripts/build-template-archive.mjs`, update both hashes in `skill/jeomwon-skill.json`, and pass `bun skill/scripts/build-template-archive.mjs --check`. Published release archives are never overwritten. The builder excludes local/generated `.DS_Store`, `.env.local`, `.next`, `.react-email`, `.turbo`, `.vercel`, `node_modules`, `next-env.d.ts`, and `qa-artifacts` entries by basename.
 
 ## ANTI-PATTERNS (THIS PROJECT)
 

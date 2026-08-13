@@ -21,7 +21,7 @@ const manifestPath = join(skillRoot, "jeomwon-skill.json");
 const defaultOutput = join(
 	skillRoot,
 	"assets",
-	"jeomwon-template-v0.1.0.tar.gz",
+	"jeomwon-template-v0.1.1.tar.gz",
 );
 const excludedNames = new Set([
 	".DS_Store",

@@ -20,8 +20,8 @@
 			"developmentOnly": true
 		},
 		"skillSource": {
-			"kind": "bundled-archive",
-			"archivePath": "skill/assets/jeomwon-template-v0.1.0.tar.gz",
+			"kind": "published-release-asset",
+			"tag": "v0.1.0",
 			"archiveSha256": "fe74258da1c56e4811e5c9665aab5e940dd200fe2e6c5d6b13c39a64c95aa282",
 			"contentSha256": "813c37e8f4626af3945c8f1af6bddc8ead0a60a9c2340936fd2b123bb584a3a7"
 		}
