@@ -2,11 +2,11 @@
 
 | 증상 | 원인 확인 | 조치 |
 |---|---|---|
-| `release_missing` | 공개 GitHub tag/release 없음 | 로컬 checkout은 dev-only로 유지하고 release URL을 만들지 않음 |
+| release asset checksum 불일치 | 다운로드 손상 또는 잘못된 tag | `v0.1.0` asset을 다시 받고 SHA-256 `fe74258d…` 확인 |
 | target이 비어 있지 않음 | 이전 실패 폴더 재사용 | 출력의 대체 target을 쓰거나 새 이름으로 다시 실행 |
 | `bun_version_mismatch` | Bun이 1.3.14가 아님 | `bun upgrade --version 1.3.14` 후 버전 재확인 |
 | `cache_not_ready` | frozen offline install cache 미준비 | preflight가 출력한 단일 `warm-cache.mjs` recovery argv를 네트워크 허용 시 실행 |
-| `archive_checksum_mismatch` | 설치 skill archive가 계약 SHA와 다름 | 설치를 지우고 현재 로컬 checkout에서 skill을 다시 설치; 임의 archive 사용 금지 |
+| `archive_checksum_mismatch` | 설치 skill archive가 계약 SHA와 다름 | 설치를 지우고 `https://github.com/NewTurn2017/jeomwon/tree/v0.1.0/skill`에서 다시 설치; 임의 archive 사용 금지 |
 | `pack_missing` | 예전 `domain-pack.json` 예시 경로 사용 | 저장소 루트의 `lectures/소상공인-agentic-saas-실습/assets/student/salon-domain-pack.json` 사용 |
 | domain pack 거부 | 닫힌 스키마 밖 key/value | `skill/REFERENCE.md`와 `skill/EXAMPLES.md` 기준으로 수정 |
 | bootstrap 중단 | cache/build/도구 오류 | 실패 target 재사용 금지; 새 target으로 재시도하거나 준비된 fallback receipt 표시 |

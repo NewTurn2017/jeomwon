@@ -2,18 +2,20 @@
 
 ## 배포 상태
 
-공개 GitHub release/tag는 아직 없습니다(`release_missing`). 따라서 공개 배포 URL을
-만들거나 `main`을 불변 릴리스처럼 사용하지 않습니다. 아래 절차는 **이미 받은 로컬
-저장소 checkout에서만 쓰는 개발용 경로**입니다.
+공개 GitHub release `v0.1.0`이 게시되어 있습니다.
 
-워크숍은 이 checkout의 skill에 포함된 불변 로컬 계약을 사용합니다.
+워크숍은 다음 불변 tag와 archive 계약을 사용합니다.
 
+- tag: `v0.1.0`
+- commit: `68ead8a8e93e08001bf04dfb705d8fcd3c844ca5`
+- release: `https://github.com/NewTurn2017/jeomwon/releases/tag/v0.1.0`
+- download: `https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.0/jeomwon-template-v0.1.0.tar.gz`
 - archive: `skill/assets/jeomwon-template-v0.1.0.tar.gz`
 - archive SHA-256: `fe74258da1c56e4811e5c9665aab5e940dd200fe2e6c5d6b13c39a64c95aa282`
 - content SHA-256: `813c37e8f4626af3945c8f1af6bddc8ead0a60a9c2340936fd2b123bb584a3a7`
 
-릴리스 배포 전제는 BLOCKED입니다. 외부 release가 생기기 전까지 이 로컬 checkout을
-고객용 릴리스로 소개하지 않습니다.
+`main`은 계속 변할 수 있으므로 설치와 재현에는 위 tag만 사용합니다. 아래 pack 경로는
+이 강의 패키지 checkout에서 읽습니다.
 
 ## 준비와 설치
 
@@ -25,7 +27,7 @@
 ```bash
 cd "$(git rev-parse --show-toplevel)"
 test "$(bun --version)" = "1.3.14"
-bunx --bun skills@1.5.22 add . --skill jeomwon --agent universal claude-code --global --yes
+bunx --bun skills@1.5.22 add https://github.com/NewTurn2017/jeomwon/tree/v0.1.0/skill --skill jeomwon --agent universal claude-code --global --yes
 export CLAUDE_SKILL_DIR="${CLAUDE_SKILL_DIR:-$HOME/.claude/skills/jeomwon}"
 test -f "$CLAUDE_SKILL_DIR/jeomwon-skill.json"
 ```

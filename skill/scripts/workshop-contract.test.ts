@@ -66,19 +66,31 @@ describe("workshop first-five-minute contract", () => {
 		expect(sha256(join(root, source.archivePath))).toBe(source.archiveSha256);
 	});
 
-	test("blocks the missing release without mutable or invented distribution URLs", () => {
+	test("pins the published release without mutable distribution URLs", () => {
 		const contract = readJson(join(lecture, "workshop-contract.json"));
 		const strings = walkStrings(contract);
 
-		expect(contract.distribution.release.status).toBe("blocked");
-		expect(contract.distribution.release.reasonCode).toBe("release_missing");
-		expect(contract.distribution.release.tag).toBeNull();
-		expect(contract.distribution.release.url).toBeNull();
+		expect(contract.distribution.release).toEqual({
+			status: "published",
+			tag: "v0.1.0",
+			commit: "68ead8a8e93e08001bf04dfb705d8fcd3c844ca5",
+			url: "https://github.com/NewTurn2017/jeomwon/releases/tag/v0.1.0",
+			asset: {
+				name: "jeomwon-template-v0.1.0.tar.gz",
+				url: "https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.0/jeomwon-template-v0.1.0.tar.gz",
+				sha256:
+					"fe74258da1c56e4811e5c9665aab5e940dd200fe2e6c5d6b13c39a64c95aa282",
+			},
+		});
 		expect(contract.distribution.localCheckout.developmentOnly).toBe(true);
 		expect(
 			strings.some((value) => /raw\.githubusercontent\.com/i.test(value)),
 		).toBe(false);
 		expect(strings.some((value) => /\/main(?:\/|$)/i.test(value))).toBe(false);
+		expect(contract.commands.install).toContain(
+			"https://github.com/NewTurn2017/jeomwon/tree/v0.1.0/skill",
+		);
+		expect(contract.commands.install).not.toContain(".");
 	});
 
 	test("pins executable install, preflight, bootstrap, output, fallback, and live boundary markers", () => {
