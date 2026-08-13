@@ -129,29 +129,27 @@ function oauthFailureArgs() {
   ];
 }
 
+function shellQuote(value: string) {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
 function runOAuthFailurePty(noColor: string | undefined) {
   const envArgs = ["-u", "NO_COLOR", "TERM=xterm-256color"];
   if (noColor !== undefined) envArgs.push(`NO_COLOR=${noColor}`);
-  return spawnSync(
-    "script",
-    [
-      "-q",
-      "/dev/null",
-      "env",
-      ...envArgs,
-      process.execPath,
-      ...oauthFailureArgs(),
-    ],
-    {
-      cwd: templateRoot,
-      encoding: "utf8",
-      timeout: 15_000,
-      env: {
-        ...process.env,
-        JEOMWON_SETUP_STUBS: oauthFailureStubs,
-      },
+  const command = ["env", ...envArgs, process.execPath, ...oauthFailureArgs()];
+  const scriptArgs =
+    process.platform === "darwin"
+      ? ["-q", "/dev/null", ...command]
+      : ["-q", "-e", "-c", command.map(shellQuote).join(" "), "/dev/null"];
+  return spawnSync("script", scriptArgs, {
+    cwd: templateRoot,
+    encoding: "utf8",
+    timeout: 15_000,
+    env: {
+      ...process.env,
+      JEOMWON_SETUP_STUBS: oauthFailureStubs,
     },
-  );
+  });
 }
 
 describe("setup options and locale contract", () => {
