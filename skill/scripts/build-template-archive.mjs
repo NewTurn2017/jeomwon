@@ -29,7 +29,9 @@ const excludedNames = new Set([
 	".next",
 	".react-email",
 	".turbo",
+	".vercel",
 	"node_modules",
+	"next-env.d.ts",
 	"qa-artifacts",
 ]);
 
