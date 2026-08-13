@@ -75,6 +75,7 @@ async function buildArchive() {
 	}
 	chunks.push(new Uint8Array(1024));
 	const compressed = Bun.gzipSync(Buffer.concat(chunks), { level: 9 });
+	compressed[9] = 255;
 	return {
 		compressed,
 		archiveSha256: sha256(compressed),

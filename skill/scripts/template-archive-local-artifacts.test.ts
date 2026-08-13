@@ -39,6 +39,14 @@ function runCheck(root: string) {
 	);
 }
 
+function runBuild(root: string, output: string) {
+	return spawnSync(
+		"bun",
+		[join(root, "skill/scripts/build-template-archive.mjs"), output],
+		{ cwd: root, encoding: "utf8" },
+	);
+}
+
 test("local framework artifacts do not stale the immutable template archive", () => {
 	const root = mkdtempSync(join(tmpdir(), "jeomwon archive artifacts "));
 	roots.push(root);
@@ -58,6 +66,10 @@ test("local framework artifacts do not stale the immutable template archive", ()
 	}
 
 	expect(runCheck(root).status).toBe(0);
+
+	const canonicalArchive = join(root, "canonical.tar.gz");
+	expect(runBuild(root, canonicalArchive).status).toBe(0);
+	expect(readFileSync(canonicalArchive)[9]).toBe(255);
 
 	mkdirSync(join(root, "template/.vercel"), { recursive: true });
 	writeFileSync(
