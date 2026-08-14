@@ -31,7 +31,7 @@ The generated UI is production-ready out of the box: a light, domain-aware landi
 
 ```bash
 curl -fsSL https://claude.ai/install.sh | bash
-curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.4/install.sh | bash -s -- --agent all
+curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.5/install.sh | bash -s -- --agent all
 mkdir -p "$HOME/Desktop/jeomwon-zero-test" && cd "$HOME/Desktop/jeomwon-zero-test"
 claude
 ```
@@ -57,11 +57,11 @@ The generated project (and `template/` itself) ships a self-contained setup wiza
 cd template
 bun install --frozen-lockfile
 bunx convex login
-bun setup        # Convex/JWT plus the Google OAuth and operator-allowlist first-success path
+bun setup        # Convex/JWT, Google OAuth, operator allowlist, then Resend/OpenAI/Polar
 bun dev          # web + app + backend, in parallel
 ```
 
-Setup schema 2 validates the already-authenticated Convex CLI, creates or reuses a dev deployment, pauses for the user to register its exact redirect URI on an existing Google OAuth client, and writes the supplied client ID/secret plus operator allowlist to Convex env. Setup does not perform an end-user Convex or Google login, and does not provision provider accounts, DNS, or an OAuth client. Resend, OpenAI, and Polar are optional-provider follow-ups; the real Google operator identity remains separate from anonymous local customer QA.
+Setup schema 2 validates the already-authenticated Convex CLI, creates or reuses a dev deployment, pauses for the user to register its exact redirect URI on an existing Google OAuth client, and writes the supplied client ID/secret plus operator allowlist to Convex env. Setup does not perform an end-user Convex or Google login, and does not provision provider accounts, DNS, or an OAuth client. It then walks Resend, OpenAI, and Polar in order and skips only the providers you decline (`--minimal` stops after Convex and Google). Output defaults to Korean; pass `--lang en` for English. The real Google operator identity remains separate from anonymous local customer QA.
 
 ## What's in the box
 
@@ -95,9 +95,9 @@ To run only the gates against a server you already have up, use `bun run qa:run`
 
 - `apps/web/.env.example` — `NEXT_PUBLIC_CONVEX_URL`, `AGENT_RUNTIME` (`mock` | OpenAI), `OPENAI_API_KEY`
 - `apps/app/.env.example` — dashboard app env
-- `packages/backend/.env.example` — Convex deployment, `SITE_URL`, optional Polar account-subscription keys (only when `domain.config.features.polar` is on)
+- `packages/backend/.env.example` — Convex deployment, `SITE_URL`, optional Polar account-subscription keys and the deposit product id (only when `domain.config.features.polar` is on)
 
-Polar is only for an authenticated account's SaaS subscription. Service `price` is display copy; reservation deposits, booking charges, refunds, and a reservation payment ledger are absent. The capability manifest currently declares nine implemented/QA-proven capabilities, while examples derive coverage of 9/24 resource × slot × widget cells.
+Polar covers two separate capabilities. The account subscription is for an authenticated account's SaaS plan. Reservation deposits are a backend seam: a one-time product named by `POLAR_DEPOSIT_PRODUCT_ID`, whose order webhook writes the deposit onto the reservation. Deposit UI, booking charges, and a reservation payment ledger are absent, and service `price` is display copy. The capability manifest currently declares ten implemented/QA-proven capabilities, while examples derive coverage of 9/24 resource × slot × widget cells.
 
 Canonical generated projects use domain-pack schema v1 and receipt schema v3. Only a schemaVersion-less exact legacy v0 pack shape migrates purely to v1. Offline bootstrap `VERIFY PASS` proves install/typecheck/lint/tests/build, not live QA, deployment, provider success, or an unmeasured first-success time.
 

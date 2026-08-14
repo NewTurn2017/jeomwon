@@ -130,8 +130,9 @@ tooling            공유 TypeScript 설정
 
 - **범위** — Polar는 로그인 계정의 SaaS 구독만 처리한다. 상품 목록(`listAllProducts`), 계정 구독 체크아웃 링크(`generateCheckoutLink`), 고객 포털(`generateCustomerPortalUrl`), 구독 변경/취소, 현재 구독 조회, 웹훅 라우트(`/polar/events`)가 표면이다.
 - **필수 env** — `POLAR_ORGANIZATION_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRODUCT_IDS`. 누락 시 명시적 에러.
-- **예약 커머스 부재** — 예약 보증금·예약 대금 청구·환불·예약별 결제 ledger는 구현되지 않았다. 서비스 `price`는 표시 문자열이며 Polar 구독과 연결되지 않는다.
-- 관리자 앱 UI: `settings/billing`, `_components/polar-checkout-link.tsx`. Manifest maturity는 positive provider 왕복 없이 `implemented`이며 operational proof를 주장하지 않는다.
+- **예약 보증금 (별도 capability)** — `packages/backend/convex/deposits.ts`. 계정 구독과 분리된 일회성 Polar 상품이며 `features.polar`와 `POLAR_DEPOSIT_PRODUCT_ID`가 모두 있어야 켜진다. 표면은 체크아웃 액션(`startDepositCheckout`), 소유권 확인(`claimDepositCheckout`), 주문 웹훅 반영(`recordDepositOrder`), 고객 조회(`depositSnapshot`)이다. 예약 문서 id는 서버가 checkout metadata에 넣고, `order.created`/`order.refunded`가 같은 `/polar/events` 라우트로 돌아와 예약의 `deposit` 필드와 audit 항목을 갱신한다.
+- **예약 커머스 범위** — 보증금 외의 예약 대금 청구·부분 환불 UI·예약별 결제 ledger는 구현되지 않았다. 서비스 `price`는 표시 문자열이며 Polar 상품과 연결되지 않는다. 보증금 표면에도 고객·운영자 UI는 없다.
+- 관리자 앱 UI: `settings/billing`, `_components/polar-checkout-link.tsx`. 두 Polar capability 모두 manifest maturity는 positive provider 왕복 없이 `implemented`이며 operational proof를 주장하지 않는다.
 
 ---
 
@@ -195,10 +196,10 @@ QA는 business-hours-aware — cancel-window 오프셋을 엔진 순수 헬퍼(`
 | operator.calendarCrud | kit-core | feature | false | implemented | test | - |
 | billing.accountSubscription.polar | integration | feature | false | implemented | test | - |
 | attendance.noShow | kit-core | feature | false | qa-proven | qa | 12 |
-| payment.reservationDeposit | planned | unavailable | false | planned | none | - |
+| payment.reservationDeposit | integration | feature | false | implemented | test | - |
 <!-- doc-contract:capabilities:end -->
 
-현재 manifest는 9개 구현/QA-proven capability와 1개 명시적 planned capability를 선언한다. 예제 coverage는 capability 개수가 아니라 `resourceKind × slotUnit × adminWidget` 24칸 중 9칸이며 [EXAMPLES.md](./skill/EXAMPLES.md)의 팩과 matrix에서 유도한다.
+현재 manifest는 10개 구현/QA-proven capability를 선언하고 planned capability는 없다. `payment.reservationDeposit`은 계정 구독과 분리된 일회성 Polar 주문이며, `features.polar`와 `POLAR_DEPOSIT_PRODUCT_ID`가 모두 있어야 켜진다. 예제 coverage는 capability 개수가 아니라 `resourceKind × slotUnit × adminWidget` 24칸 중 9칸이며 [EXAMPLES.md](./skill/EXAMPLES.md)의 팩과 matrix에서 유도한다.
 
 <!-- doc-contract:identities:start -->
 | Contract ID | Value |

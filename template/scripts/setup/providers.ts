@@ -469,6 +469,12 @@ export async function configureFirstSuccessDefaults(
       "Reservations, cancellation, and escalation can be verified with persisted Convex state.",
     ),
   );
+  ui.hint(
+    tr(
+      "세 제공자를 모두 연결하려면 --minimal 없이 bun setup을 다시 실행하세요.",
+      "Run bun setup again without --minimal to connect all three providers.",
+    ),
+  );
 }
 
 export async function requireProductionAnonymousOptIn(ctx: RuntimeContext) {
@@ -638,8 +644,33 @@ export function requireValidAdminEmails(
   return emails;
 }
 
-export async function configureResend(ctx: RuntimeContext) {
+// A step whose domain feature is off is announced and skipped rather than
+// hidden, so the missing keys are a visible decision instead of a surprise.
+function announceFeatureDisabled(step: StepConfig, feature: string) {
+  section(step.title);
+  ui.skip(
+    tr(
+      `이 도메인 팩은 features.${feature}가 꺼져 있어 건너뜁니다.`,
+      `Skipped because this domain pack has features.${feature} turned off.`,
+    ),
+  );
+  ui.hint(
+    tr(
+      "packages/backend/domain.config.ts에서 켜고 bun setup을 다시 실행하면 이 단계가 나타납니다.",
+      "Turn it on in packages/backend/domain.config.ts and run bun setup again to see this step.",
+    ),
+  );
+}
+
+export async function configureResend(
+  ctx: RuntimeContext,
+  features: DomainFeatures,
+) {
   const step = requireStep(ctx, "resend");
+  if (!features.email) {
+    announceFeatureDisabled(step, "email");
+    return;
+  }
   section(step.title);
   console.log(
     localized(
@@ -648,6 +679,9 @@ export async function configureResend(ctx: RuntimeContext) {
       step.requiredMessage ?? "Resend can be skipped.",
     ),
   );
+  if (step.instructions) {
+    ui.hint(step.instructions);
+  }
 
   const apiKeyConfigured = await isConvexEnvConfigured(ctx, "RESEND_API_KEY");
   if (apiKeyConfigured) {
@@ -687,7 +721,7 @@ export async function configureResend(ctx: RuntimeContext) {
         "지금 Resend를 설정할까요?",
         "Configure Resend now?",
       ),
-      defaultValue: false,
+      defaultValue: true,
     });
     if (!configure) {
       await setReservationEmailMode(ctx, "capture");
@@ -901,7 +935,7 @@ export async function configureOpenAI(ctx: RuntimeContext) {
         "지금 OpenAI를 설정할까요?",
         "Configure OpenAI now?",
       ),
-      defaultValue: false,
+      defaultValue: true,
     });
     if (!configure) {
       await setAgentEnv("AGENT_RUNTIME", "mock");
@@ -965,8 +999,13 @@ export async function probeOpenAI(ctx: RuntimeContext, apiKey: string) {
 export async function configurePolar(
   ctx: RuntimeContext,
   deployment: ConvexDeployment,
+  features: DomainFeatures,
 ) {
   const step = requireStep(ctx, "polar");
+  if (!features.polar) {
+    announceFeatureDisabled(step, "polar");
+    return;
+  }
   section(step.title);
   if (step.instructions) {
     console.log(step.instructions);
@@ -976,23 +1015,162 @@ export async function configurePolar(
     console.log(instruction);
   }
 
-  await configureConvexSecretVariable(ctx, step, "POLAR_WEBHOOK_SECRET");
-  await configureConvexSecretVariable(ctx, step, "POLAR_ORGANIZATION_TOKEN");
-  const productIds = normalizePolarProductIds(
-    await promptText(ctx, {
-      key: "POLAR_PRODUCT_IDS",
-      message:
-        requireVariable(step, "POLAR_PRODUCT_IDS").details ??
-        "Polar product IDs (comma-separated)",
-      defaultValue: "",
-      secret: false,
-      required: true,
-    }),
+  if (!(await confirmPolarStep(ctx, step))) {
+    return;
+  }
+
+  const webhookSecret = await configureConvexSecretVariable(
+    ctx,
+    step,
+    "POLAR_WEBHOOK_SECRET",
   );
-  await ensureConvexEnv(ctx, "POLAR_PRODUCT_IDS", productIds, {
+  const organizationToken = await configureConvexSecretVariable(
+    ctx,
+    step,
+    "POLAR_ORGANIZATION_TOKEN",
+  );
+  if (!webhookSecret || !organizationToken) {
+    deferPolarKeys(ctx, step, ["POLAR_PRODUCT_IDS", DEPOSIT_PRODUCT_KEY]);
+    ui.skip(
+      tr(
+        "Polar 자격 증명이 비어 있어 남은 Polar 키를 유예했습니다.",
+        "Polar credentials were empty, so the remaining Polar keys are deferred.",
+      ),
+    );
+    return;
+  }
+
+  await configurePolarProductIds(ctx, step);
+  await configurePolarDepositProduct(ctx, step);
+}
+
+const DEPOSIT_PRODUCT_KEY = "POLAR_DEPOSIT_PRODUCT_ID";
+
+async function confirmPolarStep(ctx: RuntimeContext, step: StepConfig) {
+  if (await isConvexEnvConfigured(ctx, "POLAR_ORGANIZATION_TOKEN")) {
+    return true;
+  }
+  const configure = await promptConfirm(ctx, {
+    key: "polar:configure",
+    message: localized(
+      ctx.locale,
+      "지금 Polar를 설정할까요?",
+      "Configure Polar now?",
+    ),
+    defaultValue: true,
+  });
+  if (configure) {
+    return true;
+  }
+  deferPolarKeys(ctx, step, [
+    "POLAR_WEBHOOK_SECRET",
+    "POLAR_ORGANIZATION_TOKEN",
+    "POLAR_PRODUCT_IDS",
+    DEPOSIT_PRODUCT_KEY,
+  ]);
+  ui.skip(
+    tr(
+      "Polar 건너뜀 - 결제 화면은 비활성 상태로 남습니다 (나중에 추가 가능)",
+      "Polar skipped - billing surfaces stay inactive (can be added later)",
+    ),
+  );
+  return false;
+}
+
+function deferPolarKeys(
+  ctx: RuntimeContext,
+  step: StepConfig,
+  names: readonly string[],
+) {
+  for (const name of names) {
+    // requireVariable keeps the deferred list bound to the declared step.
+    recordDeferredKey(ctx, requireVariable(step, name).name);
+  }
+}
+
+async function configurePolarProductIds(ctx: RuntimeContext, step: StepConfig) {
+  const variable = requireVariable(step, "POLAR_PRODUCT_IDS");
+  if (await keepConfiguredConvexValue(ctx, "POLAR_PRODUCT_IDS")) {
+    return;
+  }
+  const answer = await promptText(ctx, {
+    key: "POLAR_PRODUCT_IDS",
+    message: variable.details ?? "Polar product IDs (comma-separated)",
+    defaultValue: "",
+    secret: false,
+    required: false,
+  });
+  if (!answer.trim()) {
+    logDeferredKey(
+      ctx,
+      "POLAR_PRODUCT_IDS",
+      localized(ctx.locale, "값이 입력되지 않음", "no value provided"),
+    );
+    return;
+  }
+  await ensureConvexEnv(
+    ctx,
+    "POLAR_PRODUCT_IDS",
+    normalizePolarProductIds(answer),
+    { secret: false, force: true },
+  );
+}
+
+// The deposit product is a separate one-time Polar product from the account
+// subscription products, so an empty answer only disables deposit checkout.
+async function configurePolarDepositProduct(
+  ctx: RuntimeContext,
+  step: StepConfig,
+) {
+  const variable = requireVariable(step, DEPOSIT_PRODUCT_KEY);
+  if (await keepConfiguredConvexValue(ctx, DEPOSIT_PRODUCT_KEY)) {
+    return;
+  }
+  const answer = await promptText(ctx, {
+    key: DEPOSIT_PRODUCT_KEY,
+    message: variable.details ?? "Polar deposit product ID",
+    defaultValue: "",
+    secret: false,
+    required: false,
+  });
+  if (!answer.trim()) {
+    logDeferredKey(
+      ctx,
+      DEPOSIT_PRODUCT_KEY,
+      localized(
+        ctx.locale,
+        "보증금 결제 미사용",
+        "reservation deposits not in use",
+      ),
+    );
+    return;
+  }
+  await ensureConvexEnv(ctx, DEPOSIT_PRODUCT_KEY, answer.trim(), {
     secret: false,
     force: true,
   });
+}
+
+async function keepConfiguredConvexValue(ctx: RuntimeContext, name: string) {
+  if (!(await isConvexEnvConfigured(ctx, name))) {
+    return false;
+  }
+  console.log(
+    localized(
+      ctx.locale,
+      `${name}이 설정되어 있습니다.`,
+      `${name} is configured.`,
+    ),
+  );
+  return !(await promptConfirm(ctx, {
+    key: `overwrite:${name}`,
+    message: localized(
+      ctx.locale,
+      `${name}을 덮어쓸까요?`,
+      `Overwrite ${name}?`,
+    ),
+    defaultValue: false,
+  }));
 }
 
 export function normalizePolarProductIds(value: string) {
@@ -1065,18 +1243,19 @@ export async function configureConvexSecretVariable(
       defaultValue: false,
     });
     if (!overwrite) {
-      return;
+      return true;
     }
   }
 
   const value = await promptCredentialVariable(ctx, variable);
   if (!value) {
-    return;
+    return false;
   }
   await ensureConvexEnv(ctx, name, value, {
     secret: variable.secret === true,
     force: true,
   });
+  return true;
 }
 
 export async function promptCredentialVariable(

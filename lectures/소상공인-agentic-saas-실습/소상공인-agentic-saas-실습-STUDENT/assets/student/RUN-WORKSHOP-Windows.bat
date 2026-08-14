@@ -13,7 +13,7 @@ echo Codex CLI:
 echo   curl -fsSL https://chatgpt.com/codex/install.sh ^| sh
 echo.
 echo Jeomwon skill:
-echo   curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.4/install.sh ^| bash -s -- --agent all
+echo   curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.5/install.sh ^| bash -s -- --agent all
 echo.
 echo Native PowerShell installation is not part of this workshop release.
 pause

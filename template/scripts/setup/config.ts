@@ -72,6 +72,7 @@ const CORE_STEP_VARIABLES = [
     { name: "POLAR_WEBHOOK_SECRET", projects: ["convex"] },
     { name: "POLAR_ORGANIZATION_TOKEN", projects: ["convex"] },
     { name: "POLAR_PRODUCT_IDS", projects: ["convex"] },
+    { name: "POLAR_DEPOSIT_PRODUCT_ID", projects: ["convex"] },
   ],
 ] as const;
 

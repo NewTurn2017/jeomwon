@@ -17,16 +17,22 @@ export function resolveLocale(
   env: Environment = process.env,
 ): Locale {
   if (option === "ko" || option === "en") return option;
-  for (const value of [
-    env.JEOMWON_CLI_LANG,
-    env.LC_ALL,
-    env.LC_MESSAGES,
-    env.LANG,
-  ]) {
-    const locale = localeFromValue(value);
-    if (locale) return locale;
+  if (option === "auto") {
+    for (const value of [
+      env.JEOMWON_CLI_LANG,
+      env.LC_ALL,
+      env.LC_MESSAGES,
+      env.LANG,
+    ]) {
+      const locale = localeFromValue(value);
+      if (locale) return locale;
+    }
+    return "en";
   }
-  return "en";
+  // Korean is the default when no --lang is given. A US POSIX locale is the
+  // normal macOS setting for Korean owners, so only an explicit
+  // JEOMWON_CLI_LANG (or --lang) moves the wizard off Korean.
+  return localeFromValue(env.JEOMWON_CLI_LANG) ?? "ko";
 }
 
 const messages = {

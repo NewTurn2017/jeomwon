@@ -31,7 +31,7 @@ AI 점원이 가게 프런트를 지킵니다: 고객은 챗으로 예약·변�
 
 ```bash
 curl -fsSL https://claude.ai/install.sh | bash
-curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.4/install.sh | bash -s -- --agent all
+curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.5/install.sh | bash -s -- --agent all
 mkdir -p "$HOME/Desktop/jeomwon-zero-test" && cd "$HOME/Desktop/jeomwon-zero-test"
 claude
 ```
@@ -55,11 +55,11 @@ codex
 cd template
 bun install --frozen-lockfile
 bunx convex login
-bun setup        # Convex/JWT + Google OAuth와 운영자 allowlist의 첫 성공 경로
+bun setup        # Convex/JWT + Google OAuth + 운영자 allowlist, 이어서 Resend·OpenAI·Polar
 bun dev          # web + app + backend 병렬 실행
 ```
 
-setup schema 2는 이미 인증된 Convex CLI를 검증하고 dev deployment를 생성/재사용한 뒤, 기존 Google OAuth client의 redirect URI 등록을 사용자가 완료했는지 확인하고 client ID/secret과 운영자 allowlist를 Convex env에 설정합니다. setup 자체는 최종 사용자의 Convex/Google 로그인을 수행하지 않으며 provider 계정·DNS·OAuth client도 생성하지 않습니다. Resend·OpenAI·Polar는 선택 제공자 단계이고 Google 운영자 신원은 로컬 익명 고객 QA와 운영상 별개입니다.
+setup schema 2는 이미 인증된 Convex CLI를 검증하고 dev deployment를 생성/재사용한 뒤, 기존 Google OAuth client의 redirect URI 등록을 사용자가 완료했는지 확인하고 client ID/secret과 운영자 allowlist를 Convex env에 설정합니다. setup 자체는 최종 사용자의 Convex/Google 로그인을 수행하지 않으며 provider 계정·DNS·OAuth client도 생성하지 않습니다. 그 다음 Resend·OpenAI·Polar를 차례로 안내하고 거절한 제공자만 건너뜁니다(`--minimal`은 Convex·Google에서 멈춥니다). 출력 언어 기본값은 한국어입니다. Google 운영자 신원은 로컬 익명 고객 QA와 운영상 별개입니다.
 
 ## 구성
 
@@ -96,9 +96,9 @@ bun run qa
 
 - `apps/web/.env.example` — `NEXT_PUBLIC_CONVEX_URL`, `AGENT_RUNTIME` (`mock` | OpenAI), `OPENAI_API_KEY`
 - `apps/app/.env.example` — 대시보드 앱 env
-- `packages/backend/.env.example` — Convex 배포, `SITE_URL`, 선택적 Polar 계정-구독 키(`domain.config.features.polar`가 켜진 경우만)
+- `packages/backend/.env.example` — Convex 배포, `SITE_URL`, 선택적 Polar 계정-구독 키와 보증금 상품 id(`domain.config.features.polar`가 켜진 경우만)
 
-Polar는 로그인 계정의 SaaS 구독 전용입니다. 서비스 `price`는 표시 문자열일 뿐이며 예약 보증금·예약 결제·환불·예약별 결제 ledger는 이 릴리스에 없습니다.
+Polar는 두 갈래입니다. 계정 구독은 로그인 계정의 SaaS 구독 전용이고, 예약 보증금은 `POLAR_DEPOSIT_PRODUCT_ID`로 지정한 일회성 상품의 주문을 웹훅으로 예약에 반영하는 백엔드 seam입니다. 보증금 UI, 예약 대금 청구, 예약별 결제 ledger는 이 릴리스에 없고 서비스 `price`는 표시 문자열입니다.
 
 ## 문서 계약 확인
 

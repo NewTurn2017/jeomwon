@@ -18,34 +18,34 @@
 	},
 	"distribution": {
 		"release": {
-    "tag": "v0.1.4",
-    "skillVersion": "0.1.4",
-    "templateVersion": "0.1.4",
+    "tag": "v0.1.5",
+    "skillVersion": "0.1.5",
+    "templateVersion": "0.1.5",
 			"status": "published",
-    "url": "https://github.com/NewTurn2017/jeomwon/releases/tag/v0.1.4",
+    "url": "https://github.com/NewTurn2017/jeomwon/releases/tag/v0.1.5",
 			"asset": {
-      "name": "jeomwon-template-v0.1.4.tar.gz",
-      "url": "https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.4/jeomwon-template-v0.1.4.tar.gz",
-      "sha256": "aa66b4a2c2cdd14fe8049227adee9c9f02852341dae6c0005c60f72d076edd68"
+      "name": "jeomwon-template-v0.1.5.tar.gz",
+      "url": "https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.5/jeomwon-template-v0.1.5.tar.gz",
+      "sha256": "090a195561928b0d6113dcc7582fea2248b55c16340a43db9147c9653ece313d"
 			}
 		},
 		"installer": {
-    "url": "https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.4/install.sh",
+    "url": "https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.5/install.sh",
 			"sourcePath": "install.sh"
 		},
-  "skillInstallCommand": "curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.4/install.sh | bash -s -- --agent all",
+  "skillInstallCommand": "curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.5/install.sh | bash -s -- --agent all",
 		"skillSource": {
 			"kind": "release-asset",
-    "tag": "v0.1.4",
-    "archiveName": "jeomwon-template-v0.1.4.tar.gz",
-    "archiveSha256": "aa66b4a2c2cdd14fe8049227adee9c9f02852341dae6c0005c60f72d076edd68",
-    "contentSha256": "218cfbfbb8f8e34f356d33396a05432b55725bb8652f30eaf9f9a709045b1b5c",
+    "tag": "v0.1.5",
+    "archiveName": "jeomwon-template-v0.1.5.tar.gz",
+    "archiveSha256": "090a195561928b0d6113dcc7582fea2248b55c16340a43db9147c9653ece313d",
+    "contentSha256": "84affd732c361e749ae197464a316ba342d7ed379b0fcc582a7d71c6b7854a86",
 			"installArguments": [
 				"bun",
 				"x",
 				"skills@1.5.22",
 				"add",
-    "https://github.com/NewTurn2017/jeomwon/tree/v0.1.4/skill",
+    "https://github.com/NewTurn2017/jeomwon/tree/v0.1.5/skill",
 				"--skill",
 				"jeomwon",
 				"--agent",
@@ -116,7 +116,7 @@
 		]
 	},
 	"expectedMarkers": [
-    "INSTALL PASS jeomwon v0.1.4",
+    "INSTALL PASS jeomwon v0.1.5",
 		"PREFLIGHT PASS",
 		"[SKIP verify_qa]",
 		"VERIFY PASS"

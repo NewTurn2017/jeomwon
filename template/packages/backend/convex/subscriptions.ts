@@ -155,6 +155,55 @@ function checkoutConfiguration(env: PolarEnv): CheckoutConfiguration {
   };
 }
 
+// Shared by account subscriptions and reservation deposits: both may only send
+// the browser back to an origin the deployment already trusts.
+export function assertCheckoutOrigin(
+  value: string,
+  applicationOrigins: readonly string[],
+) {
+  let origin: URL;
+  try {
+    origin = new URL(value);
+  } catch {
+    throw new Error("polar_checkout_origin_forbidden");
+  }
+  if (
+    (origin.protocol !== "https:" && origin.protocol !== "http:") ||
+    origin.origin !== value ||
+    origin.pathname !== "/" ||
+    origin.search ||
+    origin.hash ||
+    ENCODED_ASCII_CONTROL.test(value) ||
+    !applicationOrigins.includes(origin.origin)
+  ) {
+    throw new Error("polar_checkout_origin_forbidden");
+  }
+  return origin.origin;
+}
+
+export function assertCheckoutSuccessUrl(
+  value: string,
+  applicationOrigins: readonly string[],
+) {
+  let successUrl: URL;
+  try {
+    successUrl = new URL(value);
+  } catch {
+    throw new Error("polar_checkout_success_url_forbidden");
+  }
+  if (
+    (successUrl.protocol !== "https:" && successUrl.protocol !== "http:") ||
+    successUrl.username ||
+    successUrl.password ||
+    value !== successUrl.href ||
+    ENCODED_ASCII_CONTROL.test(value) ||
+    !applicationOrigins.includes(successUrl.origin)
+  ) {
+    throw new Error("polar_checkout_success_url_forbidden");
+  }
+  return successUrl.href;
+}
+
 export function assertCheckoutInput<T extends CheckoutInput>(
   input: T,
   configuration: CheckoutConfiguration,
@@ -165,50 +214,21 @@ export function assertCheckoutInput<T extends CheckoutInput>(
   ) {
     throw new Error("polar_product_invalid");
   }
-  let origin: URL;
-  try {
-    origin = new URL(input.origin);
-  } catch {
-    throw new Error("polar_checkout_origin_forbidden");
-  }
-  if (
-    (origin.protocol !== "https:" && origin.protocol !== "http:") ||
-    origin.origin !== input.origin ||
-    origin.pathname !== "/" ||
-    origin.search ||
-    origin.hash ||
-    ENCODED_ASCII_CONTROL.test(input.origin) ||
-    !configuration.applicationOrigins.includes(origin.origin)
-  ) {
-    throw new Error("polar_checkout_origin_forbidden");
-  }
-  let successUrl: URL;
-  try {
-    successUrl = new URL(input.successUrl);
-  } catch {
-    throw new Error("polar_checkout_success_url_forbidden");
-  }
-  if (
-    (successUrl.protocol !== "https:" && successUrl.protocol !== "http:") ||
-    successUrl.username ||
-    successUrl.password ||
-    input.successUrl !== successUrl.href ||
-    ENCODED_ASCII_CONTROL.test(input.successUrl) ||
-    !configuration.applicationOrigins.includes(successUrl.origin)
-  ) {
-    throw new Error("polar_checkout_success_url_forbidden");
-  }
+  const origin = assertCheckoutOrigin(
+    input.origin,
+    configuration.applicationOrigins,
+  );
+  const successUrl = assertCheckoutSuccessUrl(
+    input.successUrl,
+    configuration.applicationOrigins,
+  );
   for (const key of Object.keys(input.metadata ?? {})) {
     const normalized = key.toLowerCase().replace(/[^a-z]/g, "");
     if (RESERVED_CHECKOUT_METADATA.has(normalized)) {
       throw new Error("polar_checkout_metadata_reserved");
     }
   }
-  return {
-    ...input,
-    origin: origin.origin,
-    successUrl: successUrl.href,
-  };
+  return { ...input, origin, successUrl };
 }
 
 export function assertPortalReturnUrl(
@@ -270,6 +290,20 @@ async function getUserInfo(
     userId: user._id,
     email: user.email,
   };
+}
+
+// Seams for reservation deposits, which reuse the same organization token,
+// webhook, and trusted application origins as the account subscription.
+export function polarCheckoutConfiguration(surface: string) {
+  return checkoutConfiguration(getRequiredPolarEnv(surface));
+}
+
+export function polarClientFor(surface: string) {
+  return getPolarClient(surface);
+}
+
+export async function polarUserInfo(ctx: PolarContext) {
+  return await getUserInfo(ctx);
 }
 
 function getPolarClient(surface: string) {

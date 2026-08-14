@@ -30,8 +30,8 @@ type ReportBody = {
   checks: Array<{ code: string; owner?: string; key?: string; status: "fail" }>;
   features: { email: boolean; polar: boolean };
   boundaries: {
-    polar: "account-subscription-only";
-    reservationCommerce: "excluded";
+    polar: "account-subscription-and-reservation-deposit";
+    reservationCommerce: "deposit-only";
   };
   deploymentOrder: readonly string[];
   rollback: { targetPresent: true; targetSha256: string };
@@ -56,8 +56,8 @@ export function checkDeploymentReadiness(
     checks: issues.map((issue) => ({ ...issue, status: "fail" })),
     features,
     boundaries: {
-      polar: "account-subscription-only",
-      reservationCommerce: "excluded",
+      polar: "account-subscription-and-reservation-deposit",
+      reservationCommerce: "deposit-only",
     },
     deploymentOrder: [
       "configure-convex-production-environment",
@@ -148,7 +148,7 @@ function humanReport(report: ReportBody & { reportHash: string }) {
     `reportSha256=${report.reportHash}`,
     "roots: authenticated-app=apps/app static-web=apps/web",
     `emailMode=${report.features.email ? "feature-enabled" : "feature-disabled"}`,
-    "polarBoundary=account-subscription-only reservationCommerce=excluded",
+    "polarBoundary=account-subscription-and-reservation-deposit reservationCommerce=deposit-only",
     "externalEffects=none-read-only",
   ];
   for (const check of report.checks) {

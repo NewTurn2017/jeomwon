@@ -20,7 +20,7 @@
 
 1. 빈 workspace를 만든다.
 2. Claude Code 또는 Codex CLI와 Bun 1.3.14를 설치한다.
-3. curl 한 줄로 Jeomwon v0.1.4 스킬을 설치한다.
+3. curl 한 줄로 Jeomwon v0.1.5 스킬을 설치한다.
 4. 기존 JSON 없이 Interview Order를 끝까지 진행한다.
 5. 파생값을 확인하고 `확정`한 뒤 schema v1 pack을 쓴다.
 6. pack과 absent target을 분리해 preflight·bootstrap을 통과한다.
@@ -56,7 +56,7 @@
 ## 검증 가능한 성공 표지
 
 ```text
-INSTALL PASS jeomwon v0.1.4
+INSTALL PASS jeomwon v0.1.5
 PREFLIGHT PASS
 [SKIP verify_qa]
 VERIFY PASS

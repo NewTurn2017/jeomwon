@@ -130,7 +130,7 @@ describe("clean-room workshop launcher", () => {
 		const result = run(f);
 
 		expect(result.status).toBe(0);
-		expect(result.stdout).toContain("INSTALL PASS jeomwon v0.1.4");
+		expect(result.stdout).toContain("INSTALL PASS jeomwon v0.1.5");
 		expect(result.stdout).toContain("CLEAN ROOM READY");
 		expect(readFileSync(f.launchedFrom, "utf8").trim()).toBe(f.workspace);
 		const bunLog = readFileSync(f.bunLog, "utf8");

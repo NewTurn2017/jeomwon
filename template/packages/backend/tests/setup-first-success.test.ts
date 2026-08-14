@@ -14,7 +14,7 @@ const clientSecret = "google-client-secret-sentinel";
 const adminEmail = "owner@example.invalid";
 const expectedRedirectUri = `https://${slugify(basename(templateRoot))}-dry-run.convex.site/api/auth/callback/google`;
 
-function runFreshSetup() {
+function runFreshSetup(extraArgs: string[] = []) {
   const result = spawnSync(
     process.execPath,
     [
@@ -22,6 +22,7 @@ function runFreshSetup() {
       "--dry-run",
       "--fresh-dry-run",
       "--non-interactive",
+      ...extraArgs,
     ],
     {
       cwd: templateRoot,
@@ -45,7 +46,7 @@ function runFreshSetup() {
           existingLocalEnv: {
             app: { AUTH_ANONYMOUS_LOGIN: "0" },
           },
-          domainFeatures: { polar: true },
+          domainFeatures: { email: true, polar: true },
         }),
       },
     },
@@ -73,17 +74,44 @@ describe("first-success setup contract", () => {
     expect(result.output.includes("[local_env_write:app:AGENT_RUNTIME]")).toBe(
       true,
     );
+    expect(result.output.includes(clientId)).toBe(false);
+    expect(result.output.includes(clientSecret)).toBe(false);
+    expect(result.output.includes(adminEmail)).toBe(false);
+    expect(result.output.includes("Convex project name:")).toBe(false);
+  });
+
+  test("the default run offers every provider and still finishes unattended", () => {
+    const result = runFreshSetup();
+
+    expect(result.status).toBe(0);
+    for (const step of ["Resend", "OpenAI", "Polar"]) {
+      expect(result.output.includes(`  ${step}\n`)).toBe(true);
+    }
+    for (const key of [
+      "RESEND_API_KEY",
+      "OPENAI_API_KEY",
+      "POLAR_WEBHOOK_SECRET",
+      "POLAR_ORGANIZATION_TOKEN",
+      "POLAR_PRODUCT_IDS",
+      "POLAR_DEPOSIT_PRODUCT_ID",
+    ]) {
+      expect(result.output.includes(`[skip] ${key}`)).toBe(true);
+    }
+    expect(result.output.includes("6개 키 미설정")).toBe(true);
+  });
+
+  test("--minimal keeps the Convex and Google only path", () => {
+    const result = runFreshSetup(["--minimal"]);
+
+    expect(result.status).toBe(0);
     expect(
       result.output.includes(
         "Resend · OpenAI · Polar 설정은 첫 성공 이후로 유예",
       ),
     ).toBe(true);
-    expect(result.output.includes(clientId)).toBe(false);
-    expect(result.output.includes(clientSecret)).toBe(false);
-    expect(result.output.includes(adminEmail)).toBe(false);
-    expect(result.output.includes("Convex project name:")).toBe(false);
     expect(result.output.includes("Configure Resend now?")).toBe(false);
     expect(result.output.includes("Configure OpenAI now?")).toBe(false);
+    expect(result.output.includes("POLAR_WEBHOOK_SECRET")).toBe(false);
   });
 
   test("non-interactive OAuth refuses to bypass redirect registration", () => {

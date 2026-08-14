@@ -103,6 +103,21 @@ const guardrailStatus = v.object({
   privacy: v.union(v.literal("clear"), v.literal("blocked")),
 });
 
+// Reservation deposits are a one-time Polar order, never a subscription. The
+// row records only what the operator needs to see; Polar stays the ledger.
+const reservationDeposit = v.object({
+  state: v.union(
+    v.literal("pending"),
+    v.literal("paid"),
+    v.literal("refunded"),
+  ),
+  orderId: v.string(),
+  amountMinor: v.number(),
+  refundedMinor: v.number(),
+  currency: v.string(),
+  updatedAtMs: v.number(),
+});
+
 export default defineSchema({
   ...authTables,
   users: defineTable({
@@ -151,6 +166,9 @@ export default defineSchema({
     // Private server-owned account link. Optional for rows created before the
     // identity link existed; deletion also handles those rows by derived thread.
     customerUserId: v.optional(v.id("users")),
+    // Written only by the Polar deposit webhook. Absent on every reservation
+    // until a deposit order for it is paid.
+    deposit: v.optional(reservationDeposit),
     auditHistory: v.array(
       v.object({
         atMs: v.number(),

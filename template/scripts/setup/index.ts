@@ -100,8 +100,44 @@ async function main() {
     `  ${style.cyan(message(locale, "required"))}  ${style.bold("Convex + Google OAuth")} ${style.gray(message(locale, "firstPath"))}`,
   );
   console.log(`  ${RULE}`);
+  if (!options.minimal) {
+    console.log(
+      `  ${style.cyan(localized(locale, "이어서", "then"))}  ${style.bold(
+        "Resend + OpenAI + Polar",
+      )} ${style.gray(
+        localized(
+          locale,
+          "- 각 단계에서 거절하면 건너뜁니다",
+          "- each step is skipped when you decline",
+        ),
+      )}`,
+    );
+    console.log(`  ${RULE}`);
+  }
   if (ctx.config.introMessage?.trim()) {
     console.log(`  ${style.gray(ctx.config.introMessage.trim())}`);
+  }
+  if (options.minimal) {
+    console.log(
+      `  ${glyph.info} ${style.gray(
+        localized(
+          locale,
+          "--minimal: Convex·Google 첫 성공 경로만 설정합니다.",
+          "--minimal: configuring only the Convex and Google first-success path.",
+        ),
+      )}`,
+    );
+  }
+  if (options.legacyOptionalProviders) {
+    console.log(
+      `  ${glyph.info} ${style.gray(
+        localized(
+          locale,
+          "--optional-providers는 이제 기본 동작이라 아무것도 바꾸지 않습니다.",
+          "--optional-providers is the default now and changes nothing.",
+        ),
+      )}`,
+    );
   }
   if (options.dryRun) {
     console.log(
@@ -120,13 +156,13 @@ async function main() {
     await configureAdminEmails(ctx);
     await configureAnonymousLogin(ctx, siteUrl);
     const domainFeatures = await readDomainFeatures(ctx);
-    if (ctx.options.optionalProviders) {
-      if (domainFeatures.email) await configureResend(ctx);
-      await configureOpenAI(ctx);
-      if (domainFeatures.polar) await configurePolar(ctx, deployment);
-      await configureOptionalLocalSteps(ctx);
-    } else {
+    if (ctx.options.minimal) {
       await configureFirstSuccessDefaults(ctx, domainFeatures);
+    } else {
+      await configureResend(ctx, domainFeatures);
+      await configureOpenAI(ctx);
+      await configurePolar(ctx, deployment, domainFeatures);
+      await configureOptionalLocalSteps(ctx);
     }
     await finalizeEnvFiles(ctx);
     printCompletion(ctx, deployment);

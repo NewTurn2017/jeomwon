@@ -74,9 +74,13 @@ reset flags are forbidden.
 
 When `features.polar` is enabled, Convex also owns
 `POLAR_ORGANIZATION_TOKEN`, `POLAR_WEBHOOK_SECRET`, and `POLAR_PRODUCT_IDS`.
-Polar is **account-subscription only**. It does not implement reservation
-commerce, reservation deposits, per-reservation charges, refunds, or a payment
-ledger.
+Those three cover **account subscriptions only**.
+
+`POLAR_DEPOSIT_PRODUCT_ID` is the separate, optional reservation-deposit
+product. With it set, a paid or refunded one-time order for that product
+updates the named reservation through the same `/polar/events` webhook. Leaving
+it unset keeps deposits off. Neither surface implements per-reservation
+charges for the booking itself, partial-refund handling, or a payment ledger.
 
 ## Google provider attestation
 
@@ -110,7 +114,8 @@ The checker does not execute any step above.
   to the customer surface.
 - Email behavior matches the declared `capture` or `sent` mode without exposing
   recipient data in logs.
-- If Polar is enabled, only account-subscription checkout is reachable.
+- If Polar is enabled, account-subscription checkout is reachable, and deposit
+  checkout only when `POLAR_DEPOSIT_PRODUCT_ID` is set.
 - QA, test-hold, demo-reset, and other reset surfaces remain disabled.
 - The recorded rollback target is available and still matches its backend.
 

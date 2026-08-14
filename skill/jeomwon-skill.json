@@ -1,8 +1,8 @@
 {
 	"schemaVersion": 1,
-	"skillVersion": "0.1.4",
+	"skillVersion": "0.1.5",
 	"compatibility": {
-		"templateVersion": "0.1.4",
+		"templateVersion": "0.1.5",
 		"templateApi": 1,
 		"domainPackWriter": 0,
 		"capabilitySchema": 1,
@@ -11,8 +11,8 @@
 	},
 	"templateSource": {
 		"kind": "bundled-archive",
-		"archivePath": "assets/jeomwon-template-v0.1.4.tar.gz",
-		"archiveSha256": "aa66b4a2c2cdd14fe8049227adee9c9f02852341dae6c0005c60f72d076edd68",
-		"contentSha256": "218cfbfbb8f8e34f356d33396a05432b55725bb8652f30eaf9f9a709045b1b5c"
+		"archivePath": "assets/jeomwon-template-v0.1.5.tar.gz",
+		"archiveSha256": "090a195561928b0d6113dcc7582fea2248b55c16340a43db9147c9653ece313d",
+		"contentSha256": "84affd732c361e749ae197464a316ba342d7ed379b0fcc582a7d71c6b7854a86"
 	}
 }

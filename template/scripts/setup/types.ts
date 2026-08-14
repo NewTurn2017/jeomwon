@@ -66,7 +66,10 @@ export type CliOptions = {
   nonInteractive: boolean;
   yes: boolean;
   help: boolean;
-  optionalProviders: boolean;
+  // Setup walks every provider by default. `--minimal` keeps the older
+  // Convex + Google only path for people who explicitly want it.
+  minimal: boolean;
+  legacyOptionalProviders: boolean;
   lang?: LocaleOption;
   stubFile?: string;
   configFile?: string;

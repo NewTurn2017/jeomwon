@@ -26,7 +26,7 @@
 - Google 계정과 Google Cloud Console 접근
 - 운영자로 사용할 실제 Google 이메일
 
-처음에는 OpenAI API, Resend, Polar를 연결하지 않습니다.
+Resend, OpenAI, Polar 키는 필수가 아닙니다. 있으면 `bun setup`에서 바로 연결하고, 없으면 건너뛴 채로 끝까지 진행할 수 있습니다.
 
 ## Claude Code 설치와 로그인
 
@@ -73,13 +73,13 @@ bun --version
 Claude Code와 Codex 둘 다 사용할 수 있게 설치합니다.
 
 ```bash
-curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.4/install.sh | bash -s -- --agent all
+curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.5/install.sh | bash -s -- --agent all
 ```
 
 성공 표지:
 
 ```text
-INSTALL PASS jeomwon v0.1.4
+INSTALL PASS jeomwon v0.1.5
 ```
 
 Claude만 쓰려면 `--agent claude`, Codex만 쓰려면 `--agent codex`를 사용할 수 있습니다.
@@ -127,7 +127,7 @@ Codex를 선택했다면 같은 폴더에서 `codex`를 실행하고 같은 프�
 6. 취소 가능 시간과 hold 시간
 7. 관리자 화면 형태
 8. waitlist, 운영자 CRUD, no-show
-9. 이메일과 운영 알림 주소, Polar 계정 구독
+9. 이메일과 운영 알림 주소, Polar 결제(계정 구독 + 예약 보증금)
 10. 고객에게 보일 모든 안내 문구
 
 스킬이 파생값을 모두 읽어 준 뒤에만 답합니다.
@@ -206,7 +206,13 @@ https://<deployment>.convex.site/api/auth/callback/google
 - Google OAuth client secret
 - allowlist에 넣을 운영자 Google 이메일
 
-첫 실행에서는 optional provider를 건너뜁니다.
+Google 다음에는 Resend, OpenAI, Polar를 차례로 물어봅니다. 준비된 키가 있으면 그 자리에서 넣고, 없으면 그냥 넘어가면 됩니다.
+
+- Resend: https://resend.com/api-keys 의 `re_`로 시작하는 키. 건너뛰면 메일은 발송 없이 기록만 됩니다.
+- OpenAI: https://platform.openai.com/api-keys 의 키. 건너뛰면 mock 엔진으로 동작합니다.
+- Polar: 도메인 팩에서 결제를 켠 경우에만 나옵니다. sandbox의 Organization Access Token, 웹훅 시크릿(payload는 Raw), 구독 상품 id를 넣습니다. 예약 보증금까지 받으려면 일회성 상품을 하나 더 만들어 그 id를 넣습니다.
+
+건너뛴 키는 마지막 요약의 `Later` 목록에 남고, `bun setup`을 다시 실행하면 그 지점부터 이어집니다. 전부 건너뛰면 이렇게 됩니다.
 
 ```text
 Agent runtime = mock

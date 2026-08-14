@@ -44,7 +44,7 @@ type CompatibilityCase = {
 
 const MATCHING_TEMPLATE_MANIFEST = {
 	schemaVersion: 1,
-	templateVersion: "0.1.4",
+	templateVersion: "0.1.5",
 	templateApi: 1,
 	contracts: {
 		domainPackWriter: 0,
@@ -370,7 +370,7 @@ describe("public skill installation", () => {
 		expect(
 			installedManifest.some((entry) =>
 				entry.startsWith(
-			"f .agents/skills/jeomwon/assets/jeomwon-template-v0.1.4.tar.gz ",
+			"f .agents/skills/jeomwon/assets/jeomwon-template-v0.1.5.tar.gz ",
 				),
 			),
 		).toBe(true);
@@ -446,8 +446,8 @@ describe("public skill installation", () => {
 			join(fixtureSkill, "jeomwon-skill.json"),
 		);
 		cpSync(
-				join(skillPath, "assets/jeomwon-template-v0.1.4.tar.gz"),
-				join(fixtureSkill, "assets/jeomwon-template-v0.1.4.tar.gz"),
+				join(skillPath, "assets/jeomwon-template-v0.1.5.tar.gz"),
+				join(fixtureSkill, "assets/jeomwon-template-v0.1.5.tar.gz"),
 		);
 		cpSync(join(repoRoot, "template"), join(root, "template"), {
 			recursive: true,

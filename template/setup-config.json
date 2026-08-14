@@ -264,6 +264,17 @@
           "details": "Comma-separated Polar account-subscription product IDs allowed for checkout.",
           "required": true,
           "secret": false
+        },
+        {
+          "name": "POLAR_DEPOSIT_PRODUCT_ID",
+          "projects": ["convex"],
+          "details": "One-time Polar product charged as a per-reservation deposit. Leave empty to keep deposits off.",
+          "info": [
+            "Create it in Polar as a one-time product, not a subscription product.",
+            "Deposit orders arrive on the same webhook URL as subscriptions."
+          ],
+          "required": false,
+          "secret": false
         }
       ],
       "required": false,

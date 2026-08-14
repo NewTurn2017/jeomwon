@@ -213,7 +213,7 @@ Canonical template install is `bun install --frozen-lockfile`; offline verify us
 
 The project manifest carries template schema 1/API 1 and compatibility identities domainPackWriter 0, capabilitySchema 1, setupSchema 2, and qaContract 2. Canonical packs are schema v1. Successful publication writes receipt v3 last, binding project/template source, release contract hashes, canonical pack, and managed outputs. This checksum contract detects local drift but is not cryptographic authenticity against coordinated source-and-receipt replacement.
 
-The static capability manifest declares nine implemented or QA-proven capabilities. Accounts, account deletion, and reservation-email delivery ledger/capture are core. Polar is only an account-subscription integration; reservation deposit/charge/refund/ledger is absent and `payment.reservationDeposit` remains planned/BLOCKED. Capability maturity never upgrades from a prose claim.
+The static capability manifest declares ten implemented or QA-proven capabilities. Accounts, account deletion, and reservation-email delivery ledger/capture are core. Polar covers two separate integrations: `billing.accountSubscription.polar` for an account's SaaS subscription and `payment.reservationDeposit` for one-time deposit orders, both `implemented` with test-level evidence and no provider round trip. Per-reservation charges, partial-refund accounting, and a payment ledger remain absent. Capability maturity never upgrades from a prose claim.
 
 ## Session Rules
 
@@ -301,6 +301,30 @@ The distinction is where the code lives:
 
 Moving extension code into `template/` merely to obtain a pack flag is not a
 promotion path; kit inclusion still requires independent proof.
+
+### Reservation deposits (Polar one-time orders)
+
+`packages/backend/convex/deposits.ts` is kit-owned and deliberately separate
+from the account subscription in `subscriptions.ts`. It is reachable only when
+the pack sets `features.polar` and the Convex deployment has
+`POLAR_DEPOSIT_PRODUCT_ID` pointing at a one-time product.
+
+- `startDepositCheckout` validates the return origin and success URL against
+  `JEOMWON_APP_ORIGINS`, has `claimDepositCheckout` prove the caller owns a
+  still-payable reservation, and puts the reservation document id on checkout
+  metadata server-side.
+- `order.created` and `order.refunded` arrive on the existing `/polar/events`
+  route and reach `recordDepositOrder`, which writes `reservations.deposit` plus
+  one audit event. A repeat delivery of the same order and state is a no-op, and
+  an order without this domain's metadata is ignored.
+- `depositSnapshot` is the read seam for a customer surface.
+
+Extending it: keep the charged amount in the Polar product, never in the pack;
+read state through `depositSnapshot` instead of the reservation document; and
+treat a missing `deposit` field as "no deposit taken", not "unpaid". A
+per-reservation amount, partial-refund accounting, and an operator refund action
+are absent on purpose — add them as feature-owned modules with their own toggle
+and QA gate rather than by widening the webhook handler.
 
 ### Feature-owned modules and direct commands/hooks
 

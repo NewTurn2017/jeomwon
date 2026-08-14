@@ -164,16 +164,24 @@ describe("setup options and locale contract", () => {
     );
   });
 
-  test("resolves explicit, setup env, POSIX locale env, then English", () => {
+  test("defaults to Korean and reads the environment only for auto", () => {
     const base = { LC_ALL: undefined, LC_MESSAGES: undefined, LANG: undefined };
     expect(resolveLocale("ko", { ...base, JEOMWON_CLI_LANG: "en" })).toBe("ko");
+    expect(resolveLocale("en", { ...base, JEOMWON_CLI_LANG: "ko" })).toBe("en");
     expect(resolveLocale("auto", { ...base, JEOMWON_CLI_LANG: "ko" })).toBe(
       "ko",
     );
-    expect(
-      resolveLocale(undefined, { ...base, LC_MESSAGES: "ko_KR.UTF-8" }),
-    ).toBe("ko");
-    expect(resolveLocale(undefined, { ...base, LANG: "C" })).toBe("en");
+    expect(resolveLocale("auto", { ...base, LC_MESSAGES: "ko_KR.UTF-8" })).toBe(
+      "ko",
+    );
+    expect(resolveLocale("auto", { ...base, LANG: "C" })).toBe("en");
+    expect(resolveLocale(undefined, { ...base })).toBe("ko");
+    expect(resolveLocale(undefined, { ...base, LANG: "en_US.UTF-8" })).toBe(
+      "ko",
+    );
+    expect(resolveLocale(undefined, { ...base, JEOMWON_CLI_LANG: "en" })).toBe(
+      "en",
+    );
   });
 });
 

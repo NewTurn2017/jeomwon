@@ -248,18 +248,33 @@
     },
     {
       "id": "payment.reservationDeposit",
-      "ownership": "planned",
-      "enablement": { "mode": "unavailable", "default": false },
-      "surfaces": [],
-      "symbols": [],
+      "ownership": "integration",
+      "enablement": { "mode": "feature", "default": false },
+      "surfaces": [
+        "template/packages/backend/convex/deposits.ts",
+        "template/packages/backend/convex/http.ts"
+      ],
+      "symbols": [
+        {
+          "path": "template/packages/backend/convex/deposits.ts",
+          "name": "startDepositCheckout"
+        },
+        {
+          "path": "template/packages/backend/convex/deposits.ts",
+          "name": "recordDepositOrder"
+        }
+      ],
       "evidence": {
-        "level": "none",
-        "paths": [],
+        "level": "test",
+        "paths": [
+          "template/packages/backend/tests/reservation-deposit.test.ts",
+          "template/packages/backend/convex/deposits.ts"
+        ],
         "qaGate": null,
         "liveGate": null
       },
-      "sideEffects": [],
-      "maturity": "planned"
+      "sideEffects": ["reservation-write", "audit", "external-payment"],
+      "maturity": "implemented"
     }
   ]
 }

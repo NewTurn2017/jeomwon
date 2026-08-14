@@ -14,10 +14,24 @@ Use this skill to turn one operational reservation domain into a generated Jeomw
    - Installed skill: `bun "${JEOMWON_SKILL_DIR:-${CLAUDE_SKILL_DIR:-$HOME/.agents/skills/jeomwon}}/scripts/preflight.mjs" <target-dir> <project-name> <domain-pack.json>`, followed by the same argv with `bootstrap.mjs`. Bootstrap runs this preflight itself, so the explicit command is useful for workshop readiness and recovery without creating target bytes.
    - Bootstrap: `bun "${JEOMWON_SKILL_DIR:-${CLAUDE_SKILL_DIR:-$HOME/.agents/skills/jeomwon}}/scripts/bootstrap.mjs" <target-dir> <project-name> <domain-pack.json>`. `JEOMWON_SKILL_DIR` is the agent-neutral override; `CLAUDE_SKILL_DIR` remains a compatibility fallback. With no override, a repository checkout uses its local `template/`; an installed skill uses its shipped immutable template archive and verifies the SHA-256 pinned in `jeomwon-skill.json`. `JEOMWON_TEMPLATE_ARCHIVE` requires the matching `JEOMWON_TEMPLATE_ARCHIVE_SHA256` and records only those archive bytes. `JEOMWON_TEMPLATE_REF` accepts only a full 40-character commit and also requires the downloaded archive SHA-256. It fetches that exact commit from the configured Jeomwon repository; tests and air-gapped development may set `JEOMWON_TEMPLATE_GIT_REPOSITORY` to a local Git repository, in which case scaffold derives bytes itself with `git archive`. Arbitrary URLs are archive overrides and never receive commit provenance. Mutable refs such as `main`, `master`, and `HEAD` always fail closed.
    Bootstrap is offline-only: it strips an ambient `JEOMWON_QA_BASE_URL` from its verify step so it never runs live QA, and it never runs `bun setup`. On success it prints the generated path and the next steps below; on the first stage failure it stops and prints that stage's exact rerun command.
-3. Tell the user to complete `bunx convex login`, then run `bun setup` inside the generated project. Setup verifies the pinned Bun/Convex CLI prerequisites, provisions Convex, prints and pauses for the exact Google Redirect URI, then accepts only the Google client ID, client secret, and allowlisted operator email for the first-success path. Resend, OpenAI, and Polar stay outside this first-success step. Bootstrap does not run setup.
+3. Tell the user to complete `bunx convex login`, then run `bun setup` inside the generated project. Setup verifies the pinned Bun/Convex CLI prerequisites, provisions Convex, prints and pauses for the exact Google Redirect URI, and takes the Google client ID, client secret, and allowlisted operator email. It then walks Resend, OpenAI, and Polar in the same run. Output is Korean unless `--lang en` or `--lang auto` is passed. Bootstrap does not run setup. Follow the Provider Walkthrough below while the user is in this step.
 4. Tell the user to run `bun run qa` (QA contract v2, exact 12 gates) after `bun setup`; the command verifies one canonical dev deployment and starts the authenticated app itself. This is separate from bootstrap. Google operator success CRUD is a separate approval-owned smoke, not part of deterministic gate 10, and an off-toggle SKIP is not success evidence.
 
 Use the individual `scaffold.mjs`, `inject.mjs`, and `verify.mjs` commands (Script Contract below) for retries, partial reruns, and debugging after a bootstrap failure.
+
+## Provider Walkthrough
+
+One `bun setup` run offers every provider, so a fully configured project is the default outcome and only what the owner declines is skipped. Stay with the user through the run instead of handing over the command and stopping.
+
+1. Before they start, name what will be asked and what each one buys: Convex 배포와 JWT 키(필수), Google OAuth(필수), 운영자 이메일 allowlist(필수), Resend(예약·인증 메일 실제 발송), OpenAI(실제 LLM 점원), Polar(계정 구독 + 예약 보증금).
+2. Have each credential ready before its prompt appears, and give the exact source:
+   - **Resend** — https://resend.com/api-keys 에서 `re_`로 시작하는 키. 발신 주소는 검증된 도메인이 없으면 `onboarding@resend.dev`. 건너뛰면 `RESERVATION_EMAIL_MODE=capture`로 메일이 기록만 됩니다.
+   - **OpenAI** — https://platform.openai.com/api-keys 에서 키. 넣으면 `AGENT_RUNTIME=openai`, 건너뛰면 `mock` 엔진으로 동작합니다.
+   - **Polar** — sandbox 조직의 Organization Access Token, Webhook(payload 형식은 **Raw**, URL은 setup이 출력), 구독 상품 id. 예약 보증금까지 받으려면 **일회성(one-time) 상품**을 하나 더 만들어 그 id를 `POLAR_DEPOSIT_PRODUCT_ID` 프롬프트에 넣습니다. 비워 두면 구독만 켜집니다.
+3. Never accept a secret pasted into the chat and never write one into a file yourself. Setup reads them with hidden input and stores them in Convex deployment env or a git-ignored `.env.local`.
+4. A declined provider is a recorded decision, not a failure: setup falls back, lists the missing keys under `Later`, and rerunning `bun setup` resumes exactly there. Say this out loud so nobody feels forced.
+5. `bun setup --minimal` stops after Convex and Google. Offer it only when the owner explicitly wants the narrow path.
+6. The Resend and Polar steps appear only when the domain pack turned on `features.email` / `features.polar`; setup announces the skip and points at `packages/backend/domain.config.ts`. If the owner said they want email or payments, set those flags during the interview.
 
 ## Interview Order
 
@@ -58,7 +72,7 @@ Ask top to bottom. Every question below maps to exactly one field the `inject.mj
    - 묻지 않거나 legacy v0 입력이면 세 선택 flag는 모두 `false`로 materialize됩니다. 고객 로그인과 자기 예약 관리는 core이므로 선택 질문을 하지 말고 compatibility 필드 `features.customerAccounts`는 `true`로 기록합니다.
 
 9. **Email + operator address — split so neither is skipped.**
-   - "예약 확인·리마인더 메일을 보낼까요?" → `features.email`(boolean). 결제 연동 여부 → `features.polar`(boolean).
+   - "예약 확인·리마인더 메일을 보낼까요?" → `features.email`(boolean). 결제 연동 여부 → `features.polar`(boolean). Polar를 켜면 계정 구독과 **예약 보증금**(일회성 결제) 두 표면이 함께 열리며, 보증금은 setup에서 `POLAR_DEPOSIT_PRODUCT_ID`를 넣을 때만 동작합니다. 예약금·노쇼 방지금을 받고 싶다는 답이면 이 flag를 켜세요.
    - 위 답과 무관하게: "운영 알림을 받을 사장님 이메일 주소 하나는 반드시 필요합니다." → `notificationEmail` (조건 없이 필수, 이메일 형태여야 함).
 
 10. **Customer-facing copy — the store's VOICE; ask 18 with field names shown, derive the 19th.**

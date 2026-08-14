@@ -81,7 +81,7 @@ describe("capability release metadata", () => {
 		expect(ids).not.toContain("delivery.reservationEmail");
 	});
 
-	test("keeps Polar account subscription distinct from absent reservation commerce", () => {
+	test("keeps Polar account subscription distinct from the reservation deposit", () => {
 		const entries = capabilities(manifest());
 		const polar = entries.find(
 			({ id }) => id === "billing.accountSubscription.polar",
@@ -94,12 +94,20 @@ describe("capability release metadata", () => {
 			enablement: { mode: "feature", default: false },
 			maturity: "implemented",
 		});
+		// Both are off-by-default Polar integrations, but they must never share a
+		// surface: the deposit is a one-time order, not an account subscription.
 		expect(deposit).toMatchObject({
-			enablement: { mode: "unavailable", default: false },
-			maturity: "planned",
-			surfaces: [],
-			symbols: [],
+			ownership: "integration",
+			enablement: { mode: "feature", default: false },
+			maturity: "implemented",
+			evidence: { level: "test", qaGate: null, liveGate: null },
 		});
+		const depositPaths = JSON.stringify([
+			deposit?.surfaces,
+			deposit?.symbols,
+		]);
+		expect(depositPaths.includes("subscriptions.ts")).toBe(false);
+		expect(depositPaths.includes("deposits.ts")).toBe(true);
 	});
 
 	test("keeps no-show kit-owned, off by default, and promoted only to QA maturity", () => {

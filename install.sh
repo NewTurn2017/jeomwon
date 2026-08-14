@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly INSTALLER_VERSION="0.1.4"
+readonly INSTALLER_VERSION="0.1.5"
 readonly REQUIRED_BUN_VERSION="1.3.14"
 readonly SKILLS_CLI_VERSION="1.5.22"
 readonly JEOMWON_TAG="v${INSTALLER_VERSION}"

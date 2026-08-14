@@ -1,7 +1,7 @@
 Jeomwon clean-room 성공 표지
 
 1. 스킬 설치
-INSTALL PASS jeomwon v0.1.4
+INSTALL PASS jeomwon v0.1.5
 
 2. 인터뷰 승인 후 preflight
 PREFLIGHT PASS

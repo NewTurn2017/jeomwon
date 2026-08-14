@@ -129,8 +129,11 @@ describe("deployment readiness", () => {
     input.env.convex.RESERVATION_EMAIL_MODE = "sent";
     expect(run(input).codes).toContain("env_missing");
   });
-  test("Polar variables are conditional and account-subscription only", () => {
-    expect(run().report.boundaries.polar).toBe("account-subscription-only");
+  test("Polar variables are conditional and limited to subscriptions plus deposits", () => {
+    expect(run().report.boundaries.polar).toBe(
+      "account-subscription-and-reservation-deposit",
+    );
+    expect(run().report.boundaries.reservationCommerce).toBe("deposit-only");
     const enabled = run(fixture(), featureRoot({ email: true, polar: true }));
     for (const key of [
       "POLAR_ORGANIZATION_TOKEN",

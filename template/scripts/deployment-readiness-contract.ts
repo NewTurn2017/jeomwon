@@ -44,6 +44,9 @@ export const OWNER_KEYS: Record<EnvOwner, readonly string[]> = {
     "POLAR_ORGANIZATION_TOKEN",
     "POLAR_WEBHOOK_SECRET",
     "POLAR_PRODUCT_IDS",
+    // Optional even with Polar on: an unset deposit product keeps reservation
+    // deposits off, so it is reported but never required.
+    "POLAR_DEPOSIT_PRODUCT_ID",
   ],
 };
 

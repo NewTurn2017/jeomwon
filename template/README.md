@@ -33,10 +33,15 @@ bun dev
 client secret, 실제 Google 운영자 계정과 일치하는 이메일 하나뿐입니다.
 
 setup이 표시한 정확한 Redirect URI를 Google Console에 등록하고 저장하면 Enter로
-재개합니다. 이 등록 단계는 건너뛸 수 없습니다. Resend·OpenAI·Polar는 첫 성공
-범위에서 제외되며 기본 예약·취소·운영자 에스컬레이션은 Convex로 영속됩니다.
-첫 성공 후 선택 제공자까지 연결하려면 `bun setup --optional-providers`를
-실행합니다.
+재개합니다. 이 등록 단계는 건너뛸 수 없습니다. 그 다음 Resend·OpenAI·Polar를
+차례로 안내하며, 각 단계에서 거절하면 그 제공자만 건너뛰고 나머지는 계속
+진행합니다. 건너뛴 키는 마지막 요약의 `Later` 목록에 남고 `bun setup`을 다시
+실행하면 이어서 채웁니다. Convex·Google만 설정하려면 `bun setup --minimal`을
+실행합니다. 출력 언어 기본값은 한국어이며 `--lang en`으로 영어, `--lang auto`로
+환경 감지를 선택합니다.
+
+도메인 팩에서 `features.email` 또는 `features.polar`가 꺼져 있으면 해당 단계는
+숨기지 않고 "꺼져 있어 건너뜁니다"라고 알린 뒤 넘어갑니다.
 
 <!-- doc-contract:setup:start -->
 | Step ID | Kind | Required | Feature |
@@ -127,12 +132,20 @@ Google OAuth의 로컬 Authorized JavaScript origin은 인증 앱인
 `/api/auth/callback/google`을 사용합니다. `SITE_URL`은 로그인 완료 후 돌아올
 인증 앱 주소와 이메일 링크에 사용하며, 로컬에서는 `http://localhost:3000`입니다.
 
-Polar **계정 구독**을 사용하는 도메인에서는 `POLAR_PRODUCT_IDS`와 함께 다음 값을 추가로 설정합니다. 이 연동은 로그인 계정의 SaaS 구독 전용이며 서비스 `price`와 예약 보증금·예약 청구·환불·예약별 결제 ledger를 구현하지 않습니다.
+Polar **계정 구독**을 사용하는 도메인에서는 `POLAR_PRODUCT_IDS`와 함께 다음 값을 추가로 설정합니다. 이 연동은 로그인 계정의 SaaS 구독 전용입니다.
 
 ```bash
 POLAR_ORGANIZATION_TOKEN=<polar-organization-token>
 POLAR_WEBHOOK_SECRET=<polar-webhook-secret>
 POLAR_PRODUCT_IDS=<account-subscription-product-ids>
+```
+
+예약 **보증금**을 받으려면 Polar에서 일회성(one-time) 상품을 하나 더 만들고 그
+id를 아래 값으로 설정합니다. 비워 두면 보증금 표면 전체가 꺼진 상태로 남고 구독만
+동작합니다. 서비스 `price`는 여전히 표시 문자열이며 Polar 상품과 연결되지 않습니다.
+
+```bash
+POLAR_DEPOSIT_PRODUCT_ID=<one-time-deposit-product-id>
 ```
 
 ## 개발 검증
