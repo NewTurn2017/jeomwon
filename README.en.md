@@ -31,7 +31,7 @@ The generated UI is production-ready out of the box: a light, domain-aware landi
 
 ```bash
 curl -fsSL https://claude.ai/install.sh | bash
-curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.1/install.sh | bash -s -- --agent all
+curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.3/install.sh | bash -s -- --agent all
 mkdir -p "$HOME/Desktop/jeomwon-zero-test" && cd "$HOME/Desktop/jeomwon-zero-test"
 claude
 ```

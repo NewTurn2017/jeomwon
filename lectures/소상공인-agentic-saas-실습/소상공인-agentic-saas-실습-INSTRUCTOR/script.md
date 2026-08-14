@@ -34,7 +34,7 @@ Anthropic 공식 curl installer를 사용합니다. 새 터미널에서 `claude`
 
 ## 9. Bun과 Jeomwon 한 줄 설치
 
-Bun은 정확히 1.3.14입니다. Jeomwon installer는 v0.1.1을 Claude와 Codex 공용 canonical skill 경로에 설치합니다. `INSTALL PASS`가 없으면 다음 단계로 가지 않습니다.
+Bun은 정확히 1.3.14입니다. Jeomwon installer는 v0.1.3을 Claude와 Codex 공용 canonical skill 경로에 설치합니다. `INSTALL PASS`가 없으면 다음 단계로 가지 않습니다.
 
 ## 10. Claude를 열고 `/jeomwon` 입력하기
 

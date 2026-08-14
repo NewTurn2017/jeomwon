@@ -73,13 +73,13 @@ bun --version
 Claude Code와 Codex 둘 다 사용할 수 있게 설치합니다.
 
 ```bash
-curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.1/install.sh | bash -s -- --agent all
+curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.3/install.sh | bash -s -- --agent all
 ```
 
 성공 표지:
 
 ```text
-INSTALL PASS jeomwon v0.1.1
+INSTALL PASS jeomwon v0.1.3
 ```
 
 Claude만 쓰려면 `--agent claude`, Codex만 쓰려면 `--agent codex`를 사용할 수 있습니다.
