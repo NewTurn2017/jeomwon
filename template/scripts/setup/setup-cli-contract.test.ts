@@ -528,7 +528,7 @@ describe("setup CLI machine contract", () => {
     expect(result.status).toBe(1);
     expect(output.includes("[locale:en]")).toBe(true);
     expect(output.includes("[prerequisite_unauthenticated]")).toBe(true);
-    expect(output.includes("bun x convex login")).toBe(true);
+    expect(output.includes("bunx convex login")).toBe(true);
     expect(/[가-힣]/.test(output)).toBe(false);
   });
 

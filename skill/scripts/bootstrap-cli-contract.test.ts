@@ -131,7 +131,7 @@ describe("real PTY width contract", () => {
 const cli = createCli("probe", process.argv[2]);
 cli.help("bun probe.mjs <target-dir> <project-name> <domain-pack.json> [--lang ko|en|auto]");
 cli.stage("RUN", "stage_scaffold", "scaffold premium reservation workspace");
-cli.next(["cd \\"C:\\\\A B\\"", "bun x convex login", "bun setup", "bun run qa"]);
+cli.next(["cd \\"C:\\\\A B\\"", "bunx convex login", "bun setup", "bun run qa"]);
 cli.recovery(["bun", "probe.mjs", "C:\\\\A B", "--lang", process.argv[2]]);
 cli.error("probe_error", "recover from malformed archive input");
 `,

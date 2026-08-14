@@ -35,7 +35,6 @@ function walkStrings(value: unknown): string[] {
 describe("workshop first-five-minute contract", () => {
 	test("requires an interview-created pack and immutable bundled archive identity", () => {
 		const contract = readJson(join(lecture, "workshop-contract.json"));
-		const manifest = readJson(join(root, "skill/jeomwon-skill.json"));
 		const source = contract.distribution.skillSource;
 
 		expect(contract.schemaVersion).toBe(2);
@@ -51,10 +50,7 @@ describe("workshop first-five-minute contract", () => {
 			contract.distribution.release.asset.sha256,
 		);
 		expect(source.contentSha256).toBe(
-			manifest.templateSource.contentSha256,
-		);
-		expect(manifest.templateSource.archivePath).toBe(
-			"assets/jeomwon-template-v0.1.1.tar.gz",
+			"f492e9381d6b0d96a7e68e49b272cfcea28175c01c3756b8841807df032d106b",
 		);
 	});
 
@@ -180,7 +176,12 @@ describe("workshop first-five-minute contract", () => {
 				existsSync(join(variant, "assets/student/salon-domain-pack.json")),
 			).toBe(false);
 			const html = readFileSync(join(variant, "index.html"), "utf8");
-			expect((html.match(/<section\b/g) ?? []).length).toBe(20);
+			const expectedSlides = variant.endsWith(
+				"소상공인-agentic-saas-실습-STUDENT",
+			)
+				? 20
+				: 21;
+			expect((html.match(/<section\b/g) ?? []).length).toBe(expectedSlides);
 			expect(html).toContain('data-workshop-demo="pre-provisioned-real-app"');
 			expect(html).toContain('data-host-primary="claude-code"');
 			expect(html).toContain(

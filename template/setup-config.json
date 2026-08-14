@@ -131,7 +131,7 @@
         {
           "name": "AUTH_GOOGLE_ID",
           "projects": ["convex"],
-          "details": "The client ID from Google Cloud Console > APIs & Services > Credentials.",
+          "details": "The Web application Client ID from Google Auth Platform > Clients.",
           "info": [
             "Authorized redirect URI: {{convexSiteUrl}}/api/auth/callback/google",
             "Authorized JavaScript origin for local dev: http://localhost:3000"
@@ -141,7 +141,7 @@
         {
           "name": "AUTH_GOOGLE_SECRET",
           "projects": ["convex"],
-          "details": "The client secret from the same Google OAuth client.",
+          "details": "The Client secret shown for the same Web application client.",
           "secret": true
         }
       ]

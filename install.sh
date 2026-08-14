@@ -73,7 +73,7 @@ actual_bun_version="$(bun --version)"
 skill_source="https://github.com/NewTurn2017/jeomwon/tree/${JEOMWON_TAG}/skill"
 
 printf 'Jeomwon %s → %s\n' "$JEOMWON_TAG" "${agent_targets[*]}"
-DISABLE_TELEMETRY=1 bun x "skills@${SKILLS_CLI_VERSION}" add \
+DISABLE_TELEMETRY=1 bunx "skills@${SKILLS_CLI_VERSION}" add \
 	"$skill_source" \
 	--skill jeomwon \
 	--agent "${agent_targets[@]}" \

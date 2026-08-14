@@ -86,7 +86,7 @@ for (const stage of stages) {
 
 cli.next([
 	`cd ${JSON.stringify(targetDir)}`,
-	"bun x convex login",
+	"bunx convex login",
 	"bun setup",
 	"bun run qa",
 ]);

@@ -21,7 +21,7 @@ tooling         공유 TypeScript 설정
 
 ```bash
 bun install --frozen-lockfile
-bun x convex login
+bunx convex login
 bun setup
 bun dev
 ```
@@ -53,10 +53,10 @@ setup이 표시한 정확한 Redirect URI를 Google Console에 등록하고 저�
 | polar | polar | false | polar |
 <!-- doc-contract:setup:end -->
 
-setup은 위 외부 소유 항목의 계정·DNS·OAuth client를 생성하거나 최종 사용자의 Convex/Google 로그인을 수행하지 않는다. Convex CLI 로그인은 setup 전에 `bun x convex login`으로 완료해야 한다.
+setup은 위 외부 소유 항목의 계정·DNS·OAuth client를 생성하거나 최종 사용자의 Convex/Google 로그인을 수행하지 않는다. Convex CLI 로그인은 setup 전에 `bunx convex login`으로 완료해야 한다.
 
 setup 중 `prerequisite_missing`은 표시된 Bun 버전과 `bun install
---frozen-lockfile`, `prerequisite_unauthenticated`는 `bun x convex login`으로
+--frozen-lockfile`, `prerequisite_unauthenticated`는 `bunx convex login`으로
 복구합니다. `external_environment`는 네트워크·Convex 팀 권한·deployment quota를
 확인합니다. Google 로그인에서 redirect mismatch가 보이면 setup이 출력한 URI가
 공백·슬래시까지 정확히 등록됐는지 확인한 뒤 `bun setup`을 다시 실행합니다. 정상

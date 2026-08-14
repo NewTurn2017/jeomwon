@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "templateVersion": "0.1.1",
+  "templateVersion": "0.1.3",
   "templateApi": 1,
   "contracts": {
     "domainPackWriter": 0,

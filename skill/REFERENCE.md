@@ -126,7 +126,7 @@ Canonical packs declare `schemaVersion: 1`. The reader also accepts only an exac
 - Terminal: any presence of `NO_COLOR`, including an empty value, disables ANSI. ANSI is stripped before measuring text; Korean/CJK code points occupy two columns.
 - Offline-only: bootstrap deletes an ambient `JEOMWON_QA_BASE_URL` only from the verify child and never passes `--qa`, so its verify reports a QA skip. It never runs `bun setup` and never runs live QA.
 - Failure: it stops at the first failing stage, preserves child exit codes and maps SIGINT to 130, and prints exactly one `[RECOVERY recovery]` JSON argv block beginning with the public `bun` token. It never deletes a target.
-- Success: standalone scaffold prints one next-step block; bootstrap suppresses that block and prints exactly one `[NEXT next_steps]` block containing `cd <target>`, `bun x convex login`, `bun setup`, then `bun run qa` as guidance only.
+- Success: standalone scaffold prints one next-step block; bootstrap suppresses that block and prints exactly one `[NEXT next_steps]` block containing `cd <target>`, `bunx convex login`, `bun setup`, then `bun run qa` as guidance only.
 
 For retries, partial reruns, and debugging, run the individual `scaffold.mjs`, `inject.mjs`, and `verify.mjs` commands directly (see the Injection Contract and Verification Gates below).
 

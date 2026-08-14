@@ -25,7 +25,7 @@ The generated UI is production-ready out of the box: a light, domain-aware landi
 
 ## Quick start
 
-**Prerequisites**: exactly [bun](https://bun.sh) **1.3.14** · a free [Convex](https://convex.dev) account with `bun x convex login` completed before setup · a **required Google OAuth Web application client** for Google sign-in · optional [Resend](https://resend.com) / [OpenAI](https://platform.openai.com) keys (without them, email capture and the `mock` agent runtime remain available)
+**Prerequisites**: exactly [bun](https://bun.sh) **1.3.14** · a free [Convex](https://convex.dev) account with `bunx convex login` completed before setup · a **required Google OAuth Web application client** for Google sign-in · optional [Resend](https://resend.com) / [OpenAI](https://platform.openai.com) keys (without them, email capture and the `mock` agent runtime remain available)
 
 ### From an empty folder with Claude Code (recommended)
 
@@ -38,7 +38,7 @@ claude
 
 Describe the domain without reusing an example JSON. The skill follows its Interview Order and waits for `APPROVE` before writing a fresh workspace `domain-pack.json`. The generated target must be a separate absent child directory. Bootstrap is offline-only — it never runs live QA or `bun setup`.
 
-When bootstrap finishes it prints the generated path and the next steps to run yourself: `bun x convex login`, `bun setup` (Google OAuth values and an operator allowlist email), then `bun run qa` (QA contract v2, 12 live gates).
+When bootstrap finishes it prints the generated path and the next steps to run yourself: `bunx convex login`, `bun setup` (Google OAuth values and an operator allowlist email), then `bun run qa` (QA contract v2, 12 live gates).
 
 Bootstrap runs preflight before touching the target. To check readiness separately, run `bun "${JEOMWON_SKILL_DIR:-${CLAUDE_SKILL_DIR:-$HOME/.agents/skills/jeomwon}}/scripts/preflight.mjs" <target-dir> <project-name> <domain-pack.json>`. The installed command resolves the agent-neutral canonical directory, Claude Code link, manual symlinks, `JEOMWON_SKILL_DIR`, and the compatibility `CLAUDE_SKILL_DIR` consistently, then verifies the checked-in immutable archive and both SHA-256 contracts. On `cache_not_ready`, copy the single printed `warm-cache.mjs` recovery argv and run it only when network access is allowed.
 
@@ -56,7 +56,7 @@ The generated project (and `template/` itself) ships a self-contained setup wiza
 ```bash
 cd template
 bun install --frozen-lockfile
-bun x convex login
+bunx convex login
 bun setup        # Convex/JWT plus the Google OAuth and operator-allowlist first-success path
 bun dev          # web + app + backend, in parallel
 ```

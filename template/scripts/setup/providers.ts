@@ -147,52 +147,55 @@ export async function configureGoogleOAuth(
     requireVariable(step, "AUTH_GOOGLE_ID"),
     requireVariable(step, "AUTH_GOOGLE_SECRET"),
   ];
-  const missingVariables: StepVariable[] = [];
-  for (const variable of variables) {
-    if (
-      stubValue(ctx, variable.name) === undefined &&
-      (await isConvexEnvConfigured(ctx, variable.name))
-    ) {
-      continue;
-    }
-    missingVariables.push(variable);
-  }
-
-  if (missingVariables.length === 0) {
-    ui.ok(
-      localized(
-        ctx.locale,
-        "Google OAuth client ID와 secret이 이미 설정됨 (값 숨김)",
-        "Google OAuth client ID and secret are already configured (values hidden)",
-      ),
-    );
-    return;
-  }
-
   const redirectUri = `${deployment.convexSiteUrl}/api/auth/callback/google`;
   console.log(
     tr(
-      "1. Google Cloud Console에서 OAuth client를 Web application으로 여세요.",
-      "1. Open the OAuth client as a Web application in Google Cloud Console.",
+      "1. Google Cloud Console을 열고 프로젝트를 새로 만들거나 선택하세요.",
+      "1. Open Google Cloud Console and create or select a project.",
+    ),
+  );
+  console.log("   https://console.cloud.google.com/auth/overview");
+  console.log(
+    tr(
+      "2. Get started를 눌러 앱 이름·지원 이메일을 입력하고 Audience를 External로 설정하세요.",
+      "2. Click Get started, enter the app name and support email, and set Audience to External.",
     ),
   );
   console.log(
     tr(
-      "2. 아래 URI를 Authorized redirect URI에 정확히 등록하세요.",
-      "2. Register the URI below exactly as an Authorized redirect URI.",
+      "3. Audience > Test users에 실제 로그인할 Google 계정을 추가하세요.",
+      "3. In Audience > Test users, add the Google account that will actually sign in.",
     ),
   );
-  console.log(`Redirect URI: ${redirectUri}`);
+  console.log(
+    tr(
+      "4. Clients > Create client > Web application을 선택하세요.",
+      "4. Choose Clients > Create client > Web application.",
+    ),
+  );
+  console.log(
+    tr(
+      "5. 아래 두 주소를 정확히 등록하세요.",
+      "5. Register both addresses below exactly.",
+    ),
+  );
   console.log("JavaScript origin: http://localhost:3000");
+  console.log(`Redirect URI: ${redirectUri}`);
   console.log(
     tr(
-      "3. 저장이 끝날 때까지 이 설정은 자동으로 일시정지됩니다.",
-      "3. Setup pauses until registration is saved.",
+      "6. Create를 누른 뒤 표시되는 Client ID와 Client secret을 복사하세요.",
+      "6. Click Create, then copy the displayed Client ID and Client secret.",
+    ),
+  );
+  console.log(
+    tr(
+      "7. 저장을 마치면 Enter를 누르고 두 값을 차례로 입력하세요. 기존 값도 덮어씁니다.",
+      "7. After saving, press Enter and enter both values. Existing values will be overwritten.",
     ),
   );
   await pauseForGoogleRedirectRegistration(ctx, redirectUri);
 
-  for (const variable of missingVariables) {
+  for (const variable of variables) {
     const value = await promptRequiredOAuthCredential(ctx, variable);
     await ensureConvexEnv(ctx, variable.name, value, {
       secret: true,

@@ -132,8 +132,8 @@ export async function assertSetupPrerequisites(ctx: RuntimeContext) {
         ),
         localized(
           ctx.locale,
-          "bun x convex --version으로 CLI를 확인하세요.",
-          "Check the CLI with bun x convex --version.",
+          "bunx convex --version으로 CLI를 확인하세요.",
+          "Check the CLI with bunx convex --version.",
         ),
         localized(
           ctx.locale,
@@ -159,8 +159,8 @@ export async function assertSetupPrerequisites(ctx: RuntimeContext) {
         ),
         localized(
           ctx.locale,
-          "bun x convex --version으로 CLI를 다시 확인하세요.",
-          "Recheck the CLI with bun x convex --version.",
+          "bunx convex --version으로 CLI를 다시 확인하세요.",
+          "Recheck the CLI with bunx convex --version.",
         ),
         localized(
           ctx.locale,
@@ -330,8 +330,8 @@ export async function ensureConvexAuthenticated(ctx: RuntimeContext) {
         [
           localized(
             ctx.locale,
-            "bun x convex login을 실행하세요.",
-            "Run bun x convex login.",
+            "bunx convex login을 실행하세요.",
+            "Run bunx convex login.",
           ),
           localized(
             ctx.locale,
@@ -376,8 +376,8 @@ export async function ensureConvexAuthenticated(ctx: RuntimeContext) {
     [
       localized(
         ctx.locale,
-        "bun x convex login을 실행하세요.",
-        "Run bun x convex login.",
+        "bunx convex login을 실행하세요.",
+        "Run bunx convex login.",
       ),
       localized(
         ctx.locale,
@@ -646,7 +646,7 @@ export async function runVisibleConvexCommand(
   args: string[],
 ): Promise<CommandResult> {
   if (ctx.options.dryRun) {
-    console.log(`DRY RUN: would run bun x convex ${args.join(" ")}.`);
+    console.log(`DRY RUN: would run bunx convex ${args.join(" ")}.`);
     return { code: 0, stdout: "", stderr: "" };
   }
 
@@ -709,8 +709,8 @@ export function classifyConvexCommandFailure(
       [
         localized(
           locale,
-          "bun x convex login을 실행하세요.",
-          "Run bun x convex login.",
+          "bunx convex login을 실행하세요.",
+          "Run bunx convex login.",
         ),
         localized(
           locale,

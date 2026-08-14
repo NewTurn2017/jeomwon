@@ -171,7 +171,7 @@ Convex는 이 프로젝트의 실시간 backend와 database입니다. Free 플�
 
 ```bash
 cd "$HOME/Desktop/jeomwon-zero-test/generated/<domainKey>"
-bun x convex login
+bunx convex login
 ```
 
 브라우저에서 Convex 계정 로그인을 완료합니다.

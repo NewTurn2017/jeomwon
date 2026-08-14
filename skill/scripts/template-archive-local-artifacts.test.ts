@@ -58,7 +58,7 @@ test("local framework artifacts do not stale the immutable template archive", ()
 	for (const source of [
 		"skill/scripts/build-template-archive.mjs",
 		"skill/jeomwon-skill.json",
-		"skill/assets/jeomwon-template-v0.1.1.tar.gz",
+		"skill/assets/jeomwon-template-v0.1.3.tar.gz",
 	]) {
 		const destination = join(root, source);
 		mkdirSync(dirname(destination), { recursive: true });

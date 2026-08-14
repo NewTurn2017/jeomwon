@@ -25,7 +25,7 @@ AI 점원이 가게 프런트를 지킵니다: 고객은 챗으로 예약·변�
 
 ## 빠른 시작
 
-**준비물**: [bun](https://bun.sh) **1.3.14** (정확한 버전 필수) · [Convex](https://convex.dev) 무료 계정과 setup 전에 완료한 `bun x convex login` · Google 로그인을 위한 **필수 Google OAuth Web application client** · 선택: [Resend](https://resend.com)·[OpenAI](https://platform.openai.com) 키(없으면 메일 캡처 모드 + `mock` 에이전트 런타임 사용)
+**준비물**: [bun](https://bun.sh) **1.3.14** (정확한 버전 필수) · [Convex](https://convex.dev) 무료 계정과 setup 전에 완료한 `bunx convex login` · Google 로그인을 위한 **필수 Google OAuth Web application client** · 선택: [Resend](https://resend.com)·[OpenAI](https://platform.openai.com) 키(없으면 메일 캡처 모드 + `mock` 에이전트 런타임 사용)
 
 ### 빈 폴더에서 Claude Code로 (권장)
 
@@ -36,7 +36,7 @@ mkdir -p "$HOME/Desktop/jeomwon-zero-test" && cd "$HOME/Desktop/jeomwon-zero-tes
 claude
 ```
 
-기존 예제 JSON 없이 도메인을 설명하세요. 스킬은 Interview Order대로 질문하고 사용자가 `확정`한 뒤에만 workspace의 `domain-pack.json`을 새로 작성합니다. 생성 target은 pack과 분리된 존재하지 않는 하위 폴더여야 합니다. bootstrap은 오프라인 전용이라 라이브 QA도 `bun setup`도 실행하지 않습니다. 끝나면 생성물 경로와, 사용자가 직접 실행할 다음 단계(`bun x convex login` → `bun setup --lang ko`의 Google OAuth 2개 값·운영자 이메일 입력 → `bun run qa` 라이브 12게이트)를 출력합니다.
+기존 예제 JSON 없이 도메인을 설명하세요. 스킬은 Interview Order대로 질문하고 사용자가 `확정`한 뒤에만 workspace의 `domain-pack.json`을 새로 작성합니다. 생성 target은 pack과 분리된 존재하지 않는 하위 폴더여야 합니다. bootstrap은 오프라인 전용이라 라이브 QA도 `bun setup`도 실행하지 않습니다. 끝나면 생성물 경로와, 사용자가 직접 실행할 다음 단계(`bunx convex login` → `bun setup --lang ko`의 Google OAuth 2개 값·운영자 이메일 입력 → `bun run qa` 라이브 12게이트)를 출력합니다.
 
 bootstrap은 target을 건드리기 전에 preflight를 실행합니다. 별도로 확인하려면 `bun "${JEOMWON_SKILL_DIR:-${CLAUDE_SKILL_DIR:-$HOME/.agents/skills/jeomwon}}/scripts/preflight.mjs" <target-dir> <project-name> <domain-pack.json>`를 실행하세요. 설치본은 agent-neutral canonical 경로, Claude Code 링크, 수동 심볼릭 링크, `JEOMWON_SKILL_DIR`와 호환용 `CLAUDE_SKILL_DIR`을 동일하게 해석하며 체크인된 immutable archive와 두 SHA-256 계약을 검증합니다. `cache_not_ready`이면 출력되는 단 하나의 `warm-cache.mjs` 복구 argv를 네트워크가 허용된 시점에 그대로 실행한 뒤 preflight를 재실행합니다.
 
@@ -54,7 +54,7 @@ codex
 ```bash
 cd template
 bun install --frozen-lockfile
-bun x convex login
+bunx convex login
 bun setup        # Convex/JWT + Google OAuth와 운영자 allowlist의 첫 성공 경로
 bun dev          # web + app + backend 병렬 실행
 ```

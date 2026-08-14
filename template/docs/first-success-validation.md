@@ -8,7 +8,7 @@
 ## 준비
 
 - 저장소가 지정한 Bun 버전과 `bun install --frozen-lockfile`
-- `bun x convex login` 완료
+- `bunx convex login` 완료
 - Google OAuth Web application client 생성
 - 운영자 Google 계정과 일치하는 이메일
 - 고객용 브라우저 프로필과 운영자용 별도 브라우저 프로필

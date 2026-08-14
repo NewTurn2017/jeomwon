@@ -40,7 +40,7 @@ claude
 
 ```bash
 cd "$HOME/Desktop/jeomwon-zero-test/generated/<domainKey>"
-bun x convex login
+bunx convex login
 bun setup --lang ko
 bunx playwright install chromium
 bun run qa

@@ -45,6 +45,15 @@ printf '%s\\n' "$@" > "\${JEOMWON_TEST_ARGUMENTS}"
 `,
 	);
 	chmodSync(fakeBun, 0o755);
+	const fakeBunx = join(bin, "bunx");
+	writeFileSync(
+		fakeBunx,
+		`#!/bin/sh
+cat >/dev/null
+printf '%s\\n' "$@" > "\${JEOMWON_TEST_ARGUMENTS}"
+`,
+	);
+	chmodSync(fakeBunx, 0o755);
 
 	const result = spawnSync(
 		"bash",

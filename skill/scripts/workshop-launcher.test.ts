@@ -51,6 +51,12 @@ printf '%s\\n' "$*" >> "$JEOMWON_TEST_BUN_LOG"
 `,
 	);
 	writeExecutable(
+		join(bin, "bunx"),
+		`#!/bin/sh
+printf '%s\\n' "$*" >> "$JEOMWON_TEST_BUN_LOG"
+`,
+	);
+	writeExecutable(
 		join(bin, "claude"),
 		`#!/bin/sh
 pwd > "$JEOMWON_TEST_LAUNCHED_FROM"

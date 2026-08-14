@@ -11,7 +11,7 @@ PREFLIGHT PASS
 VERIFY PASS
 
 4. 실제 DB 연결
-bun x convex login
+bunx convex login
 bun setup --lang ko
 
 5. Convex dev QA
