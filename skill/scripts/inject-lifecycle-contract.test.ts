@@ -361,16 +361,16 @@ describe("private initialization transaction", () => {
 		expect(result.stderr).toContain("initial_pack_required");
 	});
 
-	test("scaffold, initial stage/publish, validation, and final publication faults leave no target or ordinary residue", () => {
-		for (const fault of [
-			"scaffold",
-			"initial:render",
-			"initial:stage:1",
-			"initial:publish:1",
-			"initial:publish:4",
-			"validation",
-			"publication",
-		]) {
+	for (const fault of [
+		"scaffold",
+		"initial:render",
+		"initial:stage:1",
+		"initial:publish:1",
+		"initial:publish:4",
+		"validation",
+		"publication",
+	]) {
+		test(`fault ${fault} leaves no target or ordinary residue`, () => {
 			const base = root();
 			const target = join(base, "fresh");
 			const input = join(base, "pack.json");
@@ -390,8 +390,8 @@ describe("private initialization transaction", () => {
 			expect(existsSync(join(base, ".fresh.jeomwon-bootstrap.lock"))).toBe(
 				false,
 			);
-		}
-	});
+		});
+	}
 
 	test("no durable initialization metadata or public initial-mode switch exists", () => {
 		const source = [

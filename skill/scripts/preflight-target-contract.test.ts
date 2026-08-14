@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
 	existsSync,
 	mkdirSync,
@@ -16,11 +16,8 @@ import { fileURLToPath } from "node:url";
 const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const preflight = join(repoRoot, "skill/scripts/preflight.mjs");
 const bootstrap = join(repoRoot, "skill/scripts/bootstrap.mjs");
-const pack = join(
-	repoRoot,
-	"lectures/소상공인-agentic-saas-실습/assets/student/salon-domain-pack.json",
-);
 const roots: string[] = [];
+let pack = "";
 
 function temporaryRoot(): string {
 	const root = realpathSync(mkdtempSync(join(tmpdir(), "jeomwon ancestry ")));
@@ -64,6 +61,17 @@ function readFileIfRegular(path: string): Buffer | "non-file" {
 		return "non-file";
 	}
 }
+
+beforeEach(() => {
+	const root = temporaryRoot();
+	const example = readFileSync(
+		join(repoRoot, "skill/EXAMPLES.md"),
+		"utf8",
+	).match(/```json\n([\s\S]*?)\n```/)?.[1];
+	if (example === undefined) throw new Error("missing domain pack example");
+	pack = join(root, "domain-pack.json");
+	writeFileSync(pack, example);
+});
 
 afterEach(() => {
 	for (const root of roots.splice(0))
