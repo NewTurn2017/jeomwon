@@ -113,7 +113,7 @@ app에 같은 값으로 기록하며 로컬 첫 성공에서는 `1`입니다. pr
 ### Convex 배포 env
 
 ```bash
-SITE_URL=http://localhost:3001
+SITE_URL=http://localhost:3000
 AUTH_GOOGLE_ID=<google-oauth-client-id>
 AUTH_GOOGLE_SECRET=<google-oauth-client-secret>
 JEOMWON_ADMIN_EMAILS=<operator-email>
@@ -124,8 +124,8 @@ RESEND_SENDER_EMAIL_AUTH=Jeomwon <onboarding@yourdomain.com>
 
 Google OAuth의 로컬 Authorized JavaScript origin은 인증 앱인
 `http://localhost:3000`만 등록합니다. callback은 Convex site URL의
-`/api/auth/callback/google`을 사용합니다. `SITE_URL`은 공개 마케팅 주소와 이메일
-링크에 사용합니다.
+`/api/auth/callback/google`을 사용합니다. `SITE_URL`은 로그인 완료 후 돌아올
+인증 앱 주소와 이메일 링크에 사용하며, 로컬에서는 `http://localhost:3000`입니다.
 
 Polar **계정 구독**을 사용하는 도메인에서는 `POLAR_PRODUCT_IDS`와 함께 다음 값을 추가로 설정합니다. 이 연동은 로그인 계정의 SaaS 구독 전용이며 서비스 `price`와 예약 보증금·예약 청구·환불·예약별 결제 ledger를 구현하지 않습니다.
 

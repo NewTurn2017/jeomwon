@@ -116,7 +116,7 @@ describe("curl installer entrypoint", () => {
 		expect(result.arguments).toContain("codex");
 		expect(result.arguments).toContain("skills@1.5.22");
 		expect(result.arguments).toContain(
-			"https://github.com/NewTurn2017/jeomwon/tree/v0.1.3/skill",
+			"https://github.com/NewTurn2017/jeomwon/tree/v0.1.4/skill",
 		);
 	});
 
@@ -124,7 +124,7 @@ describe("curl installer entrypoint", () => {
 		const result = runInstaller("all", "1.3.14", true);
 
 		expect(result.status).toBe(0);
-		expect(result.output).toContain("INSTALL PASS jeomwon v0.1.3");
+		expect(result.output).toContain("INSTALL PASS jeomwon v0.1.4");
 	});
 
 	test("Given the wrong Bun version When installed Then recovery is explicit and no install runs", () => {

@@ -51,7 +51,7 @@ beforeEach(() => {
 });
 
 function archiveEnv(): NodeJS.ProcessEnv {
-	const path = join(skillRoot, "assets/jeomwon-template-v0.1.3.tar.gz");
+	const path = join(skillRoot, "assets/jeomwon-template-v0.1.4.tar.gz");
 	return {
 		JEOMWON_TEMPLATE_ARCHIVE: path,
 		JEOMWON_TEMPLATE_ARCHIVE_SHA256: createHash("sha256")

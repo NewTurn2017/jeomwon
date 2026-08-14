@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "../..");
-const archive = join(root, "skill/assets/jeomwon-template-v0.1.3.tar.gz");
+const archive = join(root, "skill/assets/jeomwon-template-v0.1.4.tar.gz");
 const prefix = "jeomwon-bundled/template/";
 const included = [
 	"scripts/qa-contract.ts",

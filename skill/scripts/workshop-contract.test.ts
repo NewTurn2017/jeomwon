@@ -50,25 +50,25 @@ describe("workshop first-five-minute contract", () => {
 			contract.distribution.release.asset.sha256,
 		);
 		expect(source.contentSha256).toBe(
-			"89cb17caa933c622aacb24b385dd952fa7f49e8cf5b84b872c515beac799a1ae",
+			"218cfbfbb8f8e34f356d33396a05432b55725bb8652f30eaf9f9a709045b1b5c",
 		);
 	});
 
-	test("pins the published v0.1.3 release and stable installer URL", () => {
+	test("pins the published v0.1.4 release and stable installer URL", () => {
 		const contract = readJson(join(lecture, "workshop-contract.json"));
 		const strings = walkStrings(contract);
 
 		expect(contract.distribution.release).toEqual({
 		status: "published",
-			tag: "v0.1.3",
-			skillVersion: "0.1.3",
-			templateVersion: "0.1.3",
-			url: "https://github.com/NewTurn2017/jeomwon/releases/tag/v0.1.3",
+			tag: "v0.1.4",
+			skillVersion: "0.1.4",
+			templateVersion: "0.1.4",
+			url: "https://github.com/NewTurn2017/jeomwon/releases/tag/v0.1.4",
 			asset: {
-				name: "jeomwon-template-v0.1.3.tar.gz",
-				url: "https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.3/jeomwon-template-v0.1.3.tar.gz",
+				name: "jeomwon-template-v0.1.4.tar.gz",
+				url: "https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.4/jeomwon-template-v0.1.4.tar.gz",
 				sha256:
-					"41ac8c763e57391f5faa29dae72c9bc80e219c9e35213fc3a9b8d48c607d1886",
+					"aa66b4a2c2cdd14fe8049227adee9c9f02852341dae6c0005c60f72d076edd68",
 			},
 		});
 		expect(contract.distribution.localCheckout.developmentOnly).toBe(true);
@@ -77,14 +77,14 @@ describe("workshop first-five-minute contract", () => {
 		).toBe(false);
 		expect(strings.some((value) => /\/main(?:\/|$)/i.test(value))).toBe(false);
 		expect(contract.distribution.installer.url).toBe(
-			"https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.3/install.sh",
+			"https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.4/install.sh",
 		);
 		expect(contract.distribution.installer.sourcePath).toBe("install.sh");
 		expect(contract.distribution.skillInstallCommand).toBe(
-			"curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.3/install.sh | bash -s -- --agent all",
+			"curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.4/install.sh | bash -s -- --agent all",
 		);
 		expect(contract.distribution.skillSource.installArguments).toContain(
-			"https://github.com/NewTurn2017/jeomwon/tree/v0.1.3/skill",
+			"https://github.com/NewTurn2017/jeomwon/tree/v0.1.4/skill",
 		);
 	});
 
@@ -100,7 +100,7 @@ describe("workshop first-five-minute contract", () => {
 			"curl -fsSL https://chatgpt.com/codex/install.sh | sh",
 		);
 		expect(contract.expectedMarkers).toEqual([
-			"INSTALL PASS jeomwon v0.1.3",
+			"INSTALL PASS jeomwon v0.1.4",
 			"PREFLIGHT PASS",
 			"[SKIP verify_qa]",
 			"VERIFY PASS",
@@ -188,7 +188,7 @@ describe("workshop first-five-minute contract", () => {
 				"curl -fsSL https://claude.ai/install.sh | bash",
 			);
 			expect(html).toContain(
-				"curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.3/install.sh",
+			"curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.4/install.sh",
 			);
 			expect(html).toContain("[SKIP verify_qa]");
 			expect(html).toContain("VERIFY PASS");

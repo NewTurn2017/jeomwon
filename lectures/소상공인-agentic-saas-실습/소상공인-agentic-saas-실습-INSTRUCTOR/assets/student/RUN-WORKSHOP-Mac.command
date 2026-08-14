@@ -4,7 +4,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd -P)"
 AGENT="${1:-claude}"
 WORKSPACE="${JEOMWON_WORKSPACE:-$HOME/Desktop/jeomwon-zero-test}"
-INSTALLER_URL="${JEOMWON_INSTALLER_URL:-https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.3/install.sh}"
+INSTALLER_URL="${JEOMWON_INSTALLER_URL:-https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.4/install.sh}"
 SKILL_ROOT="${JEOMWON_SKILL_DIR:-$HOME/.agents/skills/jeomwon}"
 
 case "$AGENT" in

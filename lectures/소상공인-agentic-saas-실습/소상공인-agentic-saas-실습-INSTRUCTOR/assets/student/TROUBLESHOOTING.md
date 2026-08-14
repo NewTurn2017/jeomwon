@@ -39,7 +39,7 @@ release asset을 내려받지 못했거나 Bun/skills 설치가 실패한 것입
 ```bash
 curl -fsSL --proto '=https' --tlsv1.2 \
   -o /tmp/jeomwon-install.sh \
-https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.3/install.sh
+https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.4/install.sh
 bash /tmp/jeomwon-install.sh --agent all
 ```
 

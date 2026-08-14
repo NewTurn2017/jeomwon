@@ -58,13 +58,13 @@
       "id": "site-url",
       "kind": "convex-env-with-local-default",
       "title": "Site URL",
-      "description": "The public marketing site URL used by backend emails and server-side links.",
+      "description": "The authenticated app origin used by Convex Auth redirects, backend emails, and server-side links.",
       "variables": [
         {
           "name": "SITE_URL",
           "projects": ["backend", "convex"],
           "details": "Use localhost for local Next dev. Production domains should be set separately in production deployments.",
-          "defaultValue": "http://localhost:3001",
+          "defaultValue": "http://localhost:3000",
           "secret": false
         }
       ],

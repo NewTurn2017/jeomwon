@@ -30,7 +30,7 @@
 ```bash
 curl -fsSL https://claude.ai/install.sh | bash
 curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.14"
-curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.3/install.sh | bash -s -- --agent all
+curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.4/install.sh | bash -s -- --agent all
 mkdir -p "$HOME/Desktop/jeomwon-zero-test"
 cd "$HOME/Desktop/jeomwon-zero-test"
 claude

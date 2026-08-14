@@ -53,7 +53,7 @@ export async function configureSiteUrl(ctx: RuntimeContext) {
     ctx,
     variable,
     "backend",
-    variable.defaultValue ?? "http://localhost:3001",
+    variable.defaultValue ?? "http://localhost:3000",
   );
 
   await setLocalEnv(ctx, "backend", "SITE_URL", siteUrl);

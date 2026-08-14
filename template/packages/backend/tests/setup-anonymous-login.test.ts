@@ -19,7 +19,7 @@ function baseStubs(customerAccounts = true): Stubs {
   return {
     values: {
       NEXT_PUBLIC_APP_URL: "http://localhost:3000",
-      SITE_URL: "http://localhost:3001",
+      SITE_URL: "http://localhost:3000",
       JEOMWON_ADMIN_EMAILS: secretSentinel,
     },
     answers: {
@@ -197,7 +197,7 @@ describe("anonymous login setup matrix", () => {
       const stubs = baseStubs(true);
       stubs.values = {
         NEXT_PUBLIC_APP_URL: "http://localhost:3000",
-        SITE_URL: "http://localhost:3001",
+        SITE_URL: "http://localhost:3000",
       };
       stubs.existingConvexEnv = {
         ...stubs.existingConvexEnv,

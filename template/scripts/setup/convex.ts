@@ -439,8 +439,7 @@ export async function configureConvexAuth(
   });
   await ensureConvexEnv(ctx, "SITE_URL", siteUrl, {
     secret: false,
-    overwritePromptKey: "overwrite:SITE_URL",
-    alreadyConfigured: statuses.get("SITE_URL"),
+    force: true,
   });
 
   if (jwtConfigured && jwksConfigured) {
@@ -621,7 +620,11 @@ export async function isConvexEnvConfigured(ctx: RuntimeContext, name: string) {
   }
 
   const result = await runConvexCommand(ctx, ["env", "get", name]);
-  return result.code === 0;
+  return isConvexEnvReadResultConfigured(result);
+}
+
+export function isConvexEnvReadResultConfigured(result: CommandResult) {
+  return result.code === 0 && result.stdout.trim().length > 0;
 }
 
 export async function readConvexEnvValue(ctx: RuntimeContext, name: string) {
@@ -639,7 +642,9 @@ export async function readConvexEnvValue(ctx: RuntimeContext, name: string) {
   }
 
   const result = await runConvexCommand(ctx, ["env", "get", name]);
-  return result.code === 0 ? result.stdout.trim() : undefined;
+  return isConvexEnvReadResultConfigured(result)
+    ? result.stdout.trim()
+    : undefined;
 }
 export async function runVisibleConvexCommand(
   ctx: RuntimeContext,

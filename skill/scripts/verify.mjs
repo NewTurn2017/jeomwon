@@ -22,7 +22,7 @@ const verifyEnv = {
 	NEXT_TELEMETRY_DISABLED: "1",
 	NEXT_PUBLIC_CONVEX_URL: "https://jeomwon-example.convex.cloud",
 	NEXT_PUBLIC_APP_URL: "http://localhost:3000",
-	SITE_URL: "http://localhost:3001",
+	SITE_URL: "http://localhost:3000",
 	AGENT_RUNTIME: "mock",
 	AUTH_ANONYMOUS_LOGIN: "1",
 	...process.env,
