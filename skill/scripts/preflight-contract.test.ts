@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import {
 	cpSync,
@@ -18,11 +18,8 @@ import { fileURLToPath } from "node:url";
 const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const skillRoot = join(repoRoot, "skill");
 const script = join(skillRoot, "scripts/preflight.mjs");
-const pack = join(
-	repoRoot,
-	"lectures/소상공인-agentic-saas-실습/assets/student/salon-domain-pack.json",
-);
 const roots: string[] = [];
+let pack = "";
 
 function temp(label: string): string {
 	const root = realpathSync(mkdtempSync(join(tmpdir(), label)));
@@ -42,6 +39,16 @@ function run(args: string[], env: NodeJS.ProcessEnv = {}) {
 function output(result: ReturnType<typeof run>): string {
 	return `${result.stdout.toString()}${result.stderr.toString()}`;
 }
+
+beforeEach(() => {
+	const root = temp("jeomwon preflight pack ");
+	const example = readFileSync(join(skillRoot, "EXAMPLES.md"), "utf8").match(
+		/```json\n([\s\S]*?)\n```/,
+	)?.[1];
+	if (example === undefined) throw new Error("missing domain pack example");
+	pack = join(root, "domain-pack.json");
+	writeFileSync(pack, example);
+});
 
 function archiveEnv(): NodeJS.ProcessEnv {
 	const path = join(skillRoot, "assets/jeomwon-template-v0.1.1.tar.gz");
@@ -189,7 +196,7 @@ describe("installed-skill preflight", () => {
 		expect(mismatch).toMatchObject({ code: "bun_version_mismatch" });
 	});
 
-	test("canonical, installed, manual symlink, and explicit env resolve the same root", () => {
+	test("canonical, installed, manual symlink, and agent-neutral env resolve the same root", () => {
 		const root = temp("jeomwon preflight layouts ");
 		const installed = join(root, ".agents/skills/jeomwon");
 		cpSync(skillRoot, installed, { recursive: true });
@@ -201,6 +208,13 @@ describe("installed-skill preflight", () => {
 			[join(installed, "scripts/preflight.mjs"), {}],
 			[join(manual, "scripts/preflight.mjs"), {}],
 			[script, { CLAUDE_SKILL_DIR: manual }],
+			[
+				script,
+				{
+					JEOMWON_SKILL_DIR: installed,
+					CLAUDE_SKILL_DIR: join(root, "must-not-win"),
+				},
+			],
 		] as const) {
 			const result = Bun.spawnSync(
 				[process.execPath, entry, "--resolve-root"],

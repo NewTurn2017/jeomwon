@@ -21,25 +21,33 @@ The generated UI is production-ready out of the box: a light, domain-aware landi
 
 - **Cal.com is a booking *app*** — one calendar product you configure. Jeomwon **generates the reservation SaaS itself** from a domain interview (a hair salon, a PC café, and a pension each come out as a different app).
 - **v0 and boilerplates give you *screens*** — jeomwon ships the screens plus the **domain logic enforced inside Convex mutations**: slot conflicts, hold TTLs, cancel windows.
-- **It ships as a Claude Code skill** — a coding agent interviews you, scaffolds the project, and runs offline verification. QA contract v2's 12 live gates run separately after setup.
+- **It ships as a Claude Code and Codex skill** — a coding agent interviews you, scaffolds the project, and runs offline verification. QA contract v2's 12 live gates run separately after setup.
 
 ## Quick start
 
 **Prerequisites**: exactly [bun](https://bun.sh) **1.3.14** · a free [Convex](https://convex.dev) account with `bun x convex login` completed before setup · a **required Google OAuth Web application client** for Google sign-in · optional [Resend](https://resend.com) / [OpenAI](https://platform.openai.com) keys (without them, email capture and the `mock` agent runtime remain available)
 
-### With Claude Code (recommended)
+### From an empty folder with Claude Code (recommended)
 
 ```bash
-git clone https://github.com/NewTurn2017/jeomwon.git && cd jeomwon
-bunx --bun skills@1.5.22 add . --skill jeomwon --agent universal claude-code --global
-# Manual alternative: ln -sfn "$(pwd)/skill" ~/.claude/skills/jeomwon
+curl -fsSL https://claude.ai/install.sh | bash
+curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.1/install.sh | bash -s -- --agent all
+mkdir -p "$HOME/Desktop/jeomwon-zero-test" && cd "$HOME/Desktop/jeomwon-zero-test"
+claude
 ```
 
-Then in a Claude Code session, describe your domain (e.g. "build a seat reservation system for my PC café"). The skill interviews you for one domain pack, then runs a single **bootstrap** command that scaffolds a project from `template/`, injects the domain pack, and runs the offline verification gate. Bootstrap is offline-only — it never runs live QA or `bun setup`.
+Describe the domain without reusing an example JSON. The skill follows its Interview Order and waits for `APPROVE` before writing a fresh workspace `domain-pack.json`. The generated target must be a separate absent child directory. Bootstrap is offline-only — it never runs live QA or `bun setup`.
 
 When bootstrap finishes it prints the generated path and the next steps to run yourself: `bun x convex login`, `bun setup` (Google OAuth values and an operator allowlist email), then `bun run qa` (QA contract v2, 12 live gates).
 
-Bootstrap runs preflight before touching the target. To check readiness separately, run `bun "${CLAUDE_SKILL_DIR}/scripts/preflight.mjs" <target-dir> <project-name> <domain-pack.json>`. The installed command resolves the skills CLI canonical directory, Claude Code link, manual symlinks, and the real `CLAUDE_SKILL_DIR` value consistently, then verifies the checked-in immutable archive and both SHA-256 contracts. On `cache_not_ready`, copy the single printed `warm-cache.mjs` recovery argv and run it only when network access is allowed. Offline verify never substitutes hidden network access.
+Bootstrap runs preflight before touching the target. To check readiness separately, run `bun "${JEOMWON_SKILL_DIR:-${CLAUDE_SKILL_DIR:-$HOME/.agents/skills/jeomwon}}/scripts/preflight.mjs" <target-dir> <project-name> <domain-pack.json>`. The installed command resolves the agent-neutral canonical directory, Claude Code link, manual symlinks, `JEOMWON_SKILL_DIR`, and the compatibility `CLAUDE_SKILL_DIR` consistently, then verifies the checked-in immutable archive and both SHA-256 contracts. On `cache_not_ready`, copy the single printed `warm-cache.mjs` recovery argv and run it only when network access is allowed.
+
+For Codex, install the official CLI and use the same interview prompt in the same empty workspace:
+
+```bash
+curl -fsSL https://chatgpt.com/codex/install.sh | sh
+codex
+```
 
 ### Without Claude Code
 

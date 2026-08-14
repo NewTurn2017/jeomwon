@@ -22,9 +22,11 @@ export class PreflightError extends Error {
 
 export async function resolveSkillRoot(env = process.env) {
 	const inferred = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-	const requested = env.CLAUDE_SKILL_DIR
-		? resolve(env.CLAUDE_SKILL_DIR)
-		: inferred;
+	const requested = env.JEOMWON_SKILL_DIR
+		? resolve(env.JEOMWON_SKILL_DIR)
+		: env.CLAUDE_SKILL_DIR
+			? resolve(env.CLAUDE_SKILL_DIR)
+			: inferred;
 	let root;
 	try {
 		root = await realpath(requested);

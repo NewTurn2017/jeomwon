@@ -162,7 +162,7 @@ function defaultRecovery(code, root, positional, language) {
 	if (code === "skill_root_unresolved")
 		return [
 			"env",
-			`CLAUDE_SKILL_DIR=${root}`,
+			`JEOMWON_SKILL_DIR=${root}`,
 			"bun",
 			`${root}/scripts/preflight.mjs`,
 			...positional,

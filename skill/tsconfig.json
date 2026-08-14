@@ -25,6 +25,7 @@
 		"scripts/inject-lock-contract.test.ts",
 		"scripts/inject-publication-contract.test.ts",
 		"scripts/inject-test-helpers.ts",
+		"scripts/install-entrypoint.test.ts",
 		"scripts/preflight-contract.test.ts",
 		"scripts/preflight-target-contract.test.ts",
 		"scripts/skills-install-smoke.test.ts",

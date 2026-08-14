@@ -298,10 +298,10 @@ afterEach(() => {
 });
 
 describe("public skill installation", () => {
-	test("installed script examples use CLAUDE_SKILL_DIR instead of the caller cwd", () => {
+	test("installed script examples use an agent-neutral skill root instead of the caller cwd", () => {
 		const source = readFileSync(join(skillPath, "SKILL.md"), "utf8");
 		expect(source).toContain(
-			`bun "\${CLAUDE_SKILL_DIR}/scripts/bootstrap.mjs" <target-dir> <project-name> <domain-pack.json>`,
+			`bun "\${JEOMWON_SKILL_DIR:-\${CLAUDE_SKILL_DIR:-$HOME/.agents/skills/jeomwon}}/scripts/bootstrap.mjs" <target-dir> <project-name> <domain-pack.json>`,
 		);
 		expect(source).not.toMatch(
 			/`bun scripts\/(?:bootstrap|scaffold|inject|verify)\.mjs/,
