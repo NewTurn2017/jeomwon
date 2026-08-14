@@ -58,12 +58,12 @@ describe("workshop first-five-minute contract", () => {
 		);
 	});
 
-	test("pins the v0.1.1 release candidate and stable installer URL", () => {
+	test("pins the published v0.1.1 release and stable installer URL", () => {
 		const contract = readJson(join(lecture, "workshop-contract.json"));
 		const strings = walkStrings(contract);
 
 		expect(contract.distribution.release).toEqual({
-			status: "pending-publication",
+		status: "published",
 			tag: "v0.1.1",
 			skillVersion: "0.1.1",
 			templateVersion: "0.1.1",
