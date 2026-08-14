@@ -25,6 +25,7 @@ type InstallRun = {
 function runInstaller(
 	agent: "all" | "claude" | "codex",
 	bunVersion = "1.3.14",
+	piped = false,
 ): InstallRun {
 	const root = mkdtempSync(join(tmpdir(), "jeomwon-install-test-"));
 	temporaryRoots.push(root);
@@ -39,21 +40,29 @@ if [ "$1" = "--version" ]; then
 	printf '%s\\n' "\${FAKE_BUN_VERSION}"
 	exit 0
 fi
+cat >/dev/null
 printf '%s\\n' "$@" > "\${JEOMWON_TEST_ARGUMENTS}"
 `,
 	);
 	chmodSync(fakeBun, 0o755);
 
-	const result = spawnSync("bash", [installerPath, "--agent", agent], {
-		encoding: "utf8",
-		env: {
-			...process.env,
-			FAKE_BUN_VERSION: bunVersion,
-			HOME: join(root, "home"),
-			JEOMWON_TEST_ARGUMENTS: argumentsPath,
-			PATH: `${bin}:/usr/bin:/bin`,
+	const result = spawnSync(
+		"bash",
+		piped
+			? ["-s", "--", "--agent", agent]
+			: [installerPath, "--agent", agent],
+		{
+			encoding: "utf8",
+			env: {
+				...process.env,
+				FAKE_BUN_VERSION: bunVersion,
+				HOME: join(root, "home"),
+				JEOMWON_TEST_ARGUMENTS: argumentsPath,
+				PATH: `${bin}:/usr/bin:/bin`,
+			},
+			input: piped ? readFileSync(installerPath) : undefined,
 		},
-	});
+	);
 	const argumentsText =
 		result.status === 0 ? readFileSync(argumentsPath, "utf8") : "";
 
@@ -100,6 +109,13 @@ describe("curl installer entrypoint", () => {
 		expect(result.arguments).toContain(
 			"https://github.com/NewTurn2017/jeomwon/tree/v0.1.1/skill",
 		);
+	});
+
+	test("Given curl-pipe input When installed Then the final pass marker is preserved", () => {
+		const result = runInstaller("all", "1.3.14", true);
+
+		expect(result.status).toBe(0);
+		expect(result.output).toContain("INSTALL PASS jeomwon v0.1.1");
 	});
 
 	test("Given the wrong Bun version When installed Then recovery is explicit and no install runs", () => {

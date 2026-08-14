@@ -78,6 +78,6 @@ DISABLE_TELEMETRY=1 bun x "skills@${SKILLS_CLI_VERSION}" add \
 	--skill jeomwon \
 	--agent "${agent_targets[@]}" \
 	--global \
-	--yes
+	--yes </dev/null
 
 printf 'INSTALL PASS jeomwon %s\n' "$JEOMWON_TAG"
