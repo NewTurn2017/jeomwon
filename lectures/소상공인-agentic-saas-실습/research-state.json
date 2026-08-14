@@ -6,29 +6,29 @@
   "depth": "deep",
   "status": "gate2_approved",
   "created_at": "2026-08-08T08:41:49.583Z",
-  "updated_at": "2026-08-08T09:18:00.284Z",
+  "updated_at": "2026-08-14T11:42:26.476Z",
   "gates": {
     "gate1": {
       "status": "approved",
       "brief_path": "brief.md",
-      "brief_sha256": "f9d73d92c448268f11f658f99d4a92e17fb51f6e61bc04b97515640904e7be1d",
+      "brief_sha256": "1dfda1ae8eeebae78d480a31c09d12b31ad860df211c8c8d3b4020cbca72e3fe",
       "outline_path": "outline.md",
-      "outline_sha256": "f743df287094e5dff7ed525eed0b77d100cc0c73535ec587840f2e6527c3aa86",
-      "outline_revision": 1,
-      "approved_at": "2026-08-08T08:41:49.583Z"
+      "outline_sha256": "de2fda481bc353fecbbb7bd7db476124ac0df192a3a654643b07d4954278af30",
+      "outline_revision": 2,
+      "approved_at": "2026-08-14T11:40:00Z"
     },
     "gate2": {
       "status": "approved",
-      "validated_at": "2026-08-08T09:18:00.283Z",
+      "accepted_gap_ids": [],
+      "validated_at": "2026-08-14T11:42:26.474Z",
       "validator_version": "1.0.0",
-      "research_digest": "3553fab868dca656b63df071e5e522002573fb029a9a550847af46aa3e24bcad",
-      "approved_at": "2026-08-08T09:18:00.284Z",
-      "approval_receipt_sha256": "1529876644e004bd73da6211f55964506f155bc2c262f23398e5c11dfd72f1e8",
+      "brief_sha256": "1dfda1ae8eeebae78d480a31c09d12b31ad860df211c8c8d3b4020cbca72e3fe",
+      "research_sha256": "9285a36e196321d6077bcc42e265d8721ec69278b99da456a621a9830c55c343",
+      "outline_sha256": "de2fda481bc353fecbbb7bd7db476124ac0df192a3a654643b07d4954278af30",
+      "research_digest": "5b1baddcd75359d1e27ca1a50c538392096fd275e6356b4584f2e87184fc5cfe",
       "errors": [],
-      "brief_sha256": "f9d73d92c448268f11f658f99d4a92e17fb51f6e61bc04b97515640904e7be1d",
-      "research_sha256": "9b8ce6f5a070c03f89825566d4b5c7cfe995f8de3741b964e07c9f921482b45e",
-      "outline_sha256": "f743df287094e5dff7ed525eed0b77d100cc0c73535ec587840f2e6527c3aa86",
-      "accepted_gap_ids": []
+      "approved_at": "2026-08-14T11:42:26.476Z",
+      "approval_receipt_sha256": "bd3147727b29d04a4f9e241462a546b9694e6b0358b8e92bf181a11e4d3fd8a9"
     }
   },
   "capabilities": {
@@ -67,7 +67,8 @@
       "success_condition": "generator writes and runtime ownership proven from current source",
       "status": "closed",
       "attempt_ids": [
-        "T1"
+        "T1",
+        "T8"
       ],
       "lead_ids": [
         "L1"
@@ -168,12 +169,13 @@
       "success_condition": "provider capability and Jeomwon product boundary independently corroborated",
       "status": "closed",
       "attempt_ids": [
-        "T5"
+        "T5",
+        "T7"
       ],
       "lead_ids": [
         "L5"
       ],
-      "result_summary": "Default-off account subscription wiring exists; per-reservation checkout/payment state does not.",
+      "result_summary": "Polar is two separate off-by-default capabilities in v0.1.5: account subscription and reservation deposit. Per-booking charges, partial-refund accounting, a ledger, and deposit UI stay out of scope.",
       "blocker": null
     },
     {
@@ -269,6 +271,28 @@
       "host_reference": "st_019fe08f",
       "error": null,
       "result_digest": "team-result:A6:learning-transfer"
+    },
+    {
+      "attempt_id": "T7",
+      "axis_id": "A5",
+      "mode": "single",
+      "status": "returned_complete",
+      "started_at": "2026-08-14T11:20:00Z",
+      "finished_at": "2026-08-14T11:40:00Z",
+      "host_reference": "session-v0.1.5-revision",
+      "error": null,
+      "result_digest": "revision:A5:deposit-capability-split"
+    },
+    {
+      "attempt_id": "T8",
+      "axis_id": "A1",
+      "mode": "single",
+      "status": "returned_complete",
+      "started_at": "2026-08-14T11:20:00Z",
+      "finished_at": "2026-08-14T11:40:00Z",
+      "host_reference": "session-v0.1.5-revision",
+      "error": null,
+      "result_digest": "revision:A1:guided-setup-and-locale-default"
     }
   ],
   "waves": [
@@ -330,6 +354,19 @@
       "started_at": "2026-08-08T08:58:01Z",
       "completed_at": "2026-08-08T09:01:00Z",
       "summary": "External dashboard, live Polar sandbox, all-vertical live QA, and direct audience-trial gaps were bounded and exposed."
+    },
+    {
+      "wave_id": "W4",
+      "kind": "gap_audit",
+      "status": "complete",
+      "axis_ids": [
+        "A1",
+        "A5"
+      ],
+      "lead_ids": [],
+      "started_at": "2026-08-14T11:20:00Z",
+      "completed_at": "2026-08-14T11:40:00Z",
+      "summary": "v0.1.5 re-audit of the generator boundary and the payment boundary after guided setup and reservation deposits shipped; C5 revised and C8 added."
     }
   ],
   "leads": [
@@ -552,18 +589,18 @@
     {
       "source_id": "R19",
       "title": "Jeomwon subscriptions",
-      "url": "https://github.com/NewTurn2017/jeomwon/blob/cd8d222/template/packages/backend/convex/subscriptions.ts",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/9e314bd/template/packages/backend/convex/subscriptions.ts",
       "source_type": "repository",
       "primary": true,
-      "accessed_at": "2026-08-08"
+      "accessed_at": "2026-08-14"
     },
     {
       "source_id": "R20",
       "title": "Jeomwon schema",
-      "url": "https://github.com/NewTurn2017/jeomwon/blob/cd8d222/template/packages/backend/convex/schema.ts",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/9e314bd/template/packages/backend/convex/schema.ts",
       "source_type": "repository",
       "primary": true,
-      "accessed_at": "2026-08-08"
+      "accessed_at": "2026-08-14"
     },
     {
       "source_id": "R21",
@@ -604,6 +641,46 @@
       "source_type": "research",
       "primary": true,
       "accessed_at": "2026-08-08"
+    },
+    {
+      "source_id": "R31",
+      "title": "Jeomwon reservation deposits",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/9e314bd/template/packages/backend/convex/deposits.ts",
+      "source_type": "repository",
+      "primary": true,
+      "accessed_at": "2026-08-14"
+    },
+    {
+      "source_id": "R32",
+      "title": "Jeomwon setup providers",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/9e314bd/template/scripts/setup/providers.ts",
+      "source_type": "repository",
+      "primary": true,
+      "accessed_at": "2026-08-14"
+    },
+    {
+      "source_id": "R33",
+      "title": "Jeomwon v0.1.5 release",
+      "url": "https://github.com/NewTurn2017/jeomwon/releases/tag/v0.1.5",
+      "source_type": "release",
+      "primary": true,
+      "accessed_at": "2026-08-14"
+    },
+    {
+      "source_id": "R34",
+      "title": "Jeomwon reservation deposit tests",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/9e314bd/template/packages/backend/tests/reservation-deposit.test.ts",
+      "source_type": "repository",
+      "primary": false,
+      "accessed_at": "2026-08-14"
+    },
+    {
+      "source_id": "R35",
+      "title": "Jeomwon capability manifest",
+      "url": "https://github.com/NewTurn2017/jeomwon/blob/9e314bd/template/jeomwon-capabilities.json",
+      "source_type": "repository",
+      "primary": false,
+      "accessed_at": "2026-08-14"
     }
   ],
   "observations": [
@@ -803,18 +880,18 @@
       ],
       "contradicts_claim_ids": [],
       "independence_group": "product-source",
-      "valid_at": "2026-08-08"
+      "valid_at": "2026-08-14"
     },
     {
       "observation_id": "O19",
       "source_id": "R20",
-      "statement": "Reservation schema has no payment, order, amount, currency, deposit, or refund linkage.",
+      "statement": "Reservation schema now carries an optional deposit record written only by the Polar order webhook, and still has no per-booking charge, refund accounting, or payment ledger linkage.",
       "supports_claim_ids": [
         "C5"
       ],
       "contradicts_claim_ids": [],
       "independence_group": "product-source",
-      "valid_at": "2026-08-08"
+      "valid_at": "2026-08-14"
     },
     {
       "observation_id": "O20",
@@ -870,6 +947,72 @@
       "contradicts_claim_ids": [],
       "independence_group": "retrieval-study",
       "valid_at": "2026-08-08"
+    },
+    {
+      "observation_id": "O25",
+      "source_id": "R31",
+      "statement": "Reservation deposit checkout binds the reservation on server-owned metadata, and order.created and order.refunded write the reservation deposit record with one audit event.",
+      "supports_claim_ids": [
+        "C5"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "product-source",
+      "valid_at": "2026-08-14"
+    },
+    {
+      "observation_id": "O26",
+      "source_id": "R34",
+      "statement": "Deposit state math, domain isolation, and malformed webhook payloads are covered by tests that pass in the v0.1.5 CI run.",
+      "supports_claim_ids": [
+        "C5"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "product-test",
+      "valid_at": "2026-08-14"
+    },
+    {
+      "observation_id": "O27",
+      "source_id": "R35",
+      "statement": "The capability manifest declares account subscription and reservation deposit as two separate off-by-default capabilities.",
+      "supports_claim_ids": [
+        "C5"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "product-manifest",
+      "valid_at": "2026-08-14"
+    },
+    {
+      "observation_id": "O28",
+      "source_id": "R32",
+      "statement": "Setup walks Resend, OpenAI, and Polar in one run with yes-by-default confirmations, and --minimal restores the Convex and Google only path.",
+      "supports_claim_ids": [
+        "C8"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "product-source",
+      "valid_at": "2026-08-14"
+    },
+    {
+      "observation_id": "O29",
+      "source_id": "R32",
+      "statement": "Setup output resolves Korean unless --lang or JEOMWON_CLI_LANG says otherwise; POSIX locale detection applies only to --lang auto.",
+      "supports_claim_ids": [
+        "C8"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "product-source",
+      "valid_at": "2026-08-14"
+    },
+    {
+      "observation_id": "O30",
+      "source_id": "R33",
+      "statement": "The v0.1.5 release publishes install.sh and the template archive with recorded SHA-256, and the installer pins the v0.1.5 skill tree.",
+      "supports_claim_ids": [
+        "C8"
+      ],
+      "contradicts_claim_ids": [],
+      "independence_group": "release-artifact",
+      "valid_at": "2026-08-14"
     }
   ],
   "claims": [
@@ -985,27 +1128,34 @@
     },
     {
       "claim_id": "C5",
-      "statement": "Current Jeomwon Polar wiring is default-off account-plan subscription billing, and reservation lifecycle has no per-booking checkout or payment state.",
+      "statement": "As of Jeomwon v0.1.5, Polar wiring is two separate default-off capabilities: account-plan subscription billing and a one-time reservation deposit recorded on the reservation, while per-booking charges, partial-refund accounting, a payment ledger, and any deposit UI remain unimplemented.",
       "status": "supported",
       "risk": "high",
       "support_observation_ids": [
         "O16",
         "O17",
         "O18",
-        "O19"
+        "O19",
+        "O25",
+        "O26",
+        "O27"
       ],
       "contradict_observation_ids": [],
       "source_ids": [
         "R17",
         "R18",
         "R19",
-        "R20"
+        "R20",
+        "R31",
+        "R34",
+        "R35"
       ],
-      "primary_source_id": "R17",
-      "counter_search": "Searched Polar one-time products and repository payment, checkout, order, amount, currency, deposit, and refund connections.",
-      "valid_at": "2026-08-08",
+      "primary_source_id": "R31",
+      "counter_search": "Re-searched backend and app source for per-booking charge, partial-refund accounting, payment ledger, and deposit UI wiring after the v0.1.5 deposit seam shipped.",
+      "valid_at": "2026-08-14",
       "verification_ids": [
-        "V1"
+        "V1",
+        "V2"
       ],
       "slide_refs": [
         "S14"
@@ -1063,6 +1213,31 @@
         "S10",
         "S15"
       ]
+    },
+    {
+      "claim_id": "C8",
+      "statement": "Jeomwon v0.1.5 setup walks Convex, Google, and then Resend, OpenAI, and Polar in one run with Korean output by default; declining a provider degrades to capture, mock, or billing-off and lists the deferred keys for a later run.",
+      "status": "supported",
+      "risk": "medium",
+      "support_observation_ids": [
+        "O28",
+        "O29",
+        "O30"
+      ],
+      "contradict_observation_ids": [],
+      "source_ids": [
+        "R32",
+        "R33"
+      ],
+      "primary_source_id": null,
+      "counter_search": "Checked --minimal, --optional-providers, non-interactive, and feature-off paths for a run that still fails or silently skips a provider.",
+      "valid_at": "2026-08-14",
+      "verification_ids": [
+        "V2"
+      ],
+      "slide_refs": [
+        "S16"
+      ]
     }
   ],
   "verifications": [
@@ -1078,6 +1253,20 @@
       "stderr_path": null,
       "result": "Polar supports subscriptions and one-time products; Jeomwon wires account subscriptions only and reservation schema has no payment linkage.",
       "verified_at": "2026-08-08T08:58:00Z"
+    },
+    {
+      "verification_id": "V2",
+      "claim_ids": [
+        "C5",
+        "C8"
+      ],
+      "method": "first-party-implementation-plus-test-and-release-audit",
+      "status": "confirmed",
+      "command": "bun test (template and skill suites); gh run view 31796128515; gh release view v0.1.5",
+      "stdout_path": null,
+      "stderr_path": null,
+      "result": "Shipped v0.1.5 confirms both claims: 462 template tests and 207 skill tests pass, CI is green on five jobs, and the release publishes install.sh and the template archive with matching SHA-256. A live Polar sandbox order round trip is still not executed.",
+      "verified_at": "2026-08-14T11:40:00Z"
     }
   ],
   "visuals": [],
@@ -1087,17 +1276,17 @@
     "closed_axis_count": 6,
     "open_lead_count": 0,
     "terminal_lead_count": 6,
-    "expansion_audit_count": 2,
+    "expansion_audit_count": 3,
     "high_risk_claim_count": 1,
     "verified_high_risk_claim_count": 1,
     "unresolved_claim_ids": [],
     "accepted_gap_ids": [],
-    "checked_at": "2026-08-08T09:18:00.283Z",
+    "checked_at": "2026-08-14T11:42:26.474Z",
     "errors": []
   },
   "projection": {
     "research_md_path": "research.md",
-    "research_md_sha256": "9b8ce6f5a070c03f89825566d4b5c7cfe995f8de3741b964e07c9f921482b45e",
+    "research_md_sha256": "9285a36e196321d6077bcc42e265d8721ec69278b99da456a621a9830c55c343",
     "outline_delta": [
       "S1 promise becomes offline-verified reservation SaaS codebase.",
       "S5/S9 show literal template copy, strict config injection, and offline verify.",
@@ -1109,7 +1298,10 @@
       "S12 labels pre-provisioned reference UI unless same-artifact lineage is proven.",
       "S13 hard-stops at OFFLINE VERIFIED.",
       "S14 physically disconnects account subscription and booking money.",
-      "S15 requires blank and delayed changed-domain reconstruction."
+      "S15 requires blank and delayed changed-domain reconstruction.",
+      "v0.1.5 revision: slide ids added after this point follow the current 20-slide outline.md numbering.",
+      "S16 setup slide gains a fifth step for the Resend, OpenAI, and Polar walkthrough and drops --lang ko.",
+      "S14 separates service fee from reservation deposit and marks deposit UI as still absent."
     ],
     "slide_claim_map": [
       {
@@ -1299,7 +1491,10 @@
           "R17",
           "R18",
           "R19",
-          "R20"
+          "R20",
+          "R31",
+          "R34",
+          "R35"
         ]
       },
       {
@@ -1315,15 +1510,25 @@
           "R24",
           "R25"
         ]
+      },
+      {
+        "slide_id": "S16",
+        "claim_ids": [
+          "C8"
+        ],
+        "source_ids": [
+          "R32",
+          "R33"
+        ]
       }
     ],
     "unresolved_summary": [
       "Vercel dashboard roots, env scopes, domains, and deploy keys require operator verification.",
-      "Live Polar sandbox checkout, webhook, and portal evidence is pending.",
+      "Live Polar sandbox checkout, webhook, portal, and deposit order round-trip evidence is pending.",
       "All four verticals have not completed fresh authenticated live QA in this research phase.",
       "No direct randomized trial covers this exact audience and full sixty-minute ladder.",
       "Delayed changed-domain reproduction data will be collected after delivery."
     ],
-    "generated_at": "2026-08-08T09:02:23Z"
+    "generated_at": "2026-08-14T11:40:00Z"
   }
 }

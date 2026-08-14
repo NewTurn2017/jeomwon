@@ -189,8 +189,10 @@ Google Cloud Console에서:
 ## 실제 DB setup
 
 ```bash
-bun setup --lang ko
+bun setup
 ```
+
+화면은 한국어가 기본입니다. 영어로 보려면 `bun setup --lang en`을 사용합니다.
 
 setup이 Convex dev deployment를 생성한 뒤 정확한 redirect URI를 출력하고 멈춥니다.
 

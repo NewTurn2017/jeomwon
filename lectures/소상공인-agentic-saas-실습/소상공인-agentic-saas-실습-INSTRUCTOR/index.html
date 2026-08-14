@@ -87,7 +87,7 @@
           <h2 class="slide-title">예약을 받는 가게라면<br /><em>이런 서비스로 바꿔볼 수 있습니다</em></h2>
           <div style="display:grid;grid-template-columns:1.65fr .9fr;gap:28px;align-items:stretch;margin-top:24px">
             <div class="visual-frame" style="min-height:470px">
-              <img src="../assets/gen/ai-chat-reservation-businesses-montage.jpg" alt="숙박, 미용실, 네일, 피부 관리, 사진 촬영, 회의실, 클래스, 반려동물, 골프 레슨, 상담 예약 업종을 보여 주는 몽타주" />
+              <img src="assets/gen/ai-chat-reservation-businesses-montage.jpg" alt="숙박, 미용실, 네일, 피부 관리, 사진 촬영, 회의실, 클래스, 반려동물, 골프 레슨, 상담 예약 업종을 보여 주는 몽타주" />
             </div>
             <div class="panel" style="display:flex;flex-direction:column;justify-content:space-between">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 12px">
@@ -304,15 +304,16 @@ claude</code></pre>
         <section>
           <p class="slide-kicker">화면 안내를 따라 연결합니다</p>
           <h2 class="slide-title"><code>bun setup</code>이<br /><em>필요한 연결을 차례대로 안내합니다</em></h2>
-          <div class="command-card"><button class="copy-button" data-copy-target="setup-command">명령 복사</button><pre><code id="setup-command" class="language-bash">bun setup --lang ko</code></pre></div>
+          <div class="command-card"><button class="copy-button" data-copy-target="setup-command">명령 복사</button><pre><code id="setup-command" class="language-bash">bun setup</code></pre></div>
           <div class="step-list">
             <div class="step"><b>1</b><span>예약 내역을 저장할 Convex 공간을 연결합니다</span></div>
             <div class="step"><b>2</b><span>Google에 넣을 정확한 주소를 보여 주고 잠시 멈춥니다</span></div>
             <div class="step"><b>3</b><span>그 주소를 Google 로그인 설정에 그대로 붙여 넣고 저장합니다</span></div>
             <div class="step"><b>4</b><span>터미널로 돌아와 Enter를 누르고 발급받은 값과 사장님 이메일을 입력합니다</span></div>
+            <div class="step"><b>5</b><span>이어서 이메일 발송 · AI 답변 · 결제를 하나씩 물어봅니다</span></div>
           </div>
-          <p style="color:rgba(255,255,255,.72)">첫 실행은 단순하게: AI 답변은 연습 모드 · 이메일은 화면에만 기록 · 결제 기능은 끔</p>
-<aside class="notes">이 명령은 필요한 주소를 정확히 보여 주기 위해 중간에 멈춥니다. 화면 안내를 따라 Google 설정을 마치고 돌아오면 나머지 연결이 이어집니다. 비밀번호처럼 중요한 값은 화면 캡처나 파일에 남기지 않습니다.</aside>
+          <p style="color:rgba(255,255,255,.72)">준비된 게 있으면 지금 넣고, 없으면 건너뜁니다 · 건너뛴 항목은 마지막에 목록으로 남고 <code>bun setup</code>을 다시 실행하면 그 자리부터 이어집니다</p>
+<aside class="notes">이 명령은 필요한 주소를 정확히 보여 주기 위해 중간에 멈춥니다. 화면 안내를 따라 Google 설정을 마치고 돌아오면 나머지 연결이 이어집니다. 예전에는 이메일·AI·결제를 따로 붙여야 했는데, 이번 버전부터는 같은 실행 안에서 차례로 물어봅니다. 지금 넣지 않아도 서비스는 완성되고 나중에 같은 명령으로 이어서 채우면 됩니다. 화면은 한국어가 기본입니다. 비밀번호처럼 중요한 값은 화면 캡처나 파일에 남기지 않습니다.</aside>
         </section>
 
         <section>
@@ -345,14 +346,15 @@ codex</code></pre></div>
         </section>
 
         <section>
-          <p class="slide-kicker">오늘 결제 기능은 만들지 않습니다</p>
+          <p class="slide-kicker">오늘 결제 화면은 만들지 않습니다</p>
           <h2 class="slide-title">예약 서비스 이용료와<br /><em>고객이 내는 예약금은 서로 다른 돈입니다</em></h2>
           <div class="visual-frame" style="height:300px"><img src="assets/gen/subscription-vs-booking-payment-boundary.png" alt="예약 서비스 이용료와 고객 예약 결제의 차이" /></div>
           <div class="manual-grid">
             <div class="manual-card"><strong>오늘 만드는 것</strong><p>고객 예약과 사장님 관리가 가능한 예약 서비스</p></div>
-            <div class="manual-card"><strong>나중에 추가할 것</strong><p>고객 예약금 · 카드 결제 · 취소 환불 기능</p></div>
+            <div class="manual-card"><strong>연결해 두면 되는 것</strong><p>예약금 받기 · 결제와 환불이 예약 기록에 자동으로 남음</p></div>
           </div>
-<aside class="notes">오늘은 예약이 제대로 접수되고 관리되는 데 집중합니다. 고객에게 예약금이나 결제 금액을 받는 기능은 포함되지 않으며, 서비스가 만들어진 뒤 가게에 맞는 결제 업체를 별도로 연결해야 합니다.</aside>
+          <p style="color:rgba(255,255,255,.72)">예약금은 이번 버전부터 뼈대가 들어갔습니다 · 다만 고객이 누를 결제 버튼과 사장님 정산 화면은 아직 없어 별도 작업이 필요합니다</p>
+<aside class="notes">돈이 두 갈래라는 것만 확실히 남기면 됩니다. 하나는 사장님이 이 서비스를 쓰는 이용료, 다른 하나는 고객이 예약할 때 거는 예약금입니다. 이번 버전부터 예약금은 결제 업체에 일회성 상품을 하나 만들어 연결하면 결제와 환불이 해당 예약에 자동으로 기록됩니다. 아직 없는 것은 화면입니다. 고객이 누를 결제 버튼, 사장님이 보는 정산 화면, 시술 대금 전액 청구와 부분 환불 정산은 서비스가 만들어진 뒤 따로 붙여야 합니다. 오늘의 성공을 결제 완료로 과장하지 않습니다.</aside>
         </section>
 
         <section>

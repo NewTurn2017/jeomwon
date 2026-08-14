@@ -139,7 +139,7 @@
 		"includedInBootstrap": false,
 		"startsAfter": [
       "bunx convex login",
-			"bun setup --lang ko"
+			"bun setup"
 		],
 		"qaCommand": "bun run qa",
 		"manualSmoke": [

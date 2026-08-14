@@ -58,7 +58,7 @@ Convex 계정 로그인은 브라우저에서 사람이 완료합니다. Google 
 
 ## 15. bun setup의 pause/resume
 
-setup이 Convex dev deployment를 만들고 정확한 callback URI를 출력하면 멈춥니다. Google Console에 그대로 등록하고 돌아와 Enter를 누릅니다. client ID, secret, 운영자 이메일만 입력합니다. 첫 성공에서는 mock/capture/off를 유지합니다.
+setup이 Convex dev deployment를 만들고 정확한 callback URI를 출력하면 멈춥니다. Google Console에 그대로 등록하고 돌아와 Enter를 누릅니다. client ID, secret, 운영자 이메일을 입력합니다. v0.1.5부터는 같은 실행에서 Resend, OpenAI, Polar를 차례로 물어봅니다. 준비된 키는 지금 넣고 없으면 건너뜁니다. 건너뛴 키는 마지막 `Later` 목록에 남고 `bun setup` 재실행이 그 자리에서 이어집니다. 출력은 한국어가 기본이라 `--lang` 없이 실행합니다.
 
 ## 16. live QA와 두 프로필 smoke
 
@@ -70,7 +70,7 @@ Codex 공식 curl installer로 설치하고 같은 빈 workspace에서 `codex`�
 
 ## 18. 구독과 예약 결제의 경계
 
-Polar는 Jeomwon 계정 구독입니다. 고객의 커트 예약 결제와 환불은 생성 뒤 별도 subsystem입니다. 오늘의 성공을 결제 완료로 과장하지 않습니다.
+돈은 두 갈래입니다. Polar 계정 구독은 사장님이 이 서비스를 쓰는 이용료이고, 예약금은 고객이 예약에 거는 돈입니다. v0.1.5부터 예약금은 일회성 Polar 상품을 연결하면 결제·환불이 해당 예약에 기록되는 백엔드까지 들어와 있습니다. 아직 없는 것은 화면입니다. 고객 결제 버튼, 사장님 정산 화면, 시술 대금 전액 청구와 부분 환불 정산은 생성 뒤 별도 작업입니다. 오늘의 성공을 결제 완료로 과장하지 않습니다.
 
 ## 19. 혼자 다시 만드는 체크리스트
 

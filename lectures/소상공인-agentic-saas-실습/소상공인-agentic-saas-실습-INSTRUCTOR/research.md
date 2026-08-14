@@ -14,8 +14,8 @@ reactive query와 transactional mutation 같은 실행 기반을 제공하고, �
 
 수업의 정확한 약속은 **“60분 안에 오프라인 검증된 예약 SaaS 코드베이스를
 생성한다”**이다. setup, authenticated live QA, Vercel, Polar sandbox는 검증되지
-않은 후속 checkpoint다. Polar 연결은 현재 Jeomwon 계정 플랜 구독이며 예약금이나
-건별 결제와 연결되지 않는다.
+않은 후속 checkpoint다. Polar 연결은 계정 플랜 구독과 v0.1.5에서 추가된 예약
+보증금 두 갈래이며, 건별 대금 청구와 결제 화면은 여전히 범위 밖이다.
 
 교육 흐름은 완성 예시 → 판단 근거 → 일부 비운 과제 → 빈 화면 재현 → 다른 업종
 적용 → 48–72시간 후 재현으로 구성한다. `한 자리, 두 손님` slot passport는
@@ -35,11 +35,21 @@ S1·S4·S10·S15에서만 점차 사라지는 scaffold로 사용한다.
   [R3][R4]
 - 현재 chat route는 `apps/app`에 있다. `FEATURES.md`와 일부 `VISION.md` 설명은
   이전 구조를 반영하므로 현재 source와 app README가 우선한다. [R5]
+- v0.1.5 `bun setup`은 Convex·Google 다음에 Resend, OpenAI, Polar를 같은 실행에서
+  순서대로 물어본다. 각 확인의 기본값은 yes이고, 거절한 제공자만 capture·mock·
+  billing off로 남으며 해당 키는 `Later` 목록에 기록된다. `--minimal`이 이전의
+  좁은 경로를 유지한다. [R32]
+- setup 출력은 `--lang`이나 `JEOMWON_CLI_LANG`이 없으면 한국어로 결정된다.
+  POSIX locale 감지는 `--lang auto`에서만 쓰인다. [R32]
+- v0.1.5 릴리스는 `install.sh`와 template archive를 SHA-256과 함께 게시하고,
+  installer는 태그 `v0.1.5`의 skill 트리를 고정한다. [R33]
 
 ### 확정 주장
 
 - **C1:** Jeomwon 생성 계약은 template copy → strict configuration injection →
   offline verification이다. 임의 vertical 코드를 자연어로 생성하지 않는다.
+- **C8 (v0.1.5 신규):** setup은 한 번의 실행으로 모든 제공자를 안내하고 한국어를
+  기본 출력으로 쓴다. 거절은 실패가 아니라 기록된 선택이며 재실행이 이어받는다.
 - 수동 확장은 생성 이후 named hook과 `extension.config.ts`를 사용하는 별도
   코드 작업이다.
 - Bootstrap PASS는 배포·인증·live QA 성공이 아니다.
@@ -49,6 +59,7 @@ S1·S4·S10·S15에서만 점차 사라지는 scaffold로 사용한다.
 - S5/S9에서 자연어가 코드 전체로 변하는 애니메이션을 금지한다.
 - Seed는 변경되지 않는 template asset으로 표시한다.
 - Setup·live QA·manual extension은 bootstrap box 바깥에 둔다.
+- S16 setup 단계는 Google 이후 제공자 안내가 이어짐을 다섯 번째 단계로 보여 준다.
 
 ## A2. Next.js, Convex, Vercel 배포 경계
 
@@ -140,23 +151,33 @@ S1·S4·S10·S15에서만 점차 사라지는 scaffold로 사용한다.
   [R17][R18]
 - Jeomwon은 `features.polar`가 켜진 경우 account plan product, CheckoutLink,
   subscription change/cancel, Customer Portal, webhook을 제공한다. [R19]
-- Reservation schema와 customer mutation args에는 payment, order, amount,
-  currency, deposit, refund 연결이 없다. [R20]
+- v0.1.5부터 `deposits.ts`가 별도 capability로 들어왔다. 서버가 예약 문서 id를
+  checkout metadata에 넣고, `order.created`/`order.refunded`가 기존
+  `/polar/events`로 돌아와 예약의 `deposit` 필드와 audit 1건을 기록한다. [R31]
+- Reservation schema는 이제 webhook만 쓰는 optional `deposit` 기록을 갖는다.
+  건별 대금 청구, 부분 환불 정산, payment ledger 연결은 여전히 없다. [R20]
+- 보증금 상태 계산, 도메인 격리, 잘못된 webhook payload 무시는 테스트로 덮여
+  있고 v0.1.5 CI에서 통과한다. [R34]
+- capability manifest는 계정 구독과 예약 보증금을 서로 다른 off-by-default
+  capability로 분리해 선언한다. [R35]
 - Reservation `hold`는 결제 승인 hold가 아니라 slot capacity의 임시 점유다.
 
 ### 확정 주장
 
-- **C5 (high risk):** 현재 Jeomwon Polar 연결은 기본 OFF인 계정 플랜 구독
-  결제이며, 예약 lifecycle에는 건별 checkout/payment state가 없다.
-- 부재는 Polar provider 한계가 아니라 Jeomwon 제품 구현 범위다.
-- Live Polar sandbox checkout→webhook→portal은 이번 조사에서 실행 검증하지
+- **C5 (high risk, v0.1.5 개정):** Jeomwon Polar 연결은 기본 OFF인 두 개의
+  분리된 capability다. 하나는 계정 플랜 구독, 다른 하나는 예약에 기록되는
+  일회성 보증금이다. 건별 대금 청구, 부분 환불 정산, payment ledger는 여전히
+  구현되지 않았다.
+- 남은 부재는 Polar provider 한계가 아니라 Jeomwon 제품 구현 범위다.
+- 보증금에는 고객·운영자 UI가 없다. 백엔드 seam만 존재한다.
+- Live Polar sandbox checkout→webhook→portal은 이번 조사에서도 실행 검증하지
   않았다.
 
 ### 슬라이드 적용
 
-- S14 제목: **결제 옵션 ≠ 예약 결제**.
-- Account plan subscription과 booking lifecycle 사이에 `현재 연결 없음` 물리적
-  간격을 둔다.
+- S14 제목: **서비스 이용료 ≠ 고객 예약금**.
+- Account plan subscription과 예약금을 서로 다른 돈으로 분리해 그린다.
+- 보증금은 `연결하면 기록됨`, 결제 화면과 정산은 `아직 없음`으로 표기한다.
 - 미래 통합 arrow와 production-ready 표현을 금지한다.
 
 ## A6. 60분 교육과 수업 후 재현
@@ -216,20 +237,21 @@ Passport는 topology, state machine, UI evidence, payment visual에 재사용하
 ### C5: Jeomwon account subscription과 reservation payment 부재
 
 - **지원 그룹 1 — 제품 소스:** subscription API/UI는 account product와 portal을
-  사용하고 reservation schema에는 money/order linkage가 없다. [R19][R20]
+  사용하고, 예약 보증금은 `deposits.ts`라는 별도 모듈과 optional `deposit`
+  필드로만 연결된다. [R19][R20][R31][R35]
 - **지원 그룹 2 — provider 공식 문서:** Polar는 subscription과 one-time order를
-  모두 지원한다. 따라서 현재 부재는 provider 제약이 아니라 Jeomwon wiring
-  경계다. [R17][R18]
-- **반대 검색:** backend/app/agents source에서 payment, checkout, order, amount,
-  currency, refund, deposit 연결을 검색했다. 실질 checkout hit는 account
-  subscription 경로뿐이며 reservation 연결은 없었다.
-- **검증 결과:** source-state claim confirmed. Live sandbox runtime evidence는
-  pending이며 슬라이드 각주로 공개한다.
+  모두 지원한다. 보증금은 그중 one-time 경로를 쓴다. [R17][R18]
+- **지원 그룹 3 — 실행 증거:** 보증금 단위 테스트와 v0.1.5 CI가 통과한다. [R34]
+- **반대 검색:** backend/app source에서 건별 대금 청구, 부분 환불 정산, payment
+  ledger, 보증금 UI 연결을 다시 검색했다. 해당 hit는 없었고 보증금 표면은
+  webhook과 action 두 곳으로 한정된다.
+- **검증 결과:** confirmed. Live sandbox order 왕복은 여전히 실행하지 않았으며
+  슬라이드 각주로 공개한다.
 
 ## 미해결·수용 한계
 
 1. 실제 Vercel dashboard roots/env scopes/domains는 git 밖 operator state다.
-2. Polar sandbox checkout→webhook→portal은 실행하지 않았다.
+2. Polar sandbox checkout→webhook→portal과 보증금 order 왕복은 실행하지 않았다.
 3. 네 vertical 모두의 fresh authenticated live QA를 실행하지 않았다.
 4. 이 exact completion ladder를 소상공인 비개발자에게 적용한 RCT는 없다.
 5. 48–72시간 delayed reproduction 데이터는 강의 후 수집 대상이다.
@@ -286,6 +308,11 @@ Passport는 topology, state machine, UI evidence, payment visual에 재사용하
 - **R28** Skills CLI reference — https://www.skills.sh/docs/cli
 - **R29** Convex pricing — https://www.convex.dev/pricing
 - **R30** Convex limits — https://docs.convex.dev/production/state/limits
+- **R31** Jeomwon reservation deposits — https://github.com/NewTurn2017/jeomwon/blob/9e314bd/template/packages/backend/convex/deposits.ts
+- **R32** Jeomwon setup providers — https://github.com/NewTurn2017/jeomwon/blob/9e314bd/template/scripts/setup/providers.ts
+- **R33** Jeomwon v0.1.5 release — https://github.com/NewTurn2017/jeomwon/releases/tag/v0.1.5
+- **R34** Jeomwon deposit tests — https://github.com/NewTurn2017/jeomwon/blob/9e314bd/template/packages/backend/tests/reservation-deposit.test.ts
+- **R35** Jeomwon capability manifest — https://github.com/NewTurn2017/jeomwon/blob/9e314bd/template/jeomwon-capabilities.json
 
 ## 2026-08 clean-room 설치와 무료 Convex 근거
 

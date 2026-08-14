@@ -17,10 +17,10 @@
 | 13 | 7분 | 확정 뒤 JSON·bootstrap | schema v1과 세 성공 표지를 확인한다 |
 | 14 | 3분 | Convex 무료 서비스 | 무료 dev backend의 역할과 한도를 이해한다 |
 | 15 | 5분 | Convex 로그인과 Google OAuth | 사람이 만드는 계정·client를 준비한다 |
-| 16 | 4분 | bun setup의 pause/resume | callback URI를 등록하고 env를 연결한다 |
+| 16 | 4분 | bun setup의 pause/resume | callback URI를 등록하고 제공자 연결을 끝까지 진행한다 |
 | 17 | 3분 | live QA와 두 프로필 smoke | DB·충돌·권한·지속성을 확인한다 |
 | 18 | 2분 | Codex로 바꾸는 법 | 같은 스킬과 프롬프트를 재사용한다 |
-| 19 | 2분 | 구독과 예약 결제의 경계 | Polar 비범위를 확인한다 |
+| 19 | 2분 | 구독과 예약금의 경계 | 이용료와 예약금을 구분하고 남은 범위를 확인한다 |
 | 20 | 2분 | 혼자 다시 만드는 체크리스트 | 전체 순서를 회상한다 |
 
 합계: 60분
@@ -41,7 +41,7 @@ claude
 ```bash
 cd "$HOME/Desktop/jeomwon-zero-test/generated/<domainKey>"
 bunx convex login
-bun setup --lang ko
+bun setup
 bunx playwright install chromium
 bun run qa
 bun dev

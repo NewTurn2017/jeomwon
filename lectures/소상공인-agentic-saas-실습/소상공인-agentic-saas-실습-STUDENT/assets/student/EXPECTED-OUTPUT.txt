@@ -12,7 +12,7 @@ VERIFY PASS
 
 4. 실제 DB 연결
 bunx convex login
-bun setup --lang ko
+bun setup
 
 5. Convex dev QA
 bun run qa

@@ -176,12 +176,14 @@ describe("workshop first-five-minute contract", () => {
 				existsSync(join(variant, "assets/student/salon-domain-pack.json")),
 			).toBe(false);
 			const html = readFileSync(join(variant, "index.html"), "utf8");
-			const expectedSlides = variant.endsWith(
-				"소상공인-agentic-saas-실습-STUDENT",
-			)
-				? 20
-				: 21;
-			expect((html.match(/<section\b/g) ?? []).length).toBe(expectedSlides);
+			// Both packages are built from the source deck, so a packaged slide
+			// count that drifts from it means the package was never rebuilt.
+			const sourceSlides = (
+				readFileSync(join(lecture, "index.html"), "utf8").match(
+					/<section\b/g,
+				) ?? []
+			).length;
+			expect((html.match(/<section\b/g) ?? []).length).toBe(sourceSlides);
 			expect(html).toContain('data-workshop-demo="pre-provisioned-real-app"');
 			expect(html).toContain('data-host-primary="claude-code"');
 			expect(html).toContain(
@@ -194,7 +196,8 @@ describe("workshop first-five-minute contract", () => {
 			expect(html).toContain("VERIFY PASS");
 			expect(html).toContain('data-copy-target="claude-install-command"');
 			expect(html).toContain('data-copy-target="jeomwon-install-command"');
-			expect(html).toContain("bun setup --lang ko");
+			expect(html).toContain('data-copy-target="setup-command"');
+			expect(html).toContain("bun setup");
 			expect(html).not.toContain("salon-domain-pack.json");
 			expect(html).not.toContain("준비된 살롱 pack");
 			expect(html).not.toContain("PASS  OFFLINE VERIFIED");

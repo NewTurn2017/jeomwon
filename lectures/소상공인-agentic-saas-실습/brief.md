@@ -24,7 +24,7 @@
 4. 기존 JSON 없이 Interview Order를 끝까지 진행한다.
 5. 파생값을 확인하고 `확정`한 뒤 schema v1 pack을 쓴다.
 6. pack과 absent target을 분리해 preflight·bootstrap을 통과한다.
-7. 무료 Convex dev deployment와 Google OAuth를 `bun setup`으로 연결한다.
+7. 무료 Convex dev deployment와 Google OAuth를 `bun setup`으로 연결하고, 이어지는 Resend·OpenAI·Polar 안내에서 필요한 것만 고른다.
 8. `bun run qa`와 두 브라우저 프로필로 충돌·권한·지속성을 확인한다.
 
 ## 핵심 경계
@@ -35,7 +35,7 @@
 - Convex 계정과 Google OAuth client 생성은 사람이 한다.
 - `bun setup`은 deployment·env·JWT·callback handoff를 자동화한다.
 - `bun run qa`는 dev 데이터 경계를 가진 자동 검증이며 실제 Google 운영자 성공 로그인은 별도 smoke다.
-- Polar는 Jeomwon 계정 구독이며 예약 결제가 아니다.
+- Polar는 두 갈래다. 계정 구독은 서비스 이용료, 예약 보증금은 v0.1.5부터 들어온 별도 일회성 결제이며 화면은 아직 없다.
 
 ## 진행 원칙
 
@@ -43,7 +43,7 @@
 - Codex: 동일 installer·prompt·skill root를 사용하는 호환 lane
 - 기존 `salon-domain-pack.json`: 사용·배포하지 않음
 - launcher: JSON을 주입하는 생성 도구가 아니라 빈 폴더·설치·cache·host 실행 보조
-- 첫 성공에서는 OpenAI·Resend·Polar를 끄고 mock/capture/off로 시작
+- `bun setup`이 Resend·OpenAI·Polar까지 한 번에 안내하고, 거절한 항목만 mock/capture/off로 남는다
 
 ## 60분 배분
 
@@ -62,4 +62,4 @@ PREFLIGHT PASS
 VERIFY PASS
 ```
 
-이후 `bun setup --lang ko`, `bun run qa`, 수동 Google 운영자 smoke까지 별도로 확인한다.
+이후 `bun setup`(한국어 기본), `bun run qa`, 수동 Google 운영자 smoke까지 별도로 확인한다.
