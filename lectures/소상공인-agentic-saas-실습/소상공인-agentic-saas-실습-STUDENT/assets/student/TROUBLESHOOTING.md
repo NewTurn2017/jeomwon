@@ -1,19 +1,97 @@
-# 재현 문제 해결표
+# Jeomwon clean-room 문제 해결
 
-| 증상 | 원인 확인 | 조치 |
-|---|---|---|
-| release asset checksum 불일치 | 다운로드 손상 또는 잘못된 tag | `v0.1.0` asset을 다시 받고 SHA-256 `fe74258d…` 확인 |
-| target이 비어 있지 않음 | 이전 실패 폴더 재사용 | 출력의 대체 target을 쓰거나 새 이름으로 다시 실행 |
-| `bun_version_mismatch` | Bun이 1.3.14가 아님 | `bun upgrade --version 1.3.14` 후 버전 재확인 |
-| `cache_not_ready` | frozen offline install cache 미준비 | preflight가 출력한 단일 `warm-cache.mjs` recovery argv를 네트워크 허용 시 실행 |
-| `archive_checksum_mismatch` | 설치 skill archive가 계약 SHA와 다름 | 설치를 지우고 `https://github.com/NewTurn2017/jeomwon/tree/v0.1.0/skill`에서 다시 설치; 임의 archive 사용 금지 |
-| `pack_missing` | 예전 `domain-pack.json` 예시 경로 사용 | 저장소 루트의 `lectures/소상공인-agentic-saas-실습/assets/student/salon-domain-pack.json` 사용 |
-| domain pack 거부 | 닫힌 스키마 밖 key/value | `skill/REFERENCE.md`와 `skill/EXAMPLES.md` 기준으로 수정 |
-| bootstrap 중단 | cache/build/도구 오류 | 실패 target 재사용 금지; 새 target으로 재시도하거나 준비된 fallback receipt 표시 |
-| `[SKIP verify_qa]` | 정상 offline 경계 | PASS로 바꾸지 않음; provider/setup 후 live QA를 별도 실행 |
-| live 데모 BLOCKED | 앱 URL, Convex, OAuth, 고객/운영자 계정 없음 | 생성 로컬 표면만 실행하고 `provider_authorization_absent` 증거 보관 |
-| Vercel에서 한 앱만 동작 | web/app root·env가 독립 | 두 프로젝트의 root, env, domain을 각각 확인 |
-| 결제 checkout이 예약에 없음 | Polar는 계정 구독 옵션 | 예약금·건별 결제는 별도 확장으로 구현 |
+## `bun: command not found` 또는 버전 불일치
 
-오류를 숨기거나 기존 target에 덮어쓰지 않습니다. 사용한 archive checksum, pack,
-명령, receipt, 전체 출력을 함께 보관합니다.
+```bash
+curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.14"
+```
+
+새 터미널을 열고 확인합니다.
+
+```bash
+bun --version
+```
+
+정확히 `1.3.14`여야 합니다.
+
+## `claude: command not found`
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+새 터미널에서 `claude`를 실행해 로그인합니다.
+
+## `codex: command not found`
+
+```bash
+curl -fsSL https://chatgpt.com/codex/install.sh | sh
+```
+
+새 터미널에서 `codex`를 실행하고 `Sign in with ChatGPT`를 선택합니다.
+
+## `INSTALL PASS`가 나오지 않음
+
+release asset을 내려받지 못했거나 Bun/skills 설치가 실패한 것입니다. 빈 shell이 성공처럼 보이지 않도록 launcher는 installer를 임시 파일로 먼저 내려받습니다.
+
+수동 재시도:
+
+```bash
+curl -fsSL --proto '=https' --tlsv1.2 \
+  -o /tmp/jeomwon-install.sh \
+  https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.1/install.sh
+bash /tmp/jeomwon-install.sh --agent all
+```
+
+## `cache_not_ready`
+
+네트워크를 사용할 수 있을 때 recovery argv를 그대로 실행합니다.
+
+```bash
+bun "${JEOMWON_SKILL_DIR:-${CLAUDE_SKILL_DIR:-$HOME/.agents/skills/jeomwon}}/scripts/warm-cache.mjs" --lang ko
+```
+
+그다음 preflight를 다시 실행합니다. bootstrap 도중 숨은 네트워크 사용으로 우회하지 않습니다.
+
+## `target_not_empty`
+
+`domain-pack.json`은 workspace에 두고 생성 target은 존재하지 않는 하위 폴더여야 합니다.
+
+```text
+jeomwon-zero-test/
+├── domain-pack.json
+└── generated/
+    └── <domainKey>/   ← bootstrap 전에는 없어야 함
+```
+
+생성 target에 pack을 먼저 넣지 마세요.
+
+## 인터뷰가 질문을 건너뜀
+
+`PROMPT.md`를 다시 붙여 넣고 다음을 확인합니다.
+
+- Interview Order 순서
+- 모르는 값 추측 금지
+- 일주일 전체 영업시간
+- 서비스별 슬롯 단위와 총 소요시간
+- `확정` 전 JSON 저장 금지
+
+## `PREFLIGHT PASS` 뒤 bootstrap 실패
+
+출력된 recovery argv 하나만 실행합니다. target이 publication 전에 실패했다면 새 target을 사용하고, 이미 생성된 target의 verify 단계만 실패했다면 출력된 `verify.mjs <existing-target>` recovery를 사용합니다.
+
+## Google Redirect URI 오류
+
+`bun setup --lang ko`가 출력한 값을 추측하거나 수정하지 말고 Google Cloud의 Authorized redirect URI에 그대로 등록합니다.
+
+Authorized JavaScript origin:
+
+```text
+http://localhost:3000
+```
+
+## `bun run qa` 경고
+
+- QA는 `dev:` Convex deployment만 허용합니다.
+- 현재 domain의 예약·채팅 데이터를 초기화할 수 있습니다.
+- Google 운영자 성공 로그인은 별도 수동 smoke입니다.

@@ -1,35 +1,38 @@
-# Jeomwon 업종 인터뷰 프롬프트
+# Jeomwon clean-room 시작 프롬프트
 
-아래 프롬프트를 그대로 복사한 뒤 대괄호 값만 바꿉니다.
-
-```text
-내 업종을 Jeomwon의 현재 지원 범위 안에서 인터뷰해줘.
-
-지원 범위:
-- resource kind: person | seat | room | unit
-- slot unit: minutes:30 | hour | day
-- admin widget: calendar | seatGrid
-
-진행 규칙:
-1. 업종, 자원, 서비스, 소요시간, 영업시간, 표준시간대, blackout,
-   hold 만료, 취소창, 고객/운영자 카피를 순서대로 묻는다.
-2. 모르는 값은 추정하지 말고 선택지로 확인한다.
-3. 예약금, 인접 그룹 좌석, 자정 횡단, 날씨 연동처럼 지원 밖 기능은
-   domain-pack.json에 넣지 말고 "후속 확장"으로 분리한다.
-4. 한 자원·한 시간에 두 요청이 들어왔을 때 충돌과 소유권을 누가
-   확인하는지 따로 설명한다.
-5. 최종 domain-pack.json을 만들기 전에 확정 값, 미정 값, 지원 밖 요구를
-   읽어주고 내 승인을 받는다.
-
-업종: [헤어살롱 | PC방 | 펜션 | 풋살장]
-```
-
-## 검토 프롬프트
+아래 전체를 빈 workspace에서 실행한 Claude Code 또는 Codex에 붙여 넣으세요.
 
 ```text
-이 JSON을 Jeomwon의 닫힌 domain-pack 스키마로 검토해줘.
-지원 필드 밖 값, 추정한 값, 충돌·소유권 책임이 불명확한 부분을 찾아라.
-구현되지 않은 기능을 구현됐다고 표현하지 마라.
+설치된 jeomwon 스킬을 사용해 예약 SaaS를 완전히 처음부터 만들어 주세요.
+
+중요한 규칙:
+- 기존 예제 JSON, sample, 강의용 salon-domain-pack.json을 읽거나 복사하지 마세요.
+- 현재 폴더는 pack을 작성하는 workspace입니다.
+- 스킬의 Interview Order 순서대로 한 묶음씩 질문하고 모르는 값은 추측하지 마세요.
+- 인터뷰 중에는 생성 target을 만들지 마세요.
+- JSON을 쓰기 전에 예약번호 prefix, 자원, 서비스별 슬롯 단위와 총 소요시간,
+  월~일 영업시간, 임시 휴무, 취소·hold 정책, 관리자 화면, 기능 토글,
+  운영 알림 주소와 고객 안내 문구를 모두 다시 읽어 주세요.
+- 내가 정확히 "확정"이라고 답하기 전에는 JSON 저장이나 bootstrap을 실행하지 마세요.
+
+내가 "확정"이라고 답한 뒤:
+1. canonical schemaVersion 1 pack 하나를 ./domain-pack.json에 저장하세요.
+2. pack의 domainKey를 사용해 ./generated/<domainKey>를 생성 target으로 정하세요.
+3. target이 존재하지 않는지 확인하세요. domain-pack.json을 target 안에 넣지 마세요.
+4. project name은 인터뷰에서 확정한 가게 이름을 사용하세요.
+5. preflight를 먼저 실행하고 통과하면 bootstrap을 실행하세요.
+6. credentials와 provider secret은 pack에 넣지 마세요.
+7. receipt 경로를 보고하고 offline VERIFY PASS와 아직 실행하지 않은 bun setup/live QA를 구분하세요.
 ```
 
-시간 표현을 해석하지 못하면 추측하지 않고 UI에서 슬롯을 직접 선택합니다.
+## 성공 경계
+
+인터뷰와 생성이 끝나면 터미널에 아래 세 표지가 있어야 합니다.
+
+```text
+PREFLIGHT PASS
+[SKIP verify_qa]
+VERIFY PASS
+```
+
+`[SKIP verify_qa]`는 실패가 아니라 아직 Convex 연결 전이라는 뜻입니다.

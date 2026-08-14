@@ -4,559 +4,353 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <meta name="referrer" content="no-referrer" />
-    <title>소상공인을 위한 Agentic SaaS 구축 1시간 실습</title>
+    <title>빈 폴더에서 시작하는 소상공인 Agentic SaaS</title>
     <link rel="stylesheet" href="vendor/reveal/reset.css" />
     <link rel="stylesheet" href="vendor/reveal/reveal.css" />
     <link rel="stylesheet" href="vendor/reveal/highlight/monokai.css" />
-    <link rel="stylesheet" href="vendor/fonts/pretendard.css" />
     <link rel="stylesheet" href="theme.css" />
+    <style>
+      .reveal .slides section { padding: 44px 64px; text-align: left; }
+      .reveal .slides section.centered { text-align: center; }
+      .manual-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 24px; }
+      .manual-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .manual-card { border: 1px solid rgba(255,255,255,.15); border-radius: 18px; padding: 20px; background: rgba(11,18,31,.76); box-shadow: 0 18px 50px rgba(0,0,0,.18); }
+      .manual-card strong { color: var(--amber); }
+      .manual-card p { margin: 8px 0 0; font-size: 22px; line-height: 1.4; }
+      .command-card { position: relative; margin-top: 18px; border: 1px solid rgba(246,211,101,.35); border-radius: 18px; padding: 20px 24px; background: #090f1b; }
+      .command-card pre { margin: 0; box-shadow: none; width: 100%; }
+      .command-card code { font-size: 21px; line-height: 1.4; white-space: pre-wrap; }
+      .command-card:has(.copy-button) { padding-top: 56px; }
+      .copy-button { position: absolute; top: 10px; right: 12px; z-index: 4; min-height: 44px; border: 1px solid rgba(255,255,255,.24); border-radius: 999px; padding: 8px 15px; color: #fff; background: rgba(255,255,255,.1); font: inherit; font-size: 14px; cursor: pointer; }
+      .copy-button:focus-visible { outline: 3px solid var(--green-hot); outline-offset: 3px; }
+      .step-list { display: grid; gap: 12px; margin-top: 22px; }
+      .step { display: grid; grid-template-columns: 44px 1fr; gap: 14px; align-items: start; }
+      .step b { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: #f6d365; color: #101622; font-size: 18px; }
+      .step span { padding-top: 4px; font-size: 25px; line-height: 1.35; }
+      .lane { display: grid; grid-template-columns: 1fr 60px 1fr; align-items: center; gap: 18px; margin-top: 26px; }
+      .lane-arrow { color: #f6d365; font-size: 36px; text-align: center; }
+      .pill-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+      .pill-row span { border-radius: 999px; padding: 9px 14px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); font-size: 19px; }
+      .reveal .slide-kicker { color: var(--green-hot); font-family: var(--mono); font-size: .78em; letter-spacing: .18em; }
+      .reveal .proof { color: var(--green-hot); font-weight: 800; }
+      .reveal .pending { color: var(--amber); font-weight: 760; }
+      .reveal .warning { color: var(--red); font-weight: 800; }
+      .reveal .muted { color: var(--muted); }
+      .reveal .source-line { position: absolute; left: 64px; bottom: 22px; color: var(--muted); font-family: var(--mono); font-size: 14px; }
+      .reveal .hljs-comment { color: rgba(242,245,239,.72); }
+      .compact-list { margin: 18px 0 0; padding-left: 1.1em; }
+      .compact-list li { margin: 8px 0; font-size: 22px; line-height: 1.35; }
+      .path-tree { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 26px; line-height: 1.5; color: #d7e3ff; }
+      .slide-title em { color: #f6d365; font-style: normal; }
+      .title-slide { isolation: isolate; }
+      .title-slide::after { z-index: 0 !important; }
+      .title-slide .hero-scrim { position: absolute; inset: 0; z-index: 0; background: linear-gradient(90deg, rgba(2,8,8,.68) 0%, rgba(2,8,8,.42) 58%, rgba(2,8,8,.14) 100%); }
+      .title-slide > :not(.hero-scrim) { position: relative; z-index: 3 !important; }
+      .title-slide .hero-title { color: #fff; }
+      .title-slide .hero-subtitle { color: rgba(255,255,255,.78); }
+      .hero-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+      .hero-meta span { border-radius: 999px; padding: 8px 12px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); }
+      .visual-frame img { width: 100%; height: 100%; object-fit: cover; border-radius: 18px; }
+      .two-column { display: grid; grid-template-columns: 1.05fr .95fr; gap: 28px; align-items: center; }
+      .ten-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; margin-top: 20px; }
+      .ten-grid div { border-radius: 14px; padding: 14px 10px; background: rgba(255,255,255,.07); text-align: center; font-size: 18px; line-height: 1.3; }
+      @media (max-width: 900px) {
+        .manual-grid.three, .ten-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      }
+    </style>
   </head>
   <body>
     <div class="reveal">
       <div class="slides">
-        <section class="title-slide image-hero" data-title="60분 안에 예약 서비스 만들기" data-minutes="1">
-          <figure class="visual-canvas">
-            <img src="assets/gen/agentic-saas-hero-slot-conflict.png" alt="한 예약 슬롯에 동시에 접근한 두 요청 중 하나만 통과하고 다른 하나는 충돌 경계에서 멈추는 장면" />
-          </figure>
-          <span class="wordmark"><b>JEOMWON</b> / FIELD WORKSHOP</span>
-          <div>
-            <p class="eyebrow">60분 · 인터넷 없이 기본 점검</p>
-            <h1>60분 안에<br /><em>예약 서비스</em><br />만들기</h1>
-            <p class="subtitle">
-              대화로 예약을 받고, 같은 시간의 중복을 막고,<br />
-              어려운 요청은 운영자에게 넘기는 흐름까지 만듭니다.
-            </p>
-          </div>
-          <img class="native-visual hero-proof" src="assets/gen/slot-proof.svg" alt="같은 15시 슬롯에 두 요청이 들어오고 하나만 hold로 통과하는 예약 다이어그램" />
-          <div class="panel" style="position:absolute;right:58px;bottom:74px;width:420px">
-            <span class="label">완성 예제 · 한 자리, 두 손님, 네 경계</span>
-            <p class="small">
-              <strong>15:00 디자이너 1명</strong>을 두 손님이 요청해도
-              충돌·홀드·소유권·취소 규칙이 한 번만 예약시킨다.
-            </p>
-          </div>
-          <p class="source proof-source">오늘 증명: scaffold → inject → install/typecheck/lint/build · 다음: setup/live QA/deploy · [R1-R4]</p>
-          <aside class="notes">
-안녕하세요, 지니입니다. 오늘은 어려운 개발 용어보다 가게 운영 순서에 집중하겠습니다. 60분 동안 예약 서비스의 뼈대를 만들고, 같은 시간에 두 예약이 겹치지 않는지 기본 점검까지 합니다. 계정 연결, 실제 동작 점검, 인터넷 공개는 수업 뒤에 이어서 합니다.
-          </aside>
+        <section class="title-slide image-hero" data-host-primary="claude-code" data-background-image="assets/gen/agentic-saas-hero-slot-conflict.png" data-background-size="cover">
+          <div class="hero-scrim"></div>
+          <p class="slide-kicker">60 MIN · CLEAN ROOM · CLAUDE CODE</p>
+          <h1 class="hero-title">빈 폴더에서<br /><em>예약 SaaS까지</em></h1>
+          <p class="hero-subtitle">기존 JSON 없이 인터뷰 → 생성 → Convex DB → 실제 QA</p>
+          <div class="hero-meta"><span>Jeomwon v0.1.1</span><span>Claude 기본</span><span>Codex 호환</span></div>
+<aside class="notes">오늘은 준비된 프로젝트를 여는 수업이 아닙니다. 빈 폴더에서 CLI를 설치하고, 가게 운영을 인터뷰해 새 JSON을 만든 뒤 실제 DB까지 연결합니다.</aside>
         </section>
 
-        <section data-title="실제 앱에서 같은 슬롯 충돌 보기" data-minutes="4" data-workshop-demo="pre-provisioned-real-app">
-          <span class="slide-kicker">02 · 예약 서비스 둘러보기</span>
-          <h2 class="slide-title tight">먼저 실제 앱에서<br /><em>한 슬롯, 두 요청</em>을 봅니다</h2>
-          <p class="plain-explainer">
-            강사가 미리 준비한 실제 고객·운영자 앱에서 같은 시간을 두 번 요청합니다.<br />
-            한 요청만 성공하는지 고객 화면과 운영자 화면에서 확인합니다.
-          </p>
-          <div class="grid-2" style="grid-template-columns:1.22fr .78fr">
-            <div class="product-shell">
-              <nav class="product-nav" aria-label="제품 예시 탐색">
-                <i data-lucide="calendar-days"></i>
-                <i data-lucide="message-square"></i>
-                <i data-lucide="layout-dashboard"></i>
-                <i data-lucide="settings"></i>
-              </nav>
-              <main class="product-main">
-                <div class="product-calendar">
-                  <strong>커트 예약</strong>
-                  <p style="color:#647066;font-size:.58em">8월 12일 · 디자이너 수진</p>
-                  <div class="slots">
-                    <span>14:00</span><span class="on">14:30</span><span>15:00</span>
-                    <span>15:30</span><span>16:00</span><span>16:30</span>
-                  </div>
-                </div>
-                <div class="product-chat">
-                  <strong>예약 도우미</strong>
-                  <div class="bubble">내일 오후 커트 가능한 시간을 찾아드릴게요.</div>
-                  <div class="bubble" style="background:#f2f3f2">14:30 수진 디자이너 슬롯이 있습니다.</div>
-                </div>
-              </main>
+        <section data-workshop-demo="pre-provisioned-real-app">
+          <p class="slide-kicker">먼저 결과를 본다</p>
+          <h2 class="slide-title">고객은 예약하고,<br /><em>운영자는 경계를 지킨다</em></h2>
+          <div class="two-column">
+            <div class="visual-frame" style="height:430px"><img src="assets/gen/reference-app-product-tour.png" alt="생성된 예약 앱 고객과 운영자 화면" /></div>
+            <div class="step-list">
+              <div class="step"><b>1</b><span>고객 A가 한 슬롯을 예약</span></div>
+              <div class="step"><b>2</b><span>고객 B의 같은 슬롯은 충돌 차단</span></div>
+              <div class="step"><b>3</b><span>Google 운영자만 admin 접근</span></div>
+              <div class="step"><b>4</b><span>새로고침 뒤에도 Convex에 지속</span></div>
+            </div>
+          </div>
+<aside class="notes">라이브 앱에서 고객 예약과 운영자 화면을 먼저 보여 줍니다. 오늘 만드는 것은 폼이 아니라 충돌과 권한을 서버에서 지키는 운영 시스템입니다.</aside>
+        </section>
+
+        <section>
+          <p class="slide-kicker">GUIDE</p>
+          <h2 class="slide-title">코드를 대신 쓰는 사람이 아니라<br /><em>운영을 구조화하는 안내자</em></h2>
+          <div class="manual-grid three">
+            <div class="manual-card"><strong>100+</strong><p>생성형 AI SaaS 기획·개발·운영</p></div>
+            <div class="manual-card"><strong>200+</strong><p>사이드 프로젝트와 실습 설계</p></div>
+            <div class="manual-card"><strong>10Y</strong><p>AI 기반 풀스택 개발 경험</p></div>
+          </div>
+          <div class="panel" style="margin-top:28px"><span class="label">오늘의 역할</span><p class="plain-explainer">운영자의 말을 질문 → JSON → 서버 규칙 → 검증 증거로 번역합니다.</p></div>
+<aside class="notes">강사 소개는 짧게 끝냅니다. 오늘의 중심은 도구 자랑이 아니라 수강생이 혼자 다시 수행할 수 있는 절차입니다.</aside>
+        </section>
+
+        <section>
+          <p class="slide-kicker">예약의 실체</p>
+          <h2 class="slide-title">화면보다 먼저 필요한<br /><em>숨은 운영체제</em></h2>
+          <div class="two-column">
+            <div>
+              <div class="pill-row"><span>resource</span><span>availability</span><span>hold TTL</span><span>collision</span><span>cancel window</span><span>ownership</span></div>
+              <p class="plain-explainer" style="margin-top:28px">버튼은 요청을 보냅니다. 성공과 거절은 Convex mutation 안의 도메인 규칙이 결정합니다.</p>
+            </div>
+            <div class="visual-frame" style="height:410px"><img src="assets/gen/reservation-hidden-operating-system.png" alt="예약 시스템의 숨은 운영 규칙" /></div>
+          </div>
+<aside class="notes">예약은 달력 UI가 아닙니다. 같은 자원과 시간에 두 요청이 들어오면 서버가 한 명만 허용해야 합니다.</aside>
+        </section>
+
+        <section>
+          <p class="slide-kicker">AGENTIC</p>
+          <h2 class="slide-title">옵션을 고르는 SaaS에서<br /><em>운영을 묻는 Agent로</em></h2>
+          <div class="visual-frame" style="height:420px"><img src="assets/gen/business-conversation-domain-loom-v2.png" alt="운영 인터뷰에서 코드까지 이어지는 흐름" /></div>
+          <div class="pill-row"><span>질문</span><span>schema v1</span><span>template</span><span>mutation</span><span>evidence</span></div>
+<aside class="notes">에이전트의 핵심은 코드를 많이 쓰는 것이 아니라 모르는 운영 사실을 묻고, 확정된 값만 시스템에 넣는 것입니다.</aside>
+        </section>
+
+        <section>
+          <p class="slide-kicker">두 개의 plane</p>
+          <h2 class="slide-title">생성 성공과 DB 연결 성공을<br /><em>섞지 않는다</em></h2>
+          <div class="lane">
+            <div class="manual-card"><strong>OFFLINE GENERATION</strong><p>interview → pack → scaffold → typecheck → test → build</p><p class="proof">VERIFY PASS</p></div>
+            <div class="lane-arrow">→</div>
+            <div class="manual-card"><strong>LIVE RUNTIME</strong><p>Convex → Google OAuth → setup → QA → browser smoke</p><p class="proof">실제 사용자 관찰</p></div>
+          </div>
+          <p class="warning" style="margin-top:26px">[SKIP verify_qa]는 실패가 아니라 아직 오른쪽 plane 전이라는 표지입니다.</p>
+<aside class="notes">이 구분이 강의의 정직성입니다. bootstrap은 credential을 만들거나 live QA를 실행하지 않습니다.</aside>
+        </section>
+
+        <section>
+          <p class="slide-kicker">CLEAN-ROOM CONTRACT</p>
+          <h2 class="slide-title">오늘 지킬<br /><em>네 가지 금지선</em></h2>
+          <div class="manual-grid">
+            <div class="manual-card"><strong>NO SAMPLE</strong><p>기존 JSON과 생성 sample을 읽거나 복사하지 않는다.</p></div>
+            <div class="manual-card"><strong>NO GUESS</strong><p>모르는 운영 값은 Agent가 추측하지 않는다.</p></div>
+            <div class="manual-card"><strong>NO EARLY WRITE</strong><p>사용자가 “확정”하기 전 JSON과 target을 만들지 않는다.</p></div>
+            <div class="manual-card"><strong>SEPARATE PATHS</strong><p>pack은 workspace, target은 absent child directory에 둔다.</p></div>
+          </div>
+<aside class="notes">현재 강의 launcher의 고정 JSON 경로를 폐기한 이유를 설명합니다. 오늘은 인터뷰 자체가 제품 기능입니다.</aside>
+        </section>
+
+        <section>
+          <p class="slide-kicker">STEP 1</p>
+          <h2 class="slide-title">먼저 정말로<br /><em>빈 폴더를 만든다</em></h2>
+          <p class="muted">실습: 인터넷 필요 · macOS/Linux/WSL2 Bash · native PowerShell 미지원</p>
+          <div class="command-card">
+            <button class="copy-button" data-copy-target="workspace-command">명령 복사</button>
+            <pre><code id="workspace-command" class="language-bash">mkdir -p "$HOME/Desktop/jeomwon-zero-test"
+cd "$HOME/Desktop/jeomwon-zero-test"
+find . -mindepth 1 -maxdepth 1 -print</code></pre>
+          </div>
+          <div class="manual-grid">
+            <div class="manual-card"><strong>정상</strong><p><code>find</code> 출력이 아무것도 없다.</p></div>
+            <div class="manual-card"><strong>중요</strong><p>생성 target 폴더도 아직 만들지 않는다.</p></div>
+          </div>
+<aside class="notes">학생과 함께 명령을 실행합니다. 이 workspace에는 나중에 domain-pack.json만 생깁니다.</aside>
+        </section>
+
+        <section>
+          <p class="slide-kicker">STEP 2</p>
+          <h2 class="slide-title">Claude Code를<br /><em>공식 curl로 설치</em></h2>
+          <div class="command-card">
+            <button class="copy-button" data-copy-target="claude-install-command">명령 복사</button>
+            <pre><code id="claude-install-command" class="language-bash">curl -fsSL https://claude.ai/install.sh | bash</code></pre>
+          </div>
+          <div class="step-list">
+            <div class="step"><b>1</b><span>새 터미널을 연다</span></div>
+            <div class="step"><b>2</b><span><code>claude</code> 실행</span></div>
+            <div class="step"><b>3</b><span>브라우저 로그인 완료 후 <code>exit</code></span></div>
+          </div>
+          <p class="source-line">공식 문서: https://code.claude.com/docs/en/setup</p>
+<aside class="notes">오늘의 primary host입니다. 로그인과 결제 계정 선택은 사용자가 직접 완료합니다.</aside>
+        </section>
+
+        <section>
+          <p class="slide-kicker">STEP 3</p>
+          <h2 class="slide-title">Bun 고정 후 Jeomwon을<br /><em>한 줄로 설치</em></h2>
+          <div class="command-card">
+            <button class="copy-button" data-copy-target="bun-install-command">명령 복사</button>
+            <pre><code id="bun-install-command" class="language-bash">curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.14"
+bun --version  # 정확히 1.3.14</code></pre>
+          </div>
+          <div class="command-card">
+            <button class="copy-button" data-copy-target="jeomwon-install-command">명령 복사</button>
+            <pre><code id="jeomwon-install-command" class="language-bash">curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.1/install.sh \
+  | bash -s -- --agent all</code></pre>
+          </div>
+          <p class="proof">다음으로 가는 유일한 표지: INSTALL PASS jeomwon v0.1.1</p>
+<aside class="notes">installer는 Claude와 Codex 공용 canonical skill 경로를 구성합니다. 성공 표지가 없으면 진행하지 않습니다.</aside>
+        </section>
+
+        <section>
+          <p class="slide-kicker">STEP 4</p>
+          <h2 class="slide-title">cache를 준비하고 Claude에<br /><em>계약부터 붙여 넣는다</em></h2>
+          <div class="command-card">
+            <button class="copy-button" data-copy-target="cache-launch-command">명령 복사</button>
+            <pre><code id="cache-launch-command" class="language-bash">bun "$HOME/.agents/skills/jeomwon/scripts/warm-cache.mjs" --lang ko
+cd "$HOME/Desktop/jeomwon-zero-test"
+claude</code></pre>
+          </div>
+          <div class="manual-card" style="position:relative;margin-top:18px;padding-top:62px">
+            <button class="copy-button" data-copy-target="interview-prompt">전체 프롬프트 복사</button>
+            <strong>배포본 경로: assets/student/PROMPT.md</strong>
+            <p>Interview Order · 추측 금지 · “확정” gate · pack/target 분리 · credentials 금지 · offline/live 구분</p>
+          </div>
+          <script type="text/plain" id="interview-prompt">설치된 jeomwon 스킬을 사용해 예약 SaaS를 완전히 처음부터 만들어 주세요.
+기존 예제 JSON과 sample은 읽거나 복사하지 말고 Interview Order대로 질문하세요.
+모르는 값은 추측하지 말고, 모든 파생값을 읽어 준 뒤 내가 정확히 "확정"이라고 답할 때까지 JSON과 target을 만들지 마세요.
+확정 뒤 canonical schemaVersion 1 pack을 ./domain-pack.json에 저장하고, 아직 존재하지 않는 ./generated/&lt;domainKey&gt;를 target으로 정하세요.
+pack과 target을 분리하고 preflight 통과 뒤 bootstrap을 실행하세요.
+credentials와 provider secret은 pack에 넣지 말고 offline VERIFY PASS와 아직 실행하지 않은 bun setup/live QA를 구분해 보고하세요.</script>
+<aside class="notes">PROMPT.md 전체 text 블록을 붙여 넣습니다. 학생이 기존 JSON을 찾아 달라고 말하지 않도록 강조합니다.</aside>
+        </section>
+
+        <section>
+          <p class="slide-kicker">INTERVIEW ORDER</p>
+          <h2 class="slide-title">Agent가 반드시 물어야 할<br /><em>10개 운영 묶음</em></h2>
+          <div class="ten-grid">
+            <div>1<br />가게 identity</div><div>2<br />예약 자원</div><div>3<br />서비스·시간</div><div>4<br />월~일 영업</div><div>5<br />임시 휴무</div>
+            <div>6<br />취소·hold</div><div>7<br />관리자 화면</div><div>8<br />기능 토글</div><div>9<br />이메일·구독</div><div>10<br />고객 문구</div>
+          </div>
+          <div class="panel" style="margin-top:24px"><span class="label">파생값 readback</span><p class="plain-explainer">예약번호 prefix · 서비스별 슬롯 단위와 총 소요시간 · 모든 요일 · 지원하지 않는 요구</p></div>
+<aside class="notes">오늘의 핵심 실습입니다. 서비스 30분 단위와 실제 90분 소요를 혼동하지 않도록 여러 번 확인합니다.</aside>
+        </section>
+
+        <section>
+          <p class="slide-kicker">APPROVE → BUILD</p>
+          <h2 class="slide-title">읽어 준 값이 맞을 때만<br /><em>“확정”</em></h2>
+          <div class="two-column">
+            <div class="manual-card">
+              <strong>workspace</strong>
+              <p class="path-tree">jeomwon-zero-test/<br />├── domain-pack.json<br />└── generated/<br />&nbsp;&nbsp;&nbsp;└── &lt;domainKey&gt;/</p>
             </div>
             <div>
-              <div class="panel">
-                <span class="label">LIVE CHECKLIST · PRE-PROVISIONED REAL APP</span>
-                <p class="small"><strong>별도 Convex·OAuth·고객/운영자 계정</strong>으로 준비한 앱만 사용합니다. bootstrap이 만든 자격 증명이나 방금 생성한 target이라고 주장하지 않습니다.</p>
-                <p class="small"><strong>현재 실행 상태:</strong> BLOCKED · provider_authorization_absent. 권한이 없으면 아래 생성된 로컬 제품 지도만 확인합니다.</p>
-              </div>
-              <div class="boundary-list" style="margin-top:15px">
-                <div class="boundary"><i data-lucide="calendar-check"></i><span>고객 예약과 위젯</span></div>
-                <div class="boundary"><i data-lucide="messages-square"></i><span>대화형 예약 진입</span></div>
-                <div class="boundary"><i data-lucide="chart-no-axes-combined"></i><span>운영자 대시보드</span></div>
-                <div class="boundary"><i data-lucide="list-checks"></i><span>에스컬레이션과 감사 기록</span></div>
-              </div>
+              <p class="proof">PREFLIGHT PASS</p>
+              <p class="pending">[SKIP verify_qa] · LIVE QA 아직 실행 전</p>
+              <p class="proof">VERIFY PASS</p>
+              <p class="muted">pack은 schemaVersion 1<br />target은 bootstrap 전 absent</p>
             </div>
           </div>
-          <aside class="notes">
-첫 5분에는 별도로 준비한 실제 앱을 엽니다. 고객 A와 고객 B가 같은 슬롯을 요청하고 한 요청만 성공하는지 본 뒤 운영자 기록을 확인합니다. Convex, OAuth, 고객과 운영자 계정이 없으면 live 부분만 BLOCKED로 기록하고 이 로컬 지도는 실제 성공으로 세지 않습니다.
-          </aside>
+<aside class="notes">에이전트가 JSON과 target을 같은 폴더로 잡지 않았는지 확인합니다. 세 표지를 터미널에서 직접 읽습니다.</aside>
         </section>
 
-        <section class="image-led genie-intro" data-title="지니가 가게 운영 언어로 설명합니다" data-minutes="2">
-          <figure class="visual-canvas">
-            <img src="assets/gen/genie-introduction-guide.png" alt="지니 캐릭터가 가게, 달력, 예약 완료 흐름을 친근하게 소개하는 장면" />
-          </figure>
-          <div class="visual-legend">
-            <span>AI 서비스 100+</span><span>개인 프로젝트 200+</span><span>개발 경험 10년</span>
+        <section>
+          <p class="slide-kicker">FREE BACKEND</p>
+          <h2 class="slide-title">Convex는 무엇이고<br /><em>왜 무료로 시작할 수 있나</em></h2>
+          <div class="manual-grid three">
+            <div class="manual-card"><strong>$0 / MONTH</strong><p>Free 플랜은 개인 프로젝트와 prototype용</p></div>
+            <div class="manual-card"><strong>BACKEND + DB</strong><p>실시간 query, transaction, Auth, file·search·cron</p></div>
+            <div class="manual-card"><strong>DEV FIRST</strong><p>강의는 개발 deployment 하나로 시작</p></div>
           </div>
-          <span class="slide-kicker">03 · 지니 소개</span>
-          <h2 class="slide-title">안녕하세요,<br /><em>지니</em>입니다</h2>
-          <p class="plain-explainer">
-            AI 서비스를 직접 만들고 운영해 왔습니다. 오늘은 어려운 개발 말 대신
-            <strong>가게 운영 언어</strong>로 하나씩 설명할게요.
-          </p>
-          <div class="grid-2" style="grid-template-columns:1.15fr .85fr;align-items:center">
-            <div>
-              <p style="font-size:1.42em;line-height:1.35;max-width:650px">
-                AI를 설명하는 사람이 아니라,<br />
-                <strong>AI 제품을 반복해서 출하한 개발자</strong>입니다.
-              </p>
-              <p class="muted">
-                오늘은 학력보다 실제로 만든 수와 운영 경험만 남겼습니다.
-              </p>
-            </div>
-            <div class="metric-strip" style="grid-template-columns:1fr">
-              <div class="metric"><b>100+</b><span>생성형 AI SaaS 기획·개발·운영</span></div>
-              <div class="metric"><b>200+</b><span>사이드 프로젝트 개발</span></div>
-              <div class="metric"><b>10Y</b><span>AI 기반 풀스택 개발자</span></div>
-            </div>
-          </div>
-          <p class="source">출처: 강사 제공 프로필</p>
-          <aside class="notes">
-저는 지니입니다. AI 서비스를 100개 넘게 만들고 운영했고, 개인 프로젝트도 200개 넘게 진행했습니다. 오늘은 그 경험을 자랑하려는 것이 아니라, 처음 만드는 분도 길을 잃지 않도록 가게 운영 언어로 번역해 드리려고 합니다.
-          </aside>
+          <ul class="compact-list">
+            <li>계정과 팀 생성은 사람이 한다.</li>
+            <li><code>bun setup</code>은 deployment와 env 연결을 자동화한다.</li>
+            <li>Free 한도는 팀 단위이며 production 전 최신 가격·한도를 확인한다.</li>
+          </ul>
+          <p class="source-line">공식 가격: https://www.convex.dev/pricing · 한도: https://docs.convex.dev/production/state/limits</p>
+<aside class="notes">무료라는 말은 무제한이라는 뜻이 아닙니다. 오늘의 개발 실습에는 무료 dev deployment를 사용합니다.</aside>
         </section>
 
-        <section class="image-led" data-title="오늘 만들 가게를 고릅니다" data-minutes="3">
-          <figure class="visual-canvas">
-            <img src="assets/gen/four-business-capability-constellation.png" alt="헤어숍, PC방, 펜션, 풋살장이 하나의 예약 역량을 공유하는 네 개의 소형 공간" />
-          </figure>
-          <div class="visual-legend">
-            <span>헤어숍 · 좌석</span><span>PC방 · 자리</span><span>펜션 · 객실</span><span>풋살장 · 코트</span>
+        <section>
+          <p class="slide-kicker">HUMAN-OWNED SETUP</p>
+          <h2 class="slide-title">Convex 로그인과 Google OAuth는<br /><em>사람이 만든다</em></h2>
+          <div class="manual-grid">
+            <div class="manual-card">
+              <strong>CONVEX</strong>
+              <p>생성 target에서 실행</p>
+              <div class="command-card"><button class="copy-button" data-copy-target="convex-login-command">명령 복사</button><pre><code id="convex-login-command" class="language-bash">bun x convex login</code></pre></div>
+            </div>
+            <div class="manual-card">
+              <strong>GOOGLE CLOUD</strong>
+              <p>Project → Consent screen → Web application client</p>
+              <p><code>http://localhost:3000</code></p>
+            </div>
           </div>
-          <span class="slide-kicker">04 · 업종 선택</span>
-          <h2 class="slide-title tight">오늘 만들 가게를 고릅니다<br /><em>동률이면 헤어숍</em></h2>
-          <p class="plain-explainer">
-            헤어숍, PC방, 펜션, 풋살장 가운데 현장에서 하나를 고릅니다.<br />
-            표가 같거나 응답이 없으면 헤어숍으로 진행합니다.
-          </p>
-          <div class="grid-4">
-            <article class="card hot choice-card recommended">
-              <span class="rank">FALLBACK 01</span>
-              <span class="icon"><i data-lucide="scissors"></i></span>
-              <h3>헤어살롱</h3>
-              <p class="muted small">커트 30분 × 디자이너 1명</p>
-            </article>
-            <article class="card choice-card">
-              <span class="rank">02</span>
-              <span class="icon"><i data-lucide="monitor"></i></span>
-              <h3>PC방</h3>
-              <p class="muted small">좌석 1개 × 1시간<br />인접 좌석·자정 넘김 미지원</p>
-            </article>
-            <article class="card choice-card">
-              <span class="rank">03</span>
-              <span class="icon"><i data-lucide="house"></i></span>
-              <h3>펜션</h3>
-              <p class="muted small">객실 1실 × 1박<br />다박·부가서비스 미지원</p>
-            </article>
-            <article class="card choice-card">
-              <span class="rank">04</span>
-              <span class="icon"><i data-lucide="circle-dot"></i></span>
-              <h3>풋살장</h3>
-              <p class="muted small">코트 1면 × 1시간 · 날씨/예약금 없음</p>
-            </article>
-          </div>
-          <p class="muted small" style="margin-top:18px">
-            거수로 결정합니다. 동률·무응답이면 헤어살롱. capability 밖 요구는 후속 확장으로 분리합니다.
-            <a class="citation" href="research.md">[R15-R16]</a>
-          </p>
-          <aside class="notes">
-먼저 오늘 만들 가게를 고릅니다. 헤어숍, PC방, 펜션, 풋살장 모두 ‘정해진 시간에 한 자리를 예약한다’는 공통점이 있습니다. 표가 같거나 응답이 없으면 헤어숍으로 진행하고, 오늘 범위 밖의 기능은 억지로 넣지 않고 다음 확장 과제로 남깁니다.
-          </aside>
+          <p class="warning" style="margin-top:24px">Redirect URI는 추측하지 않는다. setup이 출력할 때까지 기다린다.</p>
+<aside class="notes">Convex와 Google 계정 생성은 자동화하지 않습니다. 학생이 어느 브라우저 계정으로 로그인하는지 함께 확인합니다.</aside>
         </section>
 
-        <section class="image-led copy-right" data-title="예약을 지키는 네 가지 약속" data-minutes="4">
-          <figure class="visual-canvas">
-            <img src="assets/gen/reservation-hidden-operating-system.png" alt="살롱 아래에서 충돌 방지, 시간 유지, 소유권, 사람 이관 장치가 예약을 지키는 단면도" />
-          </figure>
-          <div class="visual-legend">
-            <span>충돌 방지</span><span>시간 유지</span><span>소유권</span><span>사람 이관</span>
+        <section>
+          <p class="slide-kicker">PAUSE / RESUME</p>
+          <h2 class="slide-title">bun setup이 멈추는 이유는<br /><em>정확한 callback을 건네기 위해서</em></h2>
+          <div class="command-card"><button class="copy-button" data-copy-target="setup-command">명령 복사</button><pre><code id="setup-command" class="language-bash">bun setup --lang ko</code></pre></div>
+          <div class="step-list">
+            <div class="step"><b>1</b><span>Convex dev deployment 생성</span></div>
+            <div class="step"><b>2</b><span><code>https://&lt;deployment&gt;.convex.site/api/auth/callback/google</code> 출력 후 pause</span></div>
+            <div class="step"><b>3</b><span>Google Console에 그대로 등록·저장</span></div>
+            <div class="step"><b>4</b><span>Enter → client ID · secret · 운영자 이메일</span></div>
           </div>
-          <span class="slide-kicker">05 · 예약을 지키는 장치</span>
-          <h2 class="slide-title">예약 화면보다 먼저<br /><em>네 가지 약속</em>을 만듭니다</h2>
-          <p class="plain-explainer">
-            같은 시간을 두 손님에게 주지 않고, 예약 주인을 확인하고,
-            취소와 어려운 요청을 정해 둔 방식대로 처리합니다.
-          </p>
-          <div class="passport">
-            <div class="passport-sheet">
-              <span class="label">부분 완성 · 한 자리, 두 손님, 네 경계</span>
-              <div class="slot-number">15:00</div>
-              <p class="muted small">커트 · 디자이너 수진 · 30분</p>
-              <span class="guest">손님 A</span>
-              <span class="guest">손님 B</span>
-              <p style="margin-top:32px"><strong>최종 책임자: ______</strong></p>
-            </div>
-            <div>
-              <p style="font-size:1.35em;line-height:1.34">
-                이 강의에서 Agentic SaaS는 대화가 서버 도구로 상태를 바꾸고,<br />
-                <strong>권한·정책·실패를 서버 코드가 책임지는 SaaS</strong>입니다.
-              </p>
-              <div class="boundary-list">
-                <div class="boundary"><i data-lucide="shield-check"></i><span>같은 자원·시간 충돌을 한 트랜잭션에서 막는다</span></div>
-                <div class="boundary"><i data-lucide="hourglass"></i><span>홀드 만료와 취소 시점을 서버가 판단한다</span></div>
-                <div class="boundary"><i data-lucide="fingerprint"></i><span>threadId가 아니라 사용자 신원으로 소유권을 확인한다</span></div>
-                <div class="boundary"><i data-lucide="user-round-check"></i><span>자동 처리할 수 없으면 운영자에게 넘긴다</span></div>
-              </div>
-            </div>
-          </div>
-          <aside class="notes">
-예약 화면보다 먼저 네 가지 약속을 정합니다. 같은 시간을 두 손님에게 주지 않기, 예약한 사람을 확인하기, 취소할 때 자리를 다시 열지 결정하기, 자동으로 처리하기 어려우면 운영자에게 넘기기입니다. AI가 대화를 도와도 실제 예약 변경은 뒤쪽의 예약 규칙이 다시 확인합니다.
-          </aside>
+          <p style="color:rgba(255,255,255,.72)">첫 성공: agent=mock · email=capture · Polar=off</p>
+<aside class="notes">setup이 무엇을 자동화하고 무엇을 하지 않는지 설명합니다. secret은 슬라이드나 git에 남기지 않습니다.</aside>
         </section>
 
-        <section class="image-led" data-title="가게 이야기에서 예약 서비스 뼈대로" data-minutes="4">
-          <figure class="visual-canvas">
-            <img src="assets/gen/template-to-product-two-planes.png" alt="코드 생성 평면의 템플릿과 설정 주입 과정이 런타임의 공개 웹, 앱, 데이터베이스로 이어지는 두 평면 구조" />
-          </figure>
-          <div class="visual-legend">
-            <span>기본 설계도</span><span>가게 정보 반영</span><span>실제 서비스 실행</span>
+        <section>
+          <p class="slide-kicker">LIVE EVIDENCE</p>
+          <h2 class="slide-title">자동 QA 뒤에<br /><em>실제 사용자 행동</em></h2>
+          <div class="command-card"><button class="copy-button" data-copy-target="qa-command">명령 복사</button><pre><code id="qa-command" class="language-bash">bunx playwright install chromium
+bun run qa
+bun dev</code></pre></div>
+          <div class="manual-grid">
+            <div class="manual-card"><strong>AUTOMATED</strong><p>dev deployment · 12 gates · 충돌·소유권·email capture</p></div>
+            <div class="manual-card"><strong>MANUAL</strong><p>고객 A/B · Google allowlist · 비허용 계정 · refresh persistence</p></div>
           </div>
-          <span class="slide-kicker">06 · 만드는 단계와 쓰는 단계</span>
-          <h2 class="slide-title">가게 이야기를 넣으면<br /><em>예약 서비스 뼈대</em>가 나옵니다</h2>
-          <p class="plain-explainer">
-            이미 준비된 기본 설계도에 업종 정보만 넣습니다.<br />
-            손님 화면, 운영자 화면, 예약 기록은 처음부터 따로 준비됩니다.
-          </p>
-          <div class="architecture">
-            <div class="plane">
-              <span class="label">CODING-TIME PLANE</span>
-              <div class="stack">
-                <div class="stack-item"><b>Template</b><span>CANONICAL WORKSPACE</span></div>
-                <div class="stack-item"><b>Domain pack</b><span>CLOSED CONFIG</span></div>
-                <div class="stack-item"><b>Generator</b><span>COPY → STRICT INJECT → OFFLINE CHECKS</span></div>
-              </div>
-              <p class="muted small" style="margin-top:16px">Verify = install·typecheck·lint·build. live QA는 SKIP.</p>
-            </div>
-            <div class="arrow">→</div>
-            <div class="plane runtime">
-              <span class="label">RUNTIME PLANE</span>
-              <div class="grid-2">
-                <div class="stack-item"><b>Public Web</b><span>NEXT.JS</span></div>
-                <div class="stack-item"><b>App</b><span>NEXT.JS + AUTH</span></div>
-                <div class="stack-item"><b>Backend</b><span>CONVEX</span></div>
-                <div class="stack-item"><b>Agent</b><span>ONE AGENT RUNTIME</span></div>
-              </div>
-              <p class="muted small" style="margin-top:16px">생성 뒤에는 독립적으로 실행·배포되는 제품이다.</p>
-            </div>
-          </div>
-          <p class="source">[C1][C2] · R1-R10</p>
-          <aside class="notes">
-Jeomwon은 이미 준비된 예약 서비스 설계도입니다. 우리는 가게 이름, 예약 대상, 시간, 취소 규칙을 정해진 칸에 넣어 업종에 맞게 바꿉니다. 오늘의 기본 점검은 필요한 파일과 코드가 맞는지 보는 단계이며, 로그인과 실제 서비스 점검, 인터넷 공개까지 끝났다는 뜻은 아닙니다.
-          </aside>
+          <p class="warning">QA는 현재 domain의 dev 데이터를 초기화할 수 있다. production에서는 실행하지 않는다.</p>
+<aside class="notes">자동 QA는 실제 Google 운영자 성공을 증명하지 않습니다. 두 브라우저 프로필 smoke를 별도로 수행합니다.</aside>
         </section>
 
-        <section data-title="세 도구가 일을 나누는 법" data-minutes="4">
-          <span class="slide-kicker">07 · 역할 나누기</span>
-          <h2 class="slide-title">화면·예약 기록·인터넷 공개를<br /><em>세 도구가 나눠 맡습니다</em></h2>
-          <div class="compare">
-            <div class="column">
-              <span class="label">NEXT.JS · 화면</span>
-              <h3>손님과 운영자가 보는 곳</h3>
-              <ul>
-                <li>가게 소개와 예약 시작</li>
-                <li>손님 예약과 운영자 관리</li>
-                <li>두 화면을 따로 관리</li>
-              </ul>
-            </div>
-            <div class="column">
-              <span class="label">CONVEX · 예약 기록</span>
-              <h3>기록과 규칙을 지키는 곳</h3>
-              <ul>
-                <li>예약 상태를 최신으로 보여 줌</li>
-                <li>빈자리 확인과 저장을 한 번에</li>
-                <li>나중에 할 일을 등록</li>
-              </ul>
-            </div>
-            <div class="column">
-              <span class="label">VERCEL · 인터넷 공개</span>
-              <h3>두 화면을 공개하는 곳</h3>
-              <ul>
-                <li>가게 안내 화면 공개</li>
-                <li>예약·운영 화면 공개</li>
-                <li>예약 데이터는 따로 연결</li>
-              </ul>
-            </div>
+        <section>
+          <p class="slide-kicker">SAME SKILL, OTHER HOST</p>
+          <h2 class="slide-title">Codex로 바꿔도<br /><em>여정은 같다</em></h2>
+          <div class="command-card"><button class="copy-button" data-copy-target="codex-command">명령 복사</button><pre><code id="codex-command" class="language-bash">curl -fsSL https://chatgpt.com/codex/install.sh | sh
+cd "$HOME/Desktop/jeomwon-zero-test"
+codex</code></pre></div>
+          <div class="lane">
+            <div class="manual-card"><strong>CLAUDE CODE</strong><p>오늘의 primary host</p></div>
+            <div class="lane-arrow">↔</div>
+            <div class="manual-card"><strong>CODEX</strong><p>같은 skill root · 같은 PROMPT.md</p></div>
           </div>
-          <p class="muted small" style="margin-top:16px">
-            한 폴더에 있어도 세 부분이 한 번에 공개되는 것은 아닙니다.
-            <a class="citation" href="research.md">[R6-R10]</a>
-          </p>
-          <aside class="notes">
-세 도구는 일을 나눠 맡습니다. Next.js는 손님과 운영자가 보는 화면을 만들고, Convex는 예약 기록과 중복 방지 규칙을 지킵니다. Vercel은 두 화면을 인터넷에 공개합니다. 한 폴더 안에 있어도 세 부분은 각각 연결 상태와 공개 상태를 확인해야 합니다.
-          </aside>
+          <p class="source-line">공식 설치: https://github.com/openai/codex/blob/main/README.md</p>
+<aside class="notes">Codex는 보조 경로입니다. 인터뷰 계약과 생성 script는 host 중립 경로를 사용합니다.</aside>
         </section>
 
-        <section class="image-led" data-title="예약 장부와 규칙을 함께 지키기" data-minutes="5">
-          <figure class="visual-canvas">
-            <img src="assets/gen/convex-reactive-transaction-core.png" alt="실시간 관찰 레일, 원자적 변경 챔버, 지연 작업 스케줄러가 분리된 데이터 실행 코어" />
-          </figure>
-          <div class="visual-legend">
-            <span>현재 상태 보기</span><span>한 번에 예약 변경</span><span>나중에 처리</span>
+        <section>
+          <p class="slide-kicker">PAYMENT BOUNDARY</p>
+          <h2 class="slide-title">Polar 구독과 고객 예약 결제는<br /><em>서로 다른 시스템</em></h2>
+          <div class="visual-frame" style="height:300px"><img src="assets/gen/subscription-vs-booking-payment-boundary.png" alt="계정 구독과 예약 결제 경계" /></div>
+          <div class="manual-grid">
+            <div class="manual-card"><strong>현재</strong><p>Jeomwon 계정 subscription</p></div>
+            <div class="manual-card"><strong>생성 뒤 확장</strong><p>예약금 · 결제 · 환불 · ledger</p></div>
           </div>
-          <span class="slide-kicker">08 · 예약 장부와 규칙</span>
-          <h2 class="slide-title">Convex는 예약 기록과<br /><em>예약 규칙</em>을 함께 지킵니다</h2>
-          <p class="plain-explainer">
-            예약이 바뀌면 화면도 바로 바뀝니다. 빈자리 확인과 저장을 한 번에 처리해
-            두 사람이 같은 시간을 잡지 못하게 합니다.
-          </p>
-          <div class="convex-stage">
-            <div class="table-stage">
-              <span class="label">TABLES · CURRENT TRUTH</span>
-              <div class="table-row"><span>reservation_2048</span><span>수진</span><span>15:00</span><strong>held</strong></div>
-              <p>고객·자원·예약이 지금 어떤 상태인지 저장합니다.</p>
-            </div>
-            <div class="verb-rail">
-              <div><span class="num">01</span><b>Query</b><p>변경된 결과를 구독 UI에 전달</p></div>
-              <div><span class="num">02</span><b>Mutation</b><p>read → check → write를 한 transaction으로 실행</p></div>
-              <div><span class="num">03</span><b>Scheduler</b><p>나중 일을 durable하게 등록, punctual 보장은 아님</p></div>
-            </div>
-          </div>
-          <p class="muted small" style="margin-top:15px">예약 정책은 Convex가 아니라 Jeomwon mutation 코드가 구현합니다.</p>
-          <p class="source">[C3] · R11-R13</p>
-          <aside class="notes">
-Convex는 예약 장부와 규칙을 함께 관리하는 곳이라고 생각하면 쉽습니다. 예약이 바뀌면 손님과 운영자 화면도 최신 상태를 보고, 빈자리 확인과 저장을 한 번에 처리해 중복 예약을 막습니다. 만료 같은 나중 작업도 등록할 수 있지만 정확히 그 시각에 실행된다고 약속하는 시계는 아닙니다.
-          </aside>
+<aside class="notes">오늘 Polar를 켜지 않습니다. 예약 결제가 구현됐다고 과장하지 않습니다.</aside>
         </section>
 
-        <section class="image-led" data-title="AI보다 먼저 지키는 예약 규칙" data-minutes="4">
-          <figure class="visual-canvas">
-            <img src="assets/gen/reservation-lifecycle-guarded-track.png" alt="보류, 확정, 재예약, 취소가 트랜잭션 게이트를 지나며 용량 반환 여부가 갈리는 예약 상태 트랙" />
-          </figure>
-          <div class="visual-legend">
-            <span>임시로 자리 잡기</span><span>예약 확정</span><span>시간 변경</span><span>취소·운영자 확인</span>
+        <section>
+          <p class="slide-kicker">RETRIEVAL</p>
+          <h2 class="slide-title">혼자 다시 만들 때 기억할<br /><em>열한 단어</em></h2>
+          <div class="pill-row" style="margin-top:40px">
+            <span>빈 폴더</span><span>Claude</span><span>Bun</span><span>skill</span><span>interview</span><span>확정</span><span>bootstrap</span><span>Convex</span><span>Google</span><span>setup</span><span>QA</span>
           </div>
-          <span class="slide-kicker">09 · 항상 지키는 약속</span>
-          <h2 class="slide-title">AI가 뭐라고 말해도<br /><em>예약 규칙</em>을 다시 확인합니다</h2>
-          <p class="plain-explainer">
-            AI의 안내는 실수할 수 있습니다. 실제 예약을 바꾸기 직전에
-            자리, 시간, 예약 주인, 취소 가능 여부를 다시 확인합니다.
-          </p>
-          <div class="state-track">
-            <div class="state active"><span class="dot">HOLD</span><b>임시 점유</b><p class="small muted">충돌 검사</p></div>
-            <div class="state"><span class="dot">OK</span><b>확정</b><p class="small muted">소유권 기록</p></div>
-            <div class="state"><span class="dot">MOVE</span><b>변경</b><p class="small muted">새 슬롯 재검사</p></div>
-            <div class="state"><span class="dot">END</span><b>취소·에스컬레이션</b><p class="small muted">정책에 따라 분기</p></div>
-          </div>
-          <div class="guardrail">
-            <span><strong>held</strong>의 유효한 취소는 즉시 cancelled, 수용량 반환</span>
-            <span><strong>confirmed/rescheduled</strong>가 취소창 안이면 escalated, 수용량 유지</span>
-            <span><strong>threadId</strong>는 라우팅 문맥일 뿐 신원·권한이 아님</span>
-          </div>
-          <p class="source">[C3] · R14</p>
-          <aside class="notes">
-AI의 말은 친절할 수 있지만 실수할 수도 있습니다. 그래서 실제 예약을 바꾸기 직전에 빈자리인지, 예약한 사람이 맞는지, 취소 가능한지 다시 확인합니다. 임시 예약, 확정, 시간 변경, 취소는 서로 다른 단계이며 각 단계에서 지켜야 할 약속이 다릅니다.
-          </aside>
-        </section>
-
-        <section class="image-led copy-right" data-title="운영 이야기가 업종 설정이 된다" data-minutes="5">
-          <figure class="visual-canvas">
-            <img src="assets/gen/business-conversation-domain-loom-v2.png" alt="서비스, 자원, 시간, 정책, 표현이 고정 소켓을 통과해 하나의 도메인 설정으로 직조되는 장면" />
-          </figure>
-          <div class="visual-legend">
-            <span>자원</span><span>시간</span><span>정책</span><span>표현</span>
-          </div>
-          <span class="slide-kicker">10 · 운영 정보를 설정으로</span>
-          <h2 class="slide-title tight">가게 운영 이야기를 넣으면<br /><em>업종에 맞는<br />예약 서비스가 됩니다</em></h2>
-          <p class="plain-explainer">
-            서비스, 예약 대상, 시간, 취소 규칙, 안내 문구를 정해진 칸에 넣습니다.<br />
-            범위 밖의 기능은 마음대로 만들지 않고 다음 작업으로 남깁니다.
-          </p>
-          <img class="native-visual loom-visual" src="assets/gen/domain-loom.svg" alt="자원, 서비스, 시간, 정책, 카피가 닫힌 스키마와 literal pipeline을 통과하는 도메인 직조기" />
-          <p class="muted small" style="margin-top:18px">
-            자연어가 임의 코드를 쓰는 것이 아니라 닫힌 설정을 채웁니다. 팩 밖 전문 기능은 생성 후 별도 확장입니다.
-            <a class="citation" href="research.md">[R1-R4]</a>
-          </p>
-          <aside class="notes">
-가게 이야기를 바로 코드로 바꾸지 않습니다. 무엇을 예약하는지, 몇 분 단위인지, 언제 취소할 수 있는지, 손님에게 어떤 말을 보여 줄지 먼저 정리합니다. 정해진 칸에 들어갈 정보만 반영하고, 모르는 값은 추정하지 않으며, 지금 만들 수 없는 기능은 다음 작업으로 남깁니다.
-          </aside>
-        </section>
-
-        <section data-title="수업 뒤 그대로 쓰는 가게 인터뷰" data-minutes="4">
-          <span class="slide-kicker">11 · 가게 인터뷰</span>
-          <h2 class="slide-title tight">수업 뒤 그대로 쓰는<br /><em>가게 인터뷰 질문</em></h2>
-          <div class="grid-2" style="grid-template-columns:1.18fr .82fr">
-            <div>
-              <div class="prompt-card" style="min-height:248px">
-                <div class="prompt-head"><span>인터뷰 → 설정 파일 → 내용 확인</span><span>복사해서 사용</span></div>
-                <pre><code>내 업종을 지원 범위 안에서 인터뷰하고,
-확정한 값을 domain-pack.json(업종 설정 파일)으로 정리해줘.
-
-모르는 값은 추정하지 말고,
-지금 만들 수 없는 기능과 중복 예약·예약 주인 확인 규칙을
-따로 표시해줘.</code></pre>
-              </div>
-              <div class="panel" style="margin-top:12px">
-                <span class="label">결과에 꼭 들어갈 것</span>
-                <p class="small">확정한 내용 · 아직 정하지 않은 내용 · 지금 만들 수 없는 기능 · 결정할 사람</p>
-              </div>
-            </div>
-            <div class="passport-sheet" style="min-height:400px">
-              <span class="label">다른 업종 연습 · 빈칸부터</span>
-              <div class="slot-number">____</div>
-              <p class="muted small">풋살장 · 코트 ____ · ____분</p>
-              <span class="guest">팀 ____</span>
-              <span class="guest">팀 ____</span>
-              <p style="margin-top:42px"><strong>약속: ____ / ____ / ____ / ____</strong></p>
-            </div>
-          </div>
-          <aside class="notes">
-수업 뒤에는 이 질문을 그대로 복사해 사용하면 됩니다. AI가 업종을 하나씩 물어보고, 확정한 내용과 아직 모르는 내용, 지금 만들 수 없는 기능을 나눠 적게 합니다. 결과 파일은 자동 생성 전에 사람이 한 번 읽고 확인해야 합니다.
-          </aside>
-        </section>
-
-        <section data-title="복사, 설정 반영, 기본 점검" data-minutes="12">
-          <span class="slide-kicker">12 · 직접 만들어 보기</span>
-          <h2 class="slide-title tight">실습은 세 단계입니다<br /><em>복사 → 설정 반영<br />→ 기본 점검</em></h2>
-          <p class="plain-explainer">
-            preflight로 Bun·archive checksum·pack·cache·빈 target을 먼저 확인합니다.<br />
-            이어서 생성하고 test와 세 build까지 인터넷 없이 검증하며, 문제 해결 여유 2분을 둡니다.
-          </p>
-          <div class="grid-2" style="grid-template-columns:1.32fr .68fr">
-            <div class="terminal">
-              <div class="terminal-bar"><i></i><i></i><i></i></div>
-              <pre><code data-noescape><span class="dim"># 저장소 루트 · 설치 skill · 체크인 pack</span>
-$ export CLAUDE_SKILL_DIR="$HOME/.claude/skills/jeomwon"
-$ export PACK="$PWD/lectures/소상공인-agentic-saas-실습/assets/student/salon-domain-pack.json"
-$ export TARGET="$PWD/../jeomwon-workshop-salon"
-$ bun "$CLAUDE_SKILL_DIR/scripts/preflight.mjs" \
-    "$TARGET" "Workshop Salon" "$PACK"
-<span class="ok">PREFLIGHT PASS</span>
-$ bun "$CLAUDE_SKILL_DIR/scripts/bootstrap.mjs" \
-    "$TARGET" "Workshop Salon" "$PACK"
-<span class="dim">install · typecheck · lint · test · email/app/web build</span>
-<span class="ok">[SKIP verify_qa]</span>
-<span class="ok">VERIFY PASS</span>
-<span class="dim"># setup · 인증 · live QA · 배포는 별도입니다.</span></code></pre>
-            </div>
-            <div class="stack">
-              <div class="panel"><span class="label">SCAFFOLD</span><p class="small">정본 template을 새 target으로 복사</p></div>
-              <div class="panel"><span class="label">INJECT</span><p class="small">닫힌 설정과 선택형 이메일 샘플 주입</p></div>
-              <div class="panel"><span class="label">VERIFY</span><p class="small">오프라인 계약 검사. live QA는 별도</p></div>
-            </div>
-          </div>
-          <aside class="notes">
-실습 명령 한 번으로 세 가지 일을 합니다. 기본 설계도를 새 폴더에 복사하고, 헤어숍 정보를 반영하고, 필요한 파일과 코드가 맞는지 기본 점검합니다. 화면 실행과 로그인, 실제 예약 테스트, 인터넷 공개는 아직 남아 있습니다. 명령어는 그대로 따라 쓰되, 결과에서 ‘기본 점검 통과’가 보이는지 확인합니다.
-          </aside>
-        </section>
-
-        <section class="image-led" data-title="파일 생성 다음에 할 일" data-minutes="3">
-          <figure class="visual-canvas">
-            <img src="assets/gen/post-generation-setup-qa-deploy.png" alt="오프라인 검증 이후 계정 연결, 라이브 QA, 두 웹 배포, 데이터 배포를 각각 통과해야 하는 미완료 체크포인트" />
-          </figure>
-          <div class="visual-legend">
-            <span>계정 연결</span><span>11가지 실제 점검</span><span>두 화면 공개</span><span>예약 데이터 연결</span>
-          </div>
-          <span class="slide-kicker">13 · 생성 다음 단계</span>
-          <h2 class="slide-title">파일이 만들어진 것과<br /><em>실제 운영 준비</em>는 다릅니다</h2>
-          <p class="plain-explainer">
-            오늘은 서비스 뼈대와 기본 점검까지 합니다.<br />
-            계정 연결, 실제 동작 점검, 인터넷 공개는 수업 뒤에 이어서 합니다.
-          </p>
-          <div class="deploy-list">
-            <div class="deploy-item"><span class="step-no">01</span><h3>Convex login</h3><p>☐ bun x convex login · 계정 연결</p></div>
-            <div class="deploy-item"><span class="step-no">02</span><h3>bun setup + QA</h3><p>☐ <!-- doc-qa contract=2 gates=12 -->OAuth/dev deployment · Chromium · QA contract v2 (12 gates)</p></div>
-            <div class="deploy-item"><span class="step-no">03</span><h3>Vercel × 2</h3><p>Web과 App을 독립 project/root로 연결</p></div>
-            <div class="deploy-item"><span class="step-no">04</span><h3>Convex</h3><p>별도 deployment와 deploy key, URL 확인</p></div>
-          </div>
-          <span class="status-stamp">오늘 완료: bootstrap · [SKIP verify_qa] · VERIFY PASS</span>
-          <p class="source">[C1][C2] · R3-R4, R8-R10</p>
-          <aside class="notes">
-파일이 만들어졌다고 바로 손님을 받을 수 있는 것은 아닙니다. 수업 뒤에는 계정을 연결하고, 로그인과 예약 흐름을 실제로 점검하고, 손님 화면과 운영자 화면을 인터넷에 공개해야 합니다. 예약 데이터를 처리하는 공간도 따로 연결해야 합니다.
-          </aside>
-        </section>
-
-        <section class="image-led" data-title="계정 이용료와 예약 결제 구분" data-minutes="3">
-          <figure class="visual-canvas">
-            <img src="assets/gen/subscription-vs-booking-payment-boundary.png" alt="완성된 계정 구독 영역과 결제 소켓이 비어 있는 예약 거래 영역이 넓은 경계로 분리된 장면" />
-          </figure>
-          <div class="visual-legend">
-            <span class="ok">계정 구독 · 구현됨</span><span class="warn">예약 거래 · 미구현</span>
-          </div>
-          <span class="slide-kicker">14 · 결제 범위</span>
-          <h2 class="slide-title">계정 이용료와<br /><em>예약 한 건 결제</em>는 다릅니다</h2>
-          <p class="plain-explainer">
-            계정 구독 기능은 준비되어 있지만 기본값은 꺼져 있습니다.<br />
-            예약금, 예약별 결제, 환불 연결은 아직 만들어야 합니다.
-          </p>
-          <div class="payment-split">
-            <div class="payment-box ready">
-              <span class="label">CONNECTED · DEFAULT OFF</span>
-              <h3>계정 플랜 구독</h3>
-              <ul>
-                <li>Polar subscription checkout</li>
-                <li>customer portal</li>
-                <li>webhook 기반 구독 상태</li>
-              </ul>
-            </div>
-            <div class="disconnect">NO<br />LINK</div>
-            <div class="payment-box missing">
-              <span class="label" style="color:var(--red)">NOT IMPLEMENTED</span>
-              <h3>예약 건별 결제</h3>
-              <ul>
-                <li>예약 checkout</li>
-                <li>금액·통화·주문 연결</li>
-                <li>보증금·환불 상태</li>
-              </ul>
-            </div>
-          </div>
-          <p class="muted small" style="margin-top:16px">
-            reservation hold는 슬롯 임시 점유이지 카드 승인 hold가 아닙니다. Polar sandbox E2E는 미실행입니다.
-            <a class="citation" href="research.md">[R17-R20]</a>
-          </p>
-          <aside class="notes">
-결제는 두 종류를 구분해야 합니다. 계정을 계속 쓰기 위한 이용료 구독 기능은 준비되어 있지만 기본값은 꺼져 있습니다. 예약 한 건의 예약금, 결제, 환불은 아직 연결되어 있지 않습니다. 예약 시간을 잠시 잡아 두는 것과 카드 결제가 승인되는 것도 서로 다른 일입니다.
-          </aside>
-        </section>
-
-        <section class="image-led copy-center" data-title="다른 업종으로 다시 만드는 일곱 단계" data-minutes="2">
-          <figure class="visual-canvas">
-            <img src="assets/gen/takeaway-seven-step-rebuild.png" alt="자원 정의에서 인터뷰, 설정, 생성, 검증, QA, 배포를 거쳐 다른 업종을 다시 만드는 일곱 단계 경로" />
-          </figure>
-          <div class="visual-legend">
-            <span>1 예약 대상</span><span>2 운영 질문</span><span>3 설정 확인</span><span>4 서비스 만들기</span><span>5 기본 점검</span><span>6 실제 점검</span><span>7 인터넷 공개</span>
-          </div>
-          <span class="slide-kicker">15 · 혼자 다시 만들기</span>
-          <h2 class="slide-title tight">2~3일 안에<br /><em>다른 업종으로 한 번 더</em></h2>
-          <p class="plain-explainer">
-            무엇을 예약할지 정하고, 운영 방식을 묻고, 설정을 검토한 뒤
-            같은 일곱 단계를 혼자 다시 해보세요.
-          </p>
-          <div class="seven">
-            <div class="seven-step"><b>01</b><span>업종과 예약 단위 고르기</span></div>
-            <div class="seven-step"><b>02</b><span>운영 인터뷰 실행</span></div>
-            <div class="seven-step"><b>03</b><span>domain pack 검토</span></div>
-            <div class="seven-step"><b>04</b><span>bootstrap 실행</span></div>
-            <div class="seven-step"><b>05</b><span>VERIFY PASS</span></div>
-            <div class="seven-step"><b>06</b><span>setup과 live QA</span></div>
-            <div class="seven-step"><b>07</b><span>Vercel ×2 + Convex</span></div>
-          </div>
-          <div class="panel" style="margin-top:20px">
-            <span class="label">빈 재구성 · 한 자리, 두 손님, 네 경계</span>
-            <p class="small"><strong>자리 ____ · 손님 ____ / ____ · 경계 ____ / ____ / ____ / ____</strong></p>
-          </div>
-          <p class="muted small" style="margin-top:14px">
-            48–72시간 뒤, 오늘과 다른 업종으로 같은 7단계를 다시 실행하세요.
-          </p>
-          <aside class="notes">
-오늘의 목표는 헤어숍 하나를 보는 데서 끝나지 않습니다. 2~3일 안에 다른 업종을 골라 무엇을 예약할지 정하고, 운영 방식을 묻고, 설정을 확인한 뒤 같은 일곱 단계를 다시 해보세요. 혼자 다시 만들 수 있을 때 이 수업이 내 것이 됩니다.
-          </aside>
+          <div class="panel" style="margin-top:34px"><span class="label">48–72시간 과제</span><p class="plain-explainer">오늘과 다른 업종으로 기존 JSON 없이 같은 순서를 다시 실행한다.</p></div>
+          <p class="muted">배포본 <code>assets/student/RUNBOOK.md</code>와 슬라이드만 보고 재현할 수 있어야 강의가 끝납니다.</p>
+<aside class="notes">학생에게 순서를 보지 않고 말해 보게 합니다. 다른 업종 재현을 과제로 줍니다.</aside>
         </section>
       </div>
     </div>
 
     <script src="vendor/reveal/reveal.js"></script>
     <script src="vendor/reveal/highlight/highlight.js"></script>
-    <script src="vendor/reveal/notes/notes.js"></script>
+<script src="vendor/reveal/notes/notes.js"></script>
     <script src="vendor/lucide.min.js"></script>
     <script>
       Reveal.initialize({
@@ -574,10 +368,28 @@ $ bun "$CLAUDE_SKILL_DIR/scripts/bootstrap.mjs" \
         center: true,
         plugins: [RevealHighlight, RevealNotes],
       });
-      if (window.lucide) {
-        lucide.createIcons();
-        Reveal.on("slidechanged", () => lucide.createIcons());
-      }
+      document.querySelectorAll("[data-copy-target]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const target = document.getElementById(button.dataset.copyTarget);
+          if (!target) return;
+          const text = target.textContent.trim();
+          try {
+            await navigator.clipboard.writeText(text);
+          } catch {
+            const helper = document.createElement("textarea");
+            helper.value = text;
+            helper.setAttribute("readonly", "");
+            helper.style.position = "fixed";
+            helper.style.opacity = "0";
+            document.body.appendChild(helper);
+            helper.select();
+            document.execCommand("copy");
+            helper.remove();
+          }
+          button.textContent = "복사됨";
+          window.setTimeout(() => { button.textContent = "명령 복사"; }, 1400);
+        });
+      });
     </script>
   </body>
 </html>

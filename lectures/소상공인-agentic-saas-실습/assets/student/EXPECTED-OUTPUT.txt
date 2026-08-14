@@ -1,21 +1,24 @@
-[PASS preflight_pack]
-[PASS preflight_target]
-[PASS preflight_archive]
-[PASS preflight_bun]
-[PASS preflight_cache]
-PREFLIGHT PASS <installed-skill-path>
+Jeomwon clean-room 성공 표지
 
-[PASS verify_install]
-[PASS verify_typecheck]
-[PASS verify_lint]
-[PASS verify_test]
-[PASS verify_build_email]
-[PASS verify_build_app]
-[PASS verify_build_web]
-[SKIP verify_qa] QA is opt-in; set JEOMWON_QA_BASE_URL=http://localhost:3000 after Convex and the authenticated app are running, or pass --qa.
+1. 스킬 설치
+INSTALL PASS jeomwon v0.1.1
+
+2. 인터뷰 승인 후 preflight
+PREFLIGHT PASS
+
+3. 생성과 오프라인 검증
+[SKIP verify_qa]
 VERIFY PASS
 
-Boundary markers:
-- [SKIP verify_qa]: setup/authenticated live QA/deploy did not run.
-- VERIFY PASS: the offline install/typecheck/lint/test/build contract passed.
-- jeomwon-project.json: the generated receipt must exist in the target.
+4. 실제 DB 연결
+bun x convex login
+bun setup --lang ko
+
+5. Convex dev QA
+bun run qa
+
+주의:
+- [SKIP verify_qa]는 실패가 아니다. 아직 setup 전이라는 뜻이다.
+- VERIFY PASS는 install/typecheck/lint/test/build가 통과했다는 뜻이다.
+- Google 운영자 로그인 성공은 bun run qa와 별도의 브라우저 smoke다.
+- off-toggle SKIP은 해당 선택 기능의 성공 증거가 아니다.

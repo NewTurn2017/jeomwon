@@ -281,3 +281,24 @@ Passport는 topology, state machine, UI evidence, payment visual에 재사용하
 - **R23** Guo et al. video engagement — https://up.csail.mit.edu/other-pubs/las2014-pguo-engagement.pdf
 - **R24** Yoon et al. segmentation counterevidence — https://eric.ed.gov/?id=EJ1341335
 - **R25** Roediger & Karpicke retrieval — https://pubmed.ncbi.nlm.nih.gov/16507066/
+- **R26** Claude Code official setup — https://code.claude.com/docs/en/setup
+- **R27** Codex CLI official install — https://github.com/openai/codex/blob/main/README.md
+- **R28** Skills CLI reference — https://www.skills.sh/docs/cli
+- **R29** Convex pricing — https://www.convex.dev/pricing
+- **R30** Convex limits — https://docs.convex.dev/production/state/limits
+
+## 2026-08 clean-room 설치와 무료 Convex 근거
+
+- Claude Code 공식 macOS/Linux installer는
+  `curl -fsSL https://claude.ai/install.sh | bash`다. [R26]
+- Codex CLI 공식 macOS/Linux installer는
+  `curl -fsSL https://chatgpt.com/codex/install.sh | sh`다. [R27]
+- skills CLI는 agent별 global skill 설치를 지원한다. Jeomwon installer는 이
+  계약을 고정된 버전으로 감싸 Claude Code와 Codex discovery를 함께 구성한다.
+  [R28]
+- Convex Free & Starter는 개인 프로젝트와 prototype용이다. Free는 월 $0이고
+  Auth, file storage, text/vector search, cron, Node.js action, dashboard,
+  preview deployment를 포함한다. [R29]
+- Convex 한도는 팀 단위로 적용되고 Free에는 hard limit이 있다. 강의의 dev
+  deployment에는 무료 플랜을 사용하되 production 전에는 최신 가격과 한도를
+  다시 확인한다. [R30]

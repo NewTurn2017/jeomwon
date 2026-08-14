@@ -1,111 +1,279 @@
-# 첫 5분 + 48–72시간 재현 Runbook
+# Jeomwon 완전 처음부터 실습 매뉴얼
 
-## 배포 상태
-
-공개 GitHub release `v0.1.0`이 게시되어 있습니다.
-
-워크숍은 다음 불변 tag와 archive 계약을 사용합니다.
-
-- tag: `v0.1.0`
-- commit: `68ead8a8e93e08001bf04dfb705d8fcd3c844ca5`
-- release: `https://github.com/NewTurn2017/jeomwon/releases/tag/v0.1.0`
-- download: `https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.0/jeomwon-template-v0.1.0.tar.gz`
-- release asset: `jeomwon-template-v0.1.0.tar.gz`
-- archive SHA-256: `fe74258da1c56e4811e5c9665aab5e940dd200fe2e6c5d6b13c39a64c95aa282`
-- content SHA-256: `813c37e8f4626af3945c8f1af6bddc8ead0a60a9c2340936fd2b123bb584a3a7`
-
-`main`은 계속 변할 수 있으므로 설치와 재현에는 위 tag만 사용합니다. 아래 pack 경로는
-이 강의 패키지 checkout에서 읽습니다.
-
-## 준비와 설치
-
-- macOS 또는 Linux
-- Bun **1.3.14** (정확히 일치)
-- 최초 cache warmup 때만 패키지를 받을 인터넷 연결
-- 저장소 루트에서 실행
-
-```bash
-cd "$(git rev-parse --show-toplevel)"
-test "$(bun --version)" = "1.3.14"
-bunx --bun skills@1.5.22 add https://github.com/NewTurn2017/jeomwon/tree/v0.1.0/skill --skill jeomwon --agent universal claude-code --global --yes
-export CLAUDE_SKILL_DIR="${CLAUDE_SKILL_DIR:-$HOME/.claude/skills/jeomwon}"
-test -f "$CLAUDE_SKILL_DIR/jeomwon-skill.json"
-```
-
-빈 cache라면 preflight가 `cache_not_ready`와 복사 가능한 복구 argv 하나를
-출력합니다. 네트워크가 허용된 준비 시간에 그 `warm-cache.mjs` 명령을 한 번
-실행한 뒤 다시 preflight합니다. offline verify 중에는 네트워크를 사용하지 않습니다.
-
-## 정확한 preflight와 bootstrap
-
-새 target 이름을 정하고, 저장소에 체크인된 실제 pack을 사용합니다.
-
-```bash
-cd "$(git rev-parse --show-toplevel)"
-export CLAUDE_SKILL_DIR="${CLAUDE_SKILL_DIR:-$HOME/.claude/skills/jeomwon}"
-export PACK="$PWD/lectures/소상공인-agentic-saas-실습/assets/student/salon-domain-pack.json"
-export TARGET="$PWD/../jeomwon-workshop-salon"
-
-test ! -e "$TARGET"
-bun "${CLAUDE_SKILL_DIR}/scripts/preflight.mjs" \
-  "$TARGET" "Workshop Salon" "$PACK"
-bun "${CLAUDE_SKILL_DIR}/scripts/bootstrap.mjs" \
-  "$TARGET" "Workshop Salon" "$PACK"
-test -f "$TARGET/jeomwon-project.json"
-```
-
-preflight는 target을 만들지 않고 `PREFLIGHT PASS`로 끝납니다. bootstrap은 같은
-preflight 뒤 scaffold/inject와 다음 오프라인 단계를 실행합니다.
-
-`install → typecheck → lint → test → build_email → build_app → build_web`
-
-마지막의 정확한 관찰 표지는 다음과 같습니다.
+이 실습은 기존 JSON, sample, 생성 target을 사용하지 않습니다.
 
 ```text
-[SKIP verify_qa] QA is opt-in; set JEOMWON_QA_BASE_URL=http://localhost:3000 after Convex and the authenticated app are running, or pass --qa.
+빈 폴더
+→ Claude Code
+→ Jeomwon 인터뷰
+→ 새 domain-pack.json
+→ 확정
+→ bootstrap
+→ Convex dev
+→ Google OAuth
+→ bun setup
+→ QA와 수동 smoke
+```
+
+오늘의 기본 host는 Claude Code입니다. Codex도 같은 스킬과 프롬프트를 사용할 수 있습니다.
+
+## 준비물
+
+- macOS 13+ 또는 Linux/WSL2
+- 인터넷 연결
+- Anthropic 계정 또는 ChatGPT 계정
+- Convex 계정
+- Google 계정과 Google Cloud Console 접근
+- 운영자로 사용할 실제 Google 이메일
+
+처음에는 OpenAI API, Resend, Polar를 연결하지 않습니다.
+
+## Claude Code 설치와 로그인
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+새 터미널을 열고 실행합니다.
+
+```bash
+claude
+```
+
+브라우저 로그인 또는 표시된 인증 흐름을 완료한 뒤 `exit`로 나옵니다.
+
+## Codex를 사용할 경우
+
+```bash
+curl -fsSL https://chatgpt.com/codex/install.sh | sh
+```
+
+```bash
+codex
+```
+
+`Sign in with ChatGPT`를 선택합니다.
+
+## Bun 1.3.14 설치
+
+```bash
+curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.14"
+```
+
+새 터미널에서 확인합니다.
+
+```bash
+bun --version
+```
+
+출력은 정확히 `1.3.14`여야 합니다.
+
+## Jeomwon 스킬 한 줄 설치
+
+Claude Code와 Codex 둘 다 사용할 수 있게 설치합니다.
+
+```bash
+curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.1/install.sh | bash -s -- --agent all
+```
+
+성공 표지:
+
+```text
+INSTALL PASS jeomwon v0.1.1
+```
+
+Claude만 쓰려면 `--agent claude`, Codex만 쓰려면 `--agent codex`를 사용할 수 있습니다.
+
+## 빈 workspace 만들기
+
+```bash
+mkdir -p "$HOME/Desktop/jeomwon-zero-test"
+cd "$HOME/Desktop/jeomwon-zero-test"
+```
+
+빈 폴더인지 확인합니다.
+
+```bash
+find . -mindepth 1 -maxdepth 1 -print
+```
+
+아무것도 출력되지 않아야 합니다.
+
+## 오프라인 cache 준비
+
+bootstrap은 preflight 이후 네트워크를 사용하지 않습니다. 인터넷을 사용할 수 있을 때 미리 cache를 준비합니다.
+
+```bash
+bun "${JEOMWON_SKILL_DIR:-${CLAUDE_SKILL_DIR:-$HOME/.agents/skills/jeomwon}}/scripts/warm-cache.mjs" --lang ko
+```
+
+## Claude Code 시작
+
+```bash
+claude
+```
+
+`PROMPT.md`의 text 블록 전체를 붙여 넣습니다.
+
+Codex를 선택했다면 같은 폴더에서 `codex`를 실행하고 같은 프롬프트를 붙여 넣습니다.
+
+## 인터뷰에서 확인할 10개 묶음
+
+1. 가게 이름, 시간대, 언어, domainKey
+2. 디자이너·좌석·객실 같은 예약 자원
+3. 서비스별 가격, 슬롯 단위, 총 소요시간
+4. 월요일부터 일요일까지 영업시간
+5. 임시 휴무와 blackout
+6. 취소 가능 시간과 hold 시간
+7. 관리자 화면 형태
+8. waitlist, 운영자 CRUD, no-show
+9. 이메일과 운영 알림 주소, Polar 계정 구독
+10. 고객에게 보일 모든 안내 문구
+
+스킬이 파생값을 모두 읽어 준 뒤에만 답합니다.
+
+```text
+확정
+```
+
+## workspace와 target 분리
+
+정상 구조:
+
+```text
+jeomwon-zero-test/
+├── domain-pack.json
+└── generated/
+    └── <domainKey>/
+```
+
+`domain-pack.json`은 workspace에 있습니다. `generated/<domainKey>`는 bootstrap 전에는 존재하지 않아야 합니다.
+
+## 생성 성공 표지
+
+```text
+PREFLIGHT PASS
+[SKIP verify_qa]
 VERIFY PASS
 ```
 
-## 첫 5분 실제 UI 데모
+이 시점까지는 Convex 계정, Google OAuth, 실제 DB가 연결되지 않았습니다.
 
-강사는 시작 전에 별도로 준비된 **실제 앱**의 고객 화면과 운영자 화면을 엽니다.
-고객 두 명이 같은 슬롯을 요청하고 한 요청만 성공하는 장면을 먼저 보여 줍니다.
-이 데모에는 Convex dev deployment, Google OAuth 자격 증명, 인증된 고객/운영자
-계정이 필요하며 bootstrap은 이를 만들지 않습니다.
+## Convex는 무엇인가
 
-현재 제공자 권한과 운영 앱 URL이 없는 환경에서는 이 live 부분만
-`BLOCKED provider_authorization_absent`로 기록합니다. 슬라이드의 생성된 로컬 제품
-지도는 계속 볼 수 있지만 실제 앱 성공으로 세지 않습니다.
+Convex는 이 프로젝트의 실시간 backend와 database입니다. Free 플랜은 개인 프로젝트와 prototype을 위한 월 $0 플랜이며 Auth, 파일 저장, 검색, cron, Node.js action, dashboard와 preview deployment를 포함합니다.
 
-## 사전 생성 fallback
+이 강의에서는 유료 업그레이드 없이 개발용 deployment 하나를 사용합니다. Free 한도는 팀 단위이므로 실서비스 전에는 현재 가격표와 한도를 다시 확인하세요.
 
-강사는 수업 전 같은 bootstrap 명령으로 새 target을 준비하고 경로를 지정합니다.
-현장 생성이 오래 걸리거나 cache/network 준비가 실패하면 실패 target을 재사용하지
-말고 이 receipt와 생성 파일을 보여 줍니다.
+## Convex 로그인
+
+생성 target으로 이동합니다.
 
 ```bash
-export JEOMWON_WORKSHOP_FALLBACK=/absolute/path/to/pre-generated-target
-test -f "$JEOMWON_WORKSHOP_FALLBACK/jeomwon-project.json"
-test -f "$JEOMWON_WORKSHOP_FALLBACK/domain-pack.json"
-test -f "$JEOMWON_WORKSHOP_FALLBACK/packages/backend/domain.config.ts"
-```
-
-fallback도 생성 결과와 오프라인 검증 증거일 뿐 setup, 인증, live QA, 배포 성공
-증거가 아닙니다.
-
-## offline / live 경계
-
-bootstrap은 setup, provider 자격 증명 입력, 인증된 브라우저 QA, 배포를 실행하지
-않습니다. 실제 앱을 준비한 뒤에만 생성 target에서 별도로 실행합니다.
-
-```bash
-cd "$TARGET"
+cd "$HOME/Desktop/jeomwon-zero-test/generated/<domainKey>"
 bun x convex login
-bun setup
-JEOMWON_QA_BASE_URL=http://localhost:3000 bun run qa
 ```
 
-## 재시도 규칙
+브라우저에서 Convex 계정 로그인을 완료합니다.
 
-실패한 target 위에 다시 실행하지 않습니다. 새 빈 target 이름을 사용하고 명령과
-전체 오류 출력을 보관합니다.
+## Google OAuth 준비
+
+Google Cloud Console에서:
+
+1. 프로젝트를 생성합니다.
+2. OAuth consent screen을 설정합니다.
+3. OAuth Client를 `Web application`으로 만듭니다.
+4. Authorized JavaScript origin에 `http://localhost:3000`을 등록합니다.
+5. redirect URI는 setup이 출력할 때까지 기다립니다.
+
+## 실제 DB setup
+
+```bash
+bun setup --lang ko
+```
+
+setup이 Convex dev deployment를 생성한 뒤 정확한 redirect URI를 출력하고 멈춥니다.
+
+```text
+https://<deployment>.convex.site/api/auth/callback/google
+```
+
+이 값을 Google Cloud의 Authorized redirect URI에 그대로 등록하고 저장한 다음 터미널로 돌아와 Enter를 누릅니다.
+
+이어서 입력합니다.
+
+- Google OAuth client ID
+- Google OAuth client secret
+- allowlist에 넣을 운영자 Google 이메일
+
+첫 실행에서는 optional provider를 건너뜁니다.
+
+```text
+Agent runtime = mock
+Reservation email = capture
+Polar = off
+```
+
+## 실제 Convex QA
+
+QA용 Chromium을 한 번 설치합니다.
+
+```bash
+bunx playwright install chromium
+```
+
+개발 deployment에서 실행합니다.
+
+```bash
+bun run qa
+```
+
+QA는 현재 domain의 개발 데이터를 초기화할 수 있으며 production deployment에서는 실행하면 안 됩니다.
+
+## 실제 사용자 smoke
+
+```bash
+bun dev
+```
+
+접속:
+
+```text
+고객·운영자 앱  http://localhost:3000
+공개 웹          http://localhost:3001
+운영자 화면      http://localhost:3000/admin
+```
+
+확인:
+
+1. 고객 A가 예약합니다.
+2. 별도 브라우저 프로필의 고객 B가 같은 슬롯을 시도해 충돌 차단을 확인합니다.
+3. allowlist Google 운영자가 `/admin`에 로그인합니다.
+4. allowlist 밖 Google 계정이 거절되는지 확인합니다.
+5. 새로고침 뒤에도 Convex 데이터가 남는지 확인합니다.
+
+## launcher는 무엇을 하는가
+
+`RUN-WORKSHOP-Mac.command`는 수동 순서를 대체하지 않는 편의 도구입니다.
+
+```text
+빈 workspace 확인
+→ skill 설치
+→ cache 준비
+→ 프롬프트 클립보드 복사
+→ Claude 또는 Codex 실행
+```
+
+기존 JSON을 전달하거나 bootstrap을 선실행하지 않습니다.
+
+Claude:
+
+```bash
+./RUN-WORKSHOP-Mac.command claude
+```
+
+Codex:
+
+```bash
+./RUN-WORKSHOP-Mac.command codex
+```

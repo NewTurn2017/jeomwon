@@ -24,6 +24,7 @@
 4. Generated visual occupies 58–82% of the stage.
 5. Short HTML labels decode the visible states and boundaries.
 6. Speaker notes use Genie's first-person teaching voice.
+7. 실행 슬라이드는 한 화면에 한 행동만 두고, 복사 버튼과 성공 표지를 함께 보여 준다.
 
 ## IMAGE ROLES
 
@@ -60,6 +61,7 @@
 - Text remains live HTML and selectable.
 - Contrast targets WCAG AA against the image mask.
 - Motion is unnecessary; no auto-advancing or decorative animation.
+- 복사 버튼은 키보드 focus와 텍스트 피드백을 제공한다.
 
 ## OFFLINE CONTRACT
 

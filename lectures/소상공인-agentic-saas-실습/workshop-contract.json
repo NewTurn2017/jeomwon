@@ -1,67 +1,127 @@
 {
-	"schemaVersion": 1,
+	"schemaVersion": 2,
 	"toolchain": {
 		"bun": "1.3.14",
-		"skillsCli": "1.5.22"
+		"skillsCli": "1.5.22",
+		"hosts": {
+			"claude": {
+				"primary": true,
+				"install": "curl -fsSL https://claude.ai/install.sh | bash",
+				"launch": "claude"
+			},
+			"codex": {
+				"primary": false,
+				"install": "curl -fsSL https://chatgpt.com/codex/install.sh | sh",
+				"launch": "codex"
+			}
+		}
 	},
 	"distribution": {
 		"release": {
-			"status": "published",
-			"tag": "v0.1.0",
-			"commit": "68ead8a8e93e08001bf04dfb705d8fcd3c844ca5",
-			"url": "https://github.com/NewTurn2017/jeomwon/releases/tag/v0.1.0",
+			"tag": "v0.1.1",
+			"skillVersion": "0.1.1",
+			"templateVersion": "0.1.1",
+			"status": "pending-publication",
+			"url": "https://github.com/NewTurn2017/jeomwon/releases/tag/v0.1.1",
 			"asset": {
-				"name": "jeomwon-template-v0.1.0.tar.gz",
-				"url": "https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.0/jeomwon-template-v0.1.0.tar.gz",
-				"sha256": "fe74258da1c56e4811e5c9665aab5e940dd200fe2e6c5d6b13c39a64c95aa282"
+				"name": "jeomwon-template-v0.1.1.tar.gz",
+				"url": "https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.1/jeomwon-template-v0.1.1.tar.gz",
+				"sha256": "874e83934dde4de16fe665dd2f15be3c7e135fde907f747af7828b0f578b188d"
 			}
 		},
-		"localCheckout": {
-			"developmentOnly": true
+		"installer": {
+			"url": "https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.1/install.sh",
+			"sourcePath": "install.sh"
 		},
+		"skillInstallCommand": "curl -fsSL https://github.com/NewTurn2017/jeomwon/releases/download/v0.1.1/install.sh | bash -s -- --agent all",
 		"skillSource": {
-			"kind": "published-release-asset",
-			"tag": "v0.1.0",
-			"archiveSha256": "fe74258da1c56e4811e5c9665aab5e940dd200fe2e6c5d6b13c39a64c95aa282",
-			"contentSha256": "813c37e8f4626af3945c8f1af6bddc8ead0a60a9c2340936fd2b123bb584a3a7"
+			"kind": "release-asset",
+			"tag": "v0.1.1",
+			"archiveName": "jeomwon-template-v0.1.1.tar.gz",
+			"archiveSha256": "874e83934dde4de16fe665dd2f15be3c7e135fde907f747af7828b0f578b188d",
+			"contentSha256": "f492e9381d6b0d96a7e68e49b272cfcea28175c01c3756b8841807df032d106b",
+			"installArguments": [
+				"bun",
+				"x",
+				"skills@1.5.22",
+				"add",
+				"https://github.com/NewTurn2017/jeomwon/tree/v0.1.1/skill",
+				"--skill",
+				"jeomwon",
+				"--agent",
+				"universal",
+				"claude-code",
+				"codex",
+				"--global",
+				"--yes"
+			]
+		},
+		"localCheckout": {
+			"developmentOnly": true,
+			"note": "Release publication 전 강사 리허설에서만 현재 checkout을 사용한다."
 		}
 	},
 	"commands": {
-		"workingDirectory": "repository-root",
-		"skillDirectory": "$HOME/.claude/skills/jeomwon",
-		"packPath": "lectures/소상공인-agentic-saas-실습/assets/student/salon-domain-pack.json",
-		"install": [
-			"bunx",
-			"--bun",
-			"skills@1.5.22",
-			"add",
-			"https://github.com/NewTurn2017/jeomwon/tree/v0.1.0/skill",
-			"--skill",
-			"jeomwon",
-			"--agent",
-			"universal",
-			"claude-code",
-			"--global",
-			"--yes"
-		],
-		"preflight": [
+		"workingDirectory": "empty-workspace",
+		"workspace": "$HOME/Desktop/jeomwon-zero-test",
+		"skillRoot": "${JEOMWON_SKILL_DIR:-${CLAUDE_SKILL_DIR:-$HOME/.agents/skills/jeomwon}}",
+		"warmCache": [
 			"bun",
-			"${CLAUDE_SKILL_DIR}/scripts/preflight.mjs",
-			"${TARGET}",
-			"Workshop Salon",
-			"${PACK}"
+			"${JEOMWON_SKILL_DIR:-${CLAUDE_SKILL_DIR:-$HOME/.agents/skills/jeomwon}}/scripts/warm-cache.mjs",
+			"--lang",
+			"ko"
 		],
-		"bootstrap": [
+		"convexLogin": [
 			"bun",
-			"${CLAUDE_SKILL_DIR}/scripts/bootstrap.mjs",
-			"${TARGET}",
-			"Workshop Salon",
-			"${PACK}"
+			"x",
+			"convex",
+			"login"
+		],
+		"setup": [
+			"bun",
+			"setup",
+			"--lang",
+			"ko"
+		],
+		"qa": [
+			"bun",
+			"run",
+			"qa"
+		],
+		"dev": [
+			"bun",
+			"dev"
 		]
 	},
-	"expectedMarkers": ["PREFLIGHT PASS", "[SKIP verify_qa]", "VERIFY PASS"],
+	"journey": {
+		"existingDomainPackAllowed": false,
+		"packCreatedBy": "jeomwon-interview",
+		"outputPack": "domain-pack.json",
+		"targetRule": "domain-pack.json은 workspace에, 생성 target은 absent child directory에 둔다.",
+		"approvalToken": "확정",
+		"stages": [
+			"create-empty-directory",
+			"install-host-cli",
+			"authenticate-host",
+			"install-jeomwon-skill",
+			"launch-host",
+			"interview",
+			"approve-domain-pack",
+			"bootstrap",
+			"convex-login",
+			"google-oauth",
+			"bun-setup",
+			"live-qa",
+			"manual-smoke"
+		]
+	},
+	"expectedMarkers": [
+		"INSTALL PASS jeomwon v0.1.1",
+		"PREFLIGHT PASS",
+		"[SKIP verify_qa]",
+		"VERIFY PASS"
+	],
 	"offline": {
-		"networkAllowed": false,
 		"stages": [
 			"install",
 			"typecheck",
@@ -70,38 +130,59 @@
 			"build_email",
 			"build_app",
 			"build_web"
-		]
+		],
+		"setupIncluded": false,
+		"liveQaIncluded": false,
+		"networkAllowedAfterPreflight": false
 	},
 	"live": {
 		"includedInBootstrap": false,
-		"requiredSetup": [
-			"Convex dev deployment",
-			"Google OAuth credentials",
-			"authenticated customer",
-			"authenticated operator"
-		]
+		"startsAfter": [
+			"bun x convex login",
+			"bun setup --lang ko"
+		],
+		"qaCommand": "bun run qa",
+		"manualSmoke": [
+			"customer reservation",
+			"second-profile collision rejection",
+			"allowlisted Google operator access",
+			"non-allowlisted Google operator denial",
+			"Convex persistence after refresh"
+		],
+		"devOnly": true
 	},
 	"fallback": {
 		"kind": "facilitator-pre-generated-target",
-		"environmentVariable": "JEOMWON_WORKSHOP_FALLBACK",
+		"teachingSuccess": false,
 		"requiredFiles": [
 			"jeomwon-project.json",
-			"domain-pack.json",
-			"packages/backend/domain.config.ts"
-		],
-		"liveClaimAllowed": false
+			"jeomwon-capabilities.json",
+			"qa-artifacts/verification.json"
+		]
 	},
 	"demo": {
 		"slide": 2,
 		"kind": "pre-provisioned-real-app",
-		"status": "blocked",
-		"reasonCode": "provider_authorization_absent",
 		"credentialsProvisionedByBootstrap": false,
-		"surfaces": [
-			"customer calendar",
-			"customer reservation",
-			"operator dashboard",
-			"same-slot collision"
-		]
+		"fallbackArtifacts": {
+			"receipt": "jeomwon-project.json",
+			"verification": "qa-artifacts/verification.json",
+			"capabilities": "jeomwon-capabilities.json"
+		}
+	},
+	"quickStart": {
+		"mac": "RUN-WORKSHOP-Mac.command",
+		"windows": "RUN-WORKSHOP-Windows.bat",
+		"primaryHost": "claude-code",
+		"compatibleHosts": [
+			"claude-code",
+			"codex"
+		],
+		"steps": [
+			"create-empty-directory",
+			"install-skill",
+			"launch-interview"
+		],
+		"networkRequiredForInstall": true
 	}
 }
